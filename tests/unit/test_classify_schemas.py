@@ -10,6 +10,7 @@ def stage2(**overrides) -> dict:
     data = {
         "affair_id": 70435,
         "language": "de",
+        "summary_de": "Die Motion verlangt einen Bericht zur digitalen Verwaltung.",
         "tags": [{"tag_id": "aps:6.1.9", "confidence": 0.86, "evidence": "Der Bundesrat wird …"}],
         "proposed_tags": [],
     }
@@ -104,6 +105,8 @@ def test_stage2_keeps_five_best_tags_and_two_proposals():
         {"tags": [{"tag_id": "aps:6.1.9", "confidence": 0.5, "evidence": "x" * 301}]},
         {"tags": [{"tag_id": "aps:6.1.9", "confidence": 0.5, "evidence": ""}]},
         {"unexpected": True},
+        {"summary_de": ""},
+        {"summary_de": "x" * 301},
     ],
 )
 def test_stage2_rejects_invalid_values(overrides):
@@ -114,3 +117,10 @@ def test_stage2_rejects_invalid_values(overrides):
 def test_stage2_rejects_wrong_affair():
     with pytest.raises(OutputError):
         parse_stage2(stage2(), affair_id=1, offered=OFFERED_TAGS)
+
+
+def test_stage2_requires_summary():
+    data = stage2()
+    del data["summary_de"]
+    with pytest.raises(ValidationError):
+        parse_stage2(data, affair_id=70435, offered=OFFERED_TAGS)

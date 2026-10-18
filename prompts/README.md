@@ -18,9 +18,16 @@ Eine geänderte Fassung bekommt eine neue Datei mit höherer Version, die alte b
 | Datei | Wofür | Modell |
 |---|---|---|
 | `classify_chapters_v1.md` | Stufe 1: APS-Kapitel wählen | 8B, bei Eskalation 70B |
-| `classify_topics_v1.md` | Stufe 2: Themen, Beleg, Vorschläge | 8B, bei Eskalation 70B |
+| `classify_topics_v1.md` | Stufe 2: Themen, Beleg, Vorschläge, Kurzzusammenfassung `summary_de` | 8B, bei Eskalation 70B |
 | `adhoc_keywords_v1.md` | Stichwörter DE/FR/IT für ein Ad-hoc-Thema (`generate_keywords`) | 70B |
 | `agent_system_v1.md` | Systemprompt des Agenten | 70B |
-| `summarize_v1.md` | Zusammenfassung einer Themenseite | 70B |
+| `summarize_tag_v1.md` | Tag- oder Querschnittsseite aus den Kurzzusammenfassungen ihrer Geschäfte | 8B |
+| `summarize_parent_v1.md` | Kapitel-, Bereichs- oder Heart-Seite aus den Zusammenfassungen der Kinder plus Stichproben | 70B |
+| `navigate_v1.md` | Navigationssuche: alle Kinder eines Knotens vergleichen, im ersten Schritt Filter ablesen | 8B |
+| `navigate_answer_v1.md` | Navigationssuche: Geschäfte am Blatt wählen und belegt antworten | 70B |
+
+Die v1-Dateien sind Entwürfe, bis sie im ersten Lauf (M1) benutzt werden; bis dahin werden sie direkt angepasst. Danach gilt: jede Änderung bekommt eine neue Datei.
+
+Die Felder der Registry heissen wie in SKOS (`pref_label`, `alt_labels`, `definition`, Anhang A des PRD). `alt_labels.all()` liefert alle Bezeichnungen sortiert.
 
 `tests/unit/test_prompts.py` prüft Kopf, Abschnitte und rendert die Vorlagen mit Testdaten.

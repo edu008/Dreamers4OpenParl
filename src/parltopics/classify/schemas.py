@@ -45,6 +45,7 @@ class TagProposal(_Output):
 class Stage2Output(_Output):
     affair_id: int
     language: Language
+    summary_de: str = Field(min_length=1, max_length=300)
     tags: list[TagAssignment] = Field(default_factory=list)
     proposed_tags: list[TagProposal] = Field(default_factory=list)
 

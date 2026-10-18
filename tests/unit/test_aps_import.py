@@ -3,7 +3,7 @@ from pathlib import Path
 from openpyxl import Workbook
 
 from parltopics.registry import load_registry
-from parltopics.registry.aps_import import import_aps
+from parltopics.registry.aps_import import aps_slug, import_aps
 
 
 def _xlsx(path: Path) -> None:
@@ -31,12 +31,25 @@ def test_import_aps_keeps_adhoc_and_is_idempotent(tmp_path: Path) -> None:
         "  adhoc: {label: Ad hoc, source: x, fixed: false}\n"
         "tags:\n"
         "  - tag_id: 'adhoc:a'\n    scheme: adhoc\n    status: active\n"
-        "    names: {de: A}\n    descriptions: {de: A}\n",
+        "    pref_label: {de: A}\n    definition: {de: A}\n",
         encoding="utf-8",
     )
     count, version = import_aps(xlsx, registry_file)
     registry = load_registry(registry_file)
     assert count == 3
     assert [tag.tag_id for tag in registry.tags] == ["aps:1", "aps:1.1", "aps:1.1.1", "adhoc:a"]
-    assert registry.get("aps:1.1.1").parent == "aps:1.1"
+    topic = registry.get("aps:1.1.1")
+    assert topic.broader == ["aps:1.1"]
+    assert topic.slug == "identitaet"
+    assert topic.pref_label.fr == "Identité"
+    assert registry.get("aps:1").broader == []
+    assert registry.get("aps:1").definition.de.endswith("Umfasst: Grundfragen.")
     assert import_aps(xlsx, registry_file) == (3, version)
+
+
+def test_aps_slug_drops_filler_words_and_umlauts() -> None:
+    assert aps_slug("Verkehr und Kommunikation") == "verkehr-kommunikation"
+    assert aps_slug("Infrastruktur und Umwelt") == "infrastruktur-umwelt"
+    assert aps_slug("Europa- und Aussenpolitik") == "europa-aussenpolitik"
+    assert aps_slug("Gesundheit, Sozialhilfe, Sport") == "gesundheit-sozialhilfe-sport"
+    assert aps_slug("Identität") == "identitaet"

@@ -20,7 +20,7 @@ Regeln:
 
 Kapitel (ID | Name DE | Name FR | Beschreibung):
 {% for chapter in chapters -%}
-{{ chapter.tag_id }} | {{ chapter.names.de }} | {{ chapter.names.fr or "" }} | {{ chapter.descriptions.de }}
+{{ chapter.tag_id }} | {{ chapter.pref_label.de }} | {{ chapter.pref_label.fr or "" }} | {{ chapter.definition.de }}
 {% endfor %}
 
 ## user

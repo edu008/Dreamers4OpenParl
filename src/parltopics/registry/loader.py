@@ -1,4 +1,4 @@
-"""Laden von registry/tags.yaml und Berechnung der Hashes (PRD 7.2, ADR 0004)."""
+"""Laden von registry/tags.yaml und Berechnung der Hashes (PRD 7.2, ADR 0004, ADR 0007)."""
 
 import hashlib
 import json
@@ -31,16 +31,18 @@ def load_registry(path: Path) -> Registry:
 
 
 def canonical_tag(tag: Tag) -> dict[str, Any]:
-    """Die Felder, die eine Klassifikation beeinflussen. Metadaten zählen nicht.
+    """Die Felder, die eine Klassifikation beeinflussen, weil sie im Prompt stehen.
 
-    Die Reihenfolge der Aliasse zählt nicht; Prompts geben sie ebenfalls sortiert aus.
+    hidden_labels, related und die Curia-Matches stehen nicht im Prompt und zählen nicht.
+    Die Reihenfolge von broader und alt_labels zählt nicht.
     """
+    alt_labels = {lang: sorted(labels) for lang, labels in tag.alt_labels.model_dump().items()}
     return {
         "tag_id": tag.tag_id,
-        "parent": tag.parent,
-        "names": tag.names.model_dump(exclude_none=True),
-        "descriptions": tag.descriptions.model_dump(exclude_none=True),
-        "aliases": sorted(tag.aliases),
+        "broader": sorted(tag.broader),
+        "pref_label": tag.pref_label.model_dump(exclude_none=True),
+        "alt_labels": {lang: labels for lang, labels in alt_labels.items() if labels},
+        "definition": tag.definition.model_dump(exclude_none=True),
     }
 
 

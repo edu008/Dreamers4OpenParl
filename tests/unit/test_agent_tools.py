@@ -17,6 +17,8 @@ EXPECTED = {
     "list_tags",
     "get_affair",
     "count_affairs",
+    "navigate_tree",
+    "read_page",
     "generate_keywords",
     "propose_adhoc_topic",
 }

@@ -44,4 +44,68 @@ def test_classification_prompts_render_with_registry_tags():
     assert "aps:6.1.9 | Digitalisierung | Numérisation | Digitalizzazione" in system2
     assert "adhoc:digitalisierung-breit" in system2
     assert "Digitale Transformation, E-Government" in system2
+    assert "summary_de" in system2
     assert "<<<\nDer Bundesrat …\n>>>" in user
+
+
+def render(name: str, section: str, **context) -> str:
+    _, sections = split(ROOT / "prompts" / f"{name}.md")
+    return ENV.from_string(sections[section]).render(**context)
+
+
+def test_page_and_navigation_prompts_render():
+    registry = Registry.model_validate(yaml.safe_load(FIXTURE.read_text(encoding="utf-8")))
+    topic = registry.get("aps:6.1.9")
+    affair = {
+        "id": 70435,
+        "body_key": "CHE",
+        "begin_date": "2025-03-01",
+        "title": "Motion",
+        "summary_de": "Bericht zur digitalen Verwaltung.",
+    }
+    child = {
+        "page_id": "aps:6.1.9",
+        "title": "Digitalisierung",
+        "summary_short": "Kurz.",
+        "summary_long": "Lang.",
+    }
+    stats = {"Geschäfte": 12, "davon Bund": 9}
+    tag_user = render(
+        "summarize_tag_v1",
+        "user",
+        tag=topic,
+        window_start="2025-10-18",
+        window_end="2026-10-18",
+        stats=stats,
+        affairs=[affair],
+    )
+    parent_user = render(
+        "summarize_parent_v1",
+        "user",
+        title="Verkehr",
+        page_id="aps:6.1",
+        stats=stats,
+        children=[child],
+        samples=[affair],
+    )
+    first = render("navigate_v1", "system", first_step=True)
+    later = render("navigate_v1", "system", first_step=False)
+    step_user = render(
+        "navigate_v1",
+        "user",
+        query="KI seit 2024",
+        children=[child],
+        node={"page_id": "heart", "title": "Heart"},
+    )
+    answer_user = render(
+        "navigate_answer_v1",
+        "user",
+        query="KI",
+        affairs=[affair],
+        path=["Heart", "Digitalisierung"],
+    )
+    assert "70435 | CHE | 2025-03-01 | Bericht zur digitalen Verwaltung." in tag_user
+    assert "aps:6.1.9 | Digitalisierung | Kurz. | Lang." in parent_user
+    assert "filters" in first and "filters" not in later
+    assert "aps:6.1.9 | Digitalisierung | Kurz." in step_user
+    assert "Suchweg: Heart → Digitalisierung" in answer_user

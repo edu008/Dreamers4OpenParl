@@ -63,6 +63,18 @@ class GenerateKeywordsArgs(ToolArgs):
     description: str = Field(min_length=10, max_length=2000)
 
 
+class NavigateTreeArgs(ToolArgs):
+    """Navigationssuche durch den Seitenbaum (Heart bis Geschäfte); liefert Suchweg und Treffer."""
+
+    query: str = Field(min_length=1, max_length=300)
+
+
+class ReadPageArgs(ToolArgs):
+    """Eine Wiki-Seite lesen: Kurzzusammenfassung, Aussagen mit Belegen, Kennzahlen, Unterseiten."""
+
+    page_id: str = Field(min_length=1, max_length=120, description="heart oder eine Tag-ID")
+
+
 class ProposeAdhocTopicArgs(ToolArgs):
     """Entwurf eines Ad-hoc-Themas. Legt nichts an; die Web-App fragt einen Menschen."""
 
@@ -83,6 +95,8 @@ TOOLS: tuple[ToolSpec, ...] = (
     ToolSpec("list_tags", ListTagsArgs),
     ToolSpec("get_affair", GetAffairArgs),
     ToolSpec("count_affairs", CountAffairsArgs),
+    ToolSpec("navigate_tree", NavigateTreeArgs),
+    ToolSpec("read_page", ReadPageArgs),
     ToolSpec("generate_keywords", GenerateKeywordsArgs),
     ToolSpec("propose_adhoc_topic", ProposeAdhocTopicArgs),
 )
