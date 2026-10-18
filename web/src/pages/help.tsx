@@ -15,7 +15,7 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section aria-labelledby={id} className="flex max-w-[62ch] flex-col gap-2">
+    <section aria-labelledby={id} className="flex max-w-[62ch] flex-col gap-2 text-sm">
       <h2 id={id} className="font-heading text-lg font-medium">
         {title}
       </h2>
@@ -35,7 +35,7 @@ export function HelpPage() {
         <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
           So funktioniert's
         </h1>
-        <p className="max-w-[62ch] text-muted-foreground">
+        <p className="max-w-[62ch] text-sm text-muted-foreground">
           ParlTopics ordnet Geschäfte der Schweizer Parlamente nach Themen. Hier
           steht, was du auf den Seiten siehst und wie du es lesen kannst.
         </p>
@@ -84,14 +84,14 @@ export function HelpPage() {
       <Section id="limits" title="Was du wissen solltest">
         <ul className="flex list-disc flex-col gap-1 pl-5">
           <li>
-            Bisher sind erst wenige Geschäfte klassifiziert
+            Bisher ist nur ein Teil der Geschäfte klassifiziert
             {done !== undefined && (
               <>
                 {" "}
                 (aktuell <span className="tabular">{number.format(done)}</span>)
               </>
             )}
-            . Die Themenübersicht und der Graph werden mit jedem Lauf voller.
+            . Themenübersicht und Graph werden mit jedem Lauf voller.
           </li>
           <li>
             Die Qualität kann je nach Sprache, Ebene und Parlament
