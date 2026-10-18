@@ -1,14 +1,11 @@
 """Sidecar-API gegen ein echtes PostgreSQL (PRD F10, F18)."""
 
-import os
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from psycopg.conninfo import make_conninfo
 
 from parltopics.api.app import create_app
-from parltopics.config import Settings
 from parltopics.db import migrate
 from parltopics.registry import file_hash, load_registry
 from parltopics.registry.sync import sync_registry
@@ -52,20 +49,11 @@ def seed(conn) -> None:
     )
 
 
-def test_endpoints_read_labels_topics_and_jobs(conn, repo_root, tmp_path):
+def test_endpoints_read_labels_topics_and_jobs(conn, repo_root, api_settings):
     migrate(conn, repo_root / "migrations")
     sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
     seed(conn)
-    schema = conn.execute("SELECT current_schema()").fetchone()[0]
-    settings = Settings(
-        _env_file=None,
-        database_url=make_conninfo(
-            os.environ["TEST_DATABASE_URL"], options=f"-c search_path={schema},public"
-        ),
-        web_dist_dir=tmp_path,
-        registry_path=FIXTURE,
-    )
-    with TestClient(create_app(settings)) as client:
+    with TestClient(create_app(api_settings)) as client:
         counts = {"open": 0, "pending": 0, "done": 1, "failed": 0, "total": 1}
         expected = {"tasks": [{"task": "classify:aps", **counts}]}
         assert client.get("/v1/jobs/summary").json() == expected

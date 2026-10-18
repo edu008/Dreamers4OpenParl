@@ -431,7 +431,7 @@ Jede Anforderung hat eine prüfbare Abnahme.
 | DB | PostgreSQL 16, Extensions `pg_trgm`, `vector` (ungenutzt, für später) | Daten, Labels, Jobs, Suche |
 | Doku | Archify (MIT, nur Build-Zeit) | Architektur-Diagramme als HTML |
 
-**Datenmodell** (SQL-Skizze in Anhang C, verbindlich sind `migrations/0001_init.sql`, `migrations/0002_one_active_label.sql` und `migrations/0003_wiki_skos.sql`; Diagramm [07-datenmodell](architecture/07-datenmodell.html)): `bodies`, `affairs`, `affair_texts`, `affair_docs`, `affair_inputs`, `search_documents`, `tags`, `registry_syncs`, `affair_tags`, `reviews`, `classification_runs`, `classification_jobs`, `job_events`, `tag_proposal_raw`, `tag_proposals`, `tag_proposal_affairs`, `agent_runs`; neu in 0003: `tag_labels`, `tag_relations`, `tag_mappings`, `affair_summaries`, `wiki_pages`, `wiki_page_events`, `search_runs`.
+**Datenmodell** (SQL-Skizze in Anhang C, verbindlich sind `migrations/0001_init.sql` bis `migrations/0004_review_undo.sql`; Diagramm [07-datenmodell](architecture/07-datenmodell.html)): `bodies`, `affairs`, `affair_texts`, `affair_docs`, `affair_inputs`, `search_documents`, `tags`, `registry_syncs`, `affair_tags`, `reviews`, `classification_runs`, `classification_jobs`, `job_events`, `tag_proposal_raw`, `tag_proposals`, `tag_proposal_affairs`, `agent_runs`; neu in 0003: `tag_labels`, `tag_relations`, `tag_mappings`, `affair_summaries`, `wiki_pages`, `wiki_page_events`, `search_runs`.
 
 ### 10.2 LLM-Anbindung
 
@@ -732,7 +732,7 @@ Validierung: `summary_short` höchstens 200 Zeichen; mindestens eine Aussage, je
 
 ## Anhang C: Datenmodell (Skizze)
 
-Verbindlich sind die Migrationen in `migrations/` (`0001_init.sql`, `0002_one_active_label.sql`, `0003_wiki_skos.sql`). Die Skizze zeigt Schlüssel und die wichtigsten Felder.
+Verbindlich sind die Migrationen in `migrations/` (`0001_init.sql` bis `0004_review_undo.sql`; 0004 erlaubt die Review-Aktion `undo`). Die Skizze zeigt Schlüssel und die wichtigsten Felder.
 
 ```sql
 -- Quelldaten (Ingest; ohne Fremdschlüssel, damit Bulk-Import robust bleibt; raw = Originaldatensatz)

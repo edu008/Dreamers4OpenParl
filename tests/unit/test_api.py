@@ -3,17 +3,19 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from parltopics import __version__
 from parltopics.api.app import create_app
+from parltopics.api.schemas import ReviewIn
 from parltopics.config import Settings
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tags_example.yaml"
 
 
-def client_for(dist: Path, registry: Path = FIXTURE) -> TestClient:
+def client_for(dist: Path, registry: Path = FIXTURE, **overrides) -> TestClient:
     """Ohne `with`: die App startet nicht, ihr Datenbank-Pool bleibt geschlossen."""
-    settings = Settings(_env_file=None, web_dist_dir=dist, registry_path=registry)
+    settings = Settings(_env_file=None, web_dist_dir=dist, registry_path=registry, **overrides)
     return TestClient(create_app(settings))
 
 
@@ -70,6 +72,7 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/topics",
         "/v1/affairs/{affair_id}/topics",
         "/v1/topics/{tag_id}/affairs",
+        "/v1/reviews",
     } <= set(paths)
     parameters = paths["/v1/topics/{tag_id}/affairs"]["get"]["parameters"]
     names = {parameter["name"] for parameter in parameters}
@@ -81,6 +84,36 @@ def test_database_endpoints_answer_503_without_database(tmp_path):
     for path in ("/v1/jobs/summary", "/v1/topics", "/v1/affairs/1/topics"):
         assert client.get(path).status_code == 503
     assert client.get("/healthz").status_code == 200
+
+
+def test_reviews_need_a_configured_and_correct_token(tmp_path):
+    body = {"affair_id": 1, "tag_id": "aps:6.1.9", "action": "confirm", "user_name": "Mia"}
+    right = {"Authorization": "Bearer geheim"}
+    assert client_for(tmp_path).post("/v1/reviews", json=body, headers=right).status_code == 503
+    client = client_for(tmp_path, review_token="geheim")
+    for headers in ({}, {"Authorization": "Bearer falsch"}, {"Authorization": "Basic geheim"}):
+        response = client.post("/v1/reviews", json=body, headers=headers)
+        assert response.status_code == 401
+        assert response.headers["www-authenticate"] == "Bearer"
+    # Token und Body stimmen, es fehlt nur die Datenbank.
+    assert client.post("/v1/reviews", json=body, headers=right).status_code == 503
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        {"action": "change"},
+        {"new_tag_id": "aps:2.4.1"},
+        {"action": "change", "new_tag_id": "aps:6.1.9"},
+        {"action": "delete"},
+        {"user_name": "  "},
+    ],
+)
+def test_review_body_is_checked(broken):
+    body = {"affair_id": 1, "tag_id": "aps:6.1.9", "action": "confirm", "user_name": " Mia "}
+    assert ReviewIn(**body).user_name == "Mia"
+    with pytest.raises(ValidationError):
+        ReviewIn(**{**body, **broken})
 
 
 def test_without_build_a_hint_page_without_external_urls(tmp_path):

@@ -20,8 +20,8 @@ WHERE a.id = %s
 """
 LABELS = """
 SELECT l.id, l.tag_id, t.name_de, l.scheme, l.confidence, l.evidence, l.evidence_verified,
-       l.status, l.review_status, l.task, l.stage, l.model_version, l.prompt_version,
-       l.registry_version, l.input_hash, l.run_id, l.created_at
+       l.status, l.review_status, l.reviewed_by, l.reviewed_at, l.task, l.stage, l.model_version,
+       l.prompt_version, l.registry_version, l.input_hash, l.run_id, l.created_at
 FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
 WHERE l.affair_id = %s
 ORDER BY l.status = 'active' DESC, l.confidence DESC, l.id DESC

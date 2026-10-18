@@ -3,8 +3,9 @@
 Aufruf: uv run python scripts/erd_from_sql.py, danach make diagrams.
 
 Ausgewertet werden die CREATE-TABLE-Anweisungen aller Dateien in migrations/. ALTER TABLE wird
-nicht ausgewertet; das Skript bricht dann mit einem Hinweis ab. Neue Tabellen brauchen einen
-Platz in LAYOUT (Zeile, Spalte, Domäne), gezeichnete Beziehungen stehen in DRAWN.
+nicht ausgewertet; das Skript bricht dann mit einem Hinweis ab, ausser die Anweisung tauscht nur
+einen CHECK-Constraint aus (das ERD zeigt keine CHECKs). Neue Tabellen brauchen einen Platz in
+LAYOUT (Zeile, Spalte, Domäne), gezeichnete Beziehungen stehen in DRAWN.
 """
 
 import json
@@ -16,6 +17,9 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "migrations"
 OUTPUT = ROOT / "docs" / "architecture" / "src" / "07-datenmodell.json"
 STOP_WORDS = {"NOT", "NULL", "PRIMARY", "REFERENCES", "UNIQUE", "DEFAULT", "CHECK", "DEFERRABLE"}
+CHECK_ONLY = re.compile(
+    r"ALTER TABLE \w+\s+(?:DROP CONSTRAINT \w+_check|ADD CONSTRAINT \w+_check\s+CHECK\b[^;]*);"
+)
 
 # Tabelle: (Zeile, Spalte, Domäne). Eine Domäne füllt ein Rechteck im Raster (Archify-Regel).
 LAYOUT = {
@@ -242,7 +246,7 @@ def compact_json(value, indent: int = 0) -> str:
 
 def main() -> int:
     sql = "\n".join(p.read_text(encoding="utf-8") for p in sorted(MIGRATIONS.glob("*.sql")))
-    if re.search(r"\bALTER TABLE\b", sql):
+    if re.search(r"\bALTER TABLE\b", CHECK_ONLY.sub("", sql)):
         print("ALTER TABLE gefunden: bitte das Skript erweitern oder das ERD von Hand anpassen.")
         return 1
     tables = parse_tables(sql)

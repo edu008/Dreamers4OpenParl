@@ -390,7 +390,7 @@ Code: `src/parltopics/search/navigate.py`, Tests in `tests/unit/test_navigate.py
 
 ## 8. Datenmodell
 
-Verbindlich sind die Migrationen in `migrations/`: [`0001_init.sql`](../migrations/0001_init.sql), [`0002_one_active_label.sql`](../migrations/0002_one_active_label.sql) und [`0003_wiki_skos.sql`](../migrations/0003_wiki_skos.sql). Wichtige Regeln:
+Verbindlich sind die Migrationen in `migrations/`: [`0001_init.sql`](../migrations/0001_init.sql), [`0002_one_active_label.sql`](../migrations/0002_one_active_label.sql) [`0003_wiki_skos.sql`](../migrations/0003_wiki_skos.sql) und [`0004_review_undo.sql`](../migrations/0004_review_undo.sql) (Review-Aktion `undo`). Wichtige Regeln:
 
 - Quelltabellen haben keine Fremdschlüssel und behalten den Originaldatensatz in `raw`. So bricht ein Import nicht an einem einzelnen fehlerhaften Verweis.
 - Pro Geschäft und Tag gibt es höchstens ein aktives Label, egal aus welcher Aufgabe (partieller Unique-Index, `0002_one_active_label.sql`).
