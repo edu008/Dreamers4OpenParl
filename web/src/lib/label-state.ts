@@ -1,5 +1,4 @@
-// Schwelle aus der Klassifikation (CONFIDENCE_THRESHOLD, Startwert 0.6). Später aus der API.
-export const REVIEW_BELOW = 0.6
+import type { ReviewReason } from "@/lib/api"
 
 export interface LabelFacts {
   confidence: number
@@ -7,11 +6,32 @@ export interface LabelFacts {
   evidenceVerified: boolean
 }
 
-/** Gründe, warum ein Label geprüft werden sollte. Leer heisst: kein Prüfbedarf. */
-export function reviewReasons(label: LabelFacts): string[] {
-  const reasons: string[] = []
-  if (label.confidence < REVIEW_BELOW) reasons.push("Konfidenz unter 0.6")
-  if (label.evidence === null) reasons.push("Kein Beleg angegeben")
-  else if (!label.evidenceVerified) reasons.push("Beleg nicht im Text gefunden")
+/**
+ * Gründe, warum ein Label geprüft werden sollte. Leer heisst: kein Prüfbedarf. Die Schwelle kommt
+ * aus der API (`threshold` der Warteschlange); solange sie fehlt, zählt nur der Beleg.
+ */
+export function reviewReasons(
+  label: LabelFacts,
+  threshold: number | null
+): ReviewReason[] {
+  const reasons: ReviewReason[] = []
+  if (threshold !== null && label.confidence < threshold) {
+    reasons.push("low_confidence")
+  }
+  if (label.evidence === null) reasons.push("no_evidence")
+  else if (!label.evidenceVerified) reasons.push("evidence_unverified")
   return reasons
+}
+
+export function reasonText(reason: ReviewReason, threshold: number): string {
+  switch (reason) {
+    case "low_confidence":
+      return `Konfidenz unter ${threshold}`
+    case "no_evidence":
+      return "Kein Beleg angegeben"
+    case "evidence_unverified":
+      return "Beleg nicht im Text gefunden"
+    case "sample":
+      return "Stichprobe"
+  }
 }

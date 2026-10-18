@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useAllAffairs } from "@/hooks/use-all-affairs"
 import type { TopicAffair, WikiPage } from "@/lib/api"
 import { affairsToCsv, downloadText, LEVEL_LABEL } from "@/lib/export"
-import { REVIEW_BELOW } from "@/lib/label-state"
+import { useReviewQueue } from "@/hooks/use-review-queue"
 
 const PAGE_SIZE = 50
 const TOP_BODIES = 8
@@ -38,6 +38,7 @@ function yearOf(row: TopicAffair): string {
 function apply(
   rows: TopicAffair[],
   filters: Filters,
+  minConfidence: number,
   skip?: keyof Filters
 ): TopicAffair[] {
   return rows.filter(
@@ -53,7 +54,7 @@ function apply(
         yearOf(row) === filters.year) &&
       (skip === "confidence" ||
         filters.confidence === "alle" ||
-        row.confidence >= REVIEW_BELOW)
+        row.confidence >= minConfidence)
   )
 }
 
@@ -84,23 +85,28 @@ export function TopicAffairs({ page }: { page: WikiPage }) {
 
 function TopicOverview({ pageId }: { pageId: string }) {
   const all = useAllAffairs(pageId)
+  // Schwelle der Klassifikation aus der API; bis sie da ist, gilt der Startwert.
+  const minConfidence = useReviewQueue().threshold ?? 0.6
   const [filters, setFilters] = useState<Filters>(NO_FILTER)
   const set = (patch: Partial<Filters>) =>
     setFilters((current) => ({ ...current, ...patch }))
 
-  const rows = useMemo(() => apply(all.items, filters), [all.items, filters])
+  const rows = useMemo(
+    () => apply(all.items, filters, minConfidence),
+    [all.items, filters, minConfidence]
+  )
   const levels = useMemo(
     () =>
       countRows(
-        apply(all.items, filters, "level"),
+        apply(all.items, filters, minConfidence, "level"),
         (row) => row.body_level,
         (key) => LEVEL_LABEL[key] ?? key
       ).sort((a, b) => LEVELS.indexOf(a.key) - LEVELS.indexOf(b.key)),
-    [all.items, filters]
+    [all.items, filters, minConfidence]
   )
   const bodiesAll = useMemo(() => {
     const rows = countRows(
-      apply(all.items, filters, "body"),
+      apply(all.items, filters, minConfidence, "body"),
       (row) => row.body_key,
       (_, row) => row.body_name ?? row.body_key
     )
@@ -116,13 +122,13 @@ function TopicOverview({ pageId }: { pageId: string }) {
           : row
       })
       .sort((a, b) => b.count - a.count)
-  }, [all.items, filters])
+  }, [all.items, filters, minConfidence])
   const years = useMemo(
     () =>
-      countRows(apply(all.items, filters, "year"), yearOf, (key) => key).sort(
+      countRows(apply(all.items, filters, minConfidence, "year"), yearOf, (key) => key).sort(
         (a, b) => a.key.localeCompare(b.key)
       ),
-    [all.items, filters]
+    [all.items, filters, minConfidence]
   )
   const bodies = bodiesAll.slice(0, TOP_BODIES)
   const active =
@@ -181,7 +187,7 @@ function TopicOverview({ pageId }: { pageId: string }) {
             label="Konfidenz"
             options={[
               { value: "alle", label: "Alle Geschäfte" },
-              { value: "mittel", label: `Ab Konfidenz ${REVIEW_BELOW}` },
+              { value: "mittel", label: `Ab Konfidenz ${minConfidence}` },
             ]}
             value={filters.confidence}
             onChange={(confidence) => set({ confidence })}

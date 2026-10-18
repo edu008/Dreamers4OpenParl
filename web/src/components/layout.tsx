@@ -8,7 +8,6 @@ import { Separator } from "@/components/ui/separator"
 import { usePageTitle } from "@/hooks/use-page-title"
 import { useReview } from "@/hooks/use-review"
 import { useReviewQueue } from "@/hooks/use-review-queue"
-import { buildQueue, openRows } from "@/lib/review-queue"
 
 const STATIC_TITLES: Record<string, string> = {
   "/": "Themen",
@@ -32,11 +31,11 @@ function isActive(pathname: string, to: string): boolean {
 
 export function Layout() {
   const { pathname } = useLocation()
-  const { decisions, active, isAdmin } = useReview()
+  const { active, isAdmin } = useReview()
   // Seiten mit eigenem Titel (Geschäft, Thema) setzen ihn selbst.
   usePageTitle(STATIC_TITLES[pathname])
   const queue = useReviewQueue()
-  const openReviews = openRows(buildQueue(queue.candidates, decisions)).length
+  const openReviews = queue.open.length
 
   // Die Navigation folgt der gewählten Ansicht: Review und Admin nur in der Ansicht Admin.
   const nav = [

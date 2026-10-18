@@ -8,9 +8,9 @@ import { PlainHeader, SortHeader } from "@/components/sort-header"
 import { Button } from "@/components/ui/button"
 import { compareValues, useSort, type SortDir } from "@/hooks/use-sort"
 import { useReview } from "@/hooks/use-review"
-import { reviewKey } from "@/lib/review"
 import { useReviewQueue } from "@/hooks/use-review-queue"
-import { buildQueue, type QueueRow } from "@/lib/review-queue"
+import { reasonText } from "@/lib/label-state"
+import type { ReviewCandidate } from "@/lib/review-queue"
 
 const ALL = "alle"
 const PAGE_SIZE = 25
@@ -23,13 +23,16 @@ const REASON_OPTIONS: { value: ReasonFilter; label: string }[] = [
   { value: "konfidenz", label: "Konfidenz tief" },
 ]
 
-function matchesReason(row: QueueRow, filter: ReasonFilter): boolean {
+function matchesReason(row: ReviewCandidate, filter: ReasonFilter): boolean {
   if (filter === "alle") return true
-  const key = filter === "beleg" ? "Beleg" : "Konfidenz"
-  return row.reasons.some((reason) => reason.includes(key))
+  return filter === "beleg"
+    ? row.reasons.some(
+        (reason) => reason === "no_evidence" || reason === "evidence_unverified"
+      )
+    : row.reasons.includes("low_confidence")
 }
 
-function countBy(rows: QueueRow[], pick: (row: QueueRow) => string | null) {
+function countBy(rows: ReviewCandidate[], pick: (row: ReviewCandidate) => string | null) {
   const counts = new Map<string, number>()
   for (const row of rows) {
     const key = pick(row)
@@ -46,7 +49,7 @@ function formatDate(iso: string): string {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("de-CH")
 }
 
-function sortValue(row: QueueRow, key: DoneKey): string | number {
+function sortValue(row: ReviewCandidate, key: DoneKey): string | number {
   switch (key) {
     case "affair":
       return row.title
@@ -55,17 +58,17 @@ function sortValue(row: QueueRow, key: DoneKey): string | number {
     case "confidence":
       return row.confidence
     case "date":
-      return row.entry?.at ?? ""
+      return row.decidedAt ?? ""
   }
 }
 
-function sortRows(rows: QueueRow[], key: DoneKey, dir: SortDir): QueueRow[] {
+function sortRows(rows: ReviewCandidate[], key: DoneKey, dir: SortDir): ReviewCandidate[] {
   return [...rows].sort((a, b) =>
     compareValues(sortValue(a, key), sortValue(b, key), dir)
   )
 }
 
-function EvidenceLine({ row }: { row: QueueRow }) {
+function EvidenceLine({ row }: { row: ReviewCandidate }) {
   if (row.evidence === null) {
     return (
       <p className="mt-1 text-xs text-muted-foreground">Kein Beleg angegeben</p>
@@ -94,7 +97,7 @@ function AffairCell({
   row,
   evidence = false,
 }: {
-  row: QueueRow
+  row: ReviewCandidate
   evidence?: boolean
 }) {
   return (
@@ -114,7 +117,13 @@ function AffairCell({
   )
 }
 
-function OpenTable({ rows }: { rows: QueueRow[] }) {
+function OpenTable({
+  rows,
+  threshold,
+}: {
+  rows: ReviewCandidate[]
+  threshold: number
+}) {
   const sort = useSort<OpenKey>("confidence", "asc")
   const [shown, setShown] = useState(PAGE_SIZE)
   const sorted = sortRows(rows, sort.key, sort.dir)
@@ -163,7 +172,11 @@ function OpenTable({ rows }: { rows: QueueRow[] }) {
               <td className="px-3 py-3 whitespace-nowrap">
                 <Confidence value={row.confidence} />
               </td>
-              <td className="px-3 py-3 text-xs">{row.reasons.join(", ")}</td>
+              <td className="px-3 py-3 text-xs">
+                {row.reasons
+                  .map((reason) => reasonText(reason, threshold))
+                  .join(", ")}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -240,12 +253,39 @@ function Progress({ done, total }: { done: number; total: number }) {
   )
 }
 
-function DoneTable({ rows }: { rows: QueueRow[] }) {
+const DECISION_NAME = {
+  confirmed: "Bestätigt",
+  rejected: "Verworfen",
+  changed: "Geändert",
+} as const
+
+function DoneTable({ rows }: { rows: ReviewCandidate[] }) {
   const review = useReview()
+  const [pending, setPending] = useState<string>()
+  const [error, setError] = useState<string>()
+
+  async function undo(row: ReviewCandidate) {
+    const key = `${row.affairId}|${row.tagId}`
+    setPending(key)
+    setError(undefined)
+    try {
+      await review.decide(row.affairId, row.tagId, "undo")
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure))
+    } finally {
+      setPending(undefined)
+    }
+  }
+
   const sort = useSort<DoneKey>("date", "desc")
   const sorted = sortRows(rows, sort.key, sort.dir)
   return (
     <div className="overflow-x-auto">
+      {error && (
+        <p role="alert" className="pb-2 text-sm text-destructive">
+          Rückgängig nicht gespeichert: {error}
+        </p>
+      )}
       <table className="w-full min-w-[38rem] table-fixed border-collapse text-sm">
         <caption className="sr-only">Entschiedene Labels</caption>
         <colgroup>
@@ -284,9 +324,7 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
         </thead>
         <tbody>
           {sorted.map((row) => {
-            const entry = row.entry
-            if (!entry) return null
-            const key = reviewKey(row.affairId, row.tagId)
+            const key = `${row.affairId}|${row.tagId}|${row.decidedAt}`
             return (
               <tr key={key} className="border-b border-border align-top">
                 <AffairCell row={row} />
@@ -296,18 +334,19 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
                 </td>
                 <td className="px-3 py-3 text-xs">
                   <span className="font-semibold">
-                    {entry.decision === "confirmed" ? "Bestätigt" : "Verworfen"}
+                    {DECISION_NAME[row.decision ?? "confirmed"]}
                   </span>{" "}
-                  von {entry.by}
+                  von {row.decidedBy}
                   <span className="tabular block text-muted-foreground">
-                    {formatDate(entry.at)}
+                    {row.decidedAt ? formatDate(row.decidedAt) : ""}
                   </span>
                   {review.active && (
                     <div className="mt-2">
                       <Button
                         size="xs"
                         variant="outline"
-                        onClick={() => review.undo(key)}
+                        disabled={pending === `${row.affairId}|${row.tagId}`}
+                        onClick={() => undo(row)}
                       >
                         Rückgängig
                       </Button>
@@ -332,17 +371,15 @@ export function ReviewPage() {
   const [body, setBody] = useState(ALL)
   const [topic, setTopic] = useState(ALL)
   const live = useReviewQueue()
-  const queue = buildQueue(live.candidates, review.decisions)
-  const rows = queue.filter(
-    (row) =>
-      matchesReason(row, reason) &&
-      (area === ALL || row.areaName === area) &&
-      (body === ALL || row.body === body) &&
-      (topic === ALL || row.labelName === topic)
-  )
-  const open = rows.filter((row) => !row.entry)
-  const done = rows.filter((row) => row.entry)
-  const openAll = queue.filter((row) => !row.entry)
+  const matches = (row: ReviewCandidate) =>
+    matchesReason(row, reason) &&
+    (area === ALL || row.areaName === area) &&
+    (body === ALL || row.body === body) &&
+    (topic === ALL || row.labelName === topic)
+  const open = live.open.filter(matches)
+  const done = live.done.filter(matches)
+  const openAll = live.open
+  const total = live.open.length + live.done.length
   const areas = countBy(openAll, (row) => row.areaName)
   const bodies = countBy(openAll, (row) => row.body)
   const topics = countBy(
@@ -403,11 +440,11 @@ export function ReviewPage() {
             Offen ({open.length})
           </h2>
           <Progress
-            done={queue.filter((row) => row.entry).length}
-            total={queue.length}
+            done={live.done.length}
+            total={total}
           />
         </div>
-        {queue.length > 0 && (
+        {total > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <div
               role="group"
@@ -479,6 +516,7 @@ export function ReviewPage() {
           <OpenTable
             key={`${reason}|${area}|${body}|${topic}`}
             rows={open}
+            threshold={live.threshold ?? 0}
           />
         ) : (
           <p className="text-muted-foreground">
