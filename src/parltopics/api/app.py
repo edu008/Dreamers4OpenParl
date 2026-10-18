@@ -36,6 +36,7 @@ from parltopics.api.schemas import (
     AdhocPreview,
     AdhocScope,
     AffairRecord,
+    AffairStar,
     AffairTopics,
     BodyDetail,
     BodyOut,
@@ -66,6 +67,7 @@ from parltopics.api.schemas import (
     TopicGraph,
     TopicName,
     TopicOut,
+    TopicStar,
 )
 from parltopics.classify import adhoc, proposals
 from parltopics.classify.queue import summary as job_summary
@@ -454,17 +456,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         conn: Conn,
         area: Annotated[
             str | None,
-            Query(description="APS-Bereich, z. B. aps:6; ohne: ein Knoten je Bereich"),
+            Query(
+                description="Bereich wie aps:6, all für alle Themen; ohne: ein Knoten je Bereich"
+            ),
         ] = None,
         min_weight: Annotated[int, Query(ge=1, description="nur Kanten ab so vielen")] = 1,
         limit: Annotated[int, Query(ge=1, le=500, description="höchstens so viele Kanten")] = 60,
         lang: LangQuery = "de",
     ) -> TopicGraph:
-        """Themen untereinander (F20): Ohne area ein Knoten je APS-Bereich, mit area die Themen
-        dieses Bereichs. Kantengewicht = Zahl der Geschäfte, die beide Knoten tragen. Das
-        Layout rechnet die Web-App."""
+        """Themen untereinander (F20, Sicht 3): Ohne area ein Knoten je APS-Bereich, mit area
+        die Themen dieses Bereichs, mit area=all jedes freigegebene Thema (APS und Ad-hoc).
+        Kantengewicht = Zahl der Geschäfte, die beide Knoten tragen. Das Layout rechnet die
+        Web-App."""
         _, tree = load()
-        if area is not None and (area not in tree or tree[area].kind != "bereich"):
+        if area not in (None, "all") and (area not in tree or tree[area].kind != "bereich"):
             raise HTTPException(404, f"Bereich {area} gibt es nicht")
         nodes, edges, hidden = queries.topic_graph(
             conn, area=area, min_weight=min_weight, limit=limit
@@ -479,13 +484,60 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     else node["node"],
                     kind=tree[node["node"]].kind if node["node"] in tree else "tag",
                     count=node["count"],
-                    group=node["node"].split(".")[0],
+                    group=node["node"].split(".")[0]
+                    if node["node"].startswith("aps:")
+                    else "adhoc",
                 )
                 for node in nodes
             ],
             edges=edges,
             hidden=hidden,
         )
+
+    @api.get(
+        "/graph/topics/{tag_id}",
+        tags=["Themen"],
+        summary="Graph: ein Thema und seine Geschäfte",
+        responses={404: {"description": "Thema unbekannt"}, **no_database},
+    )
+    def graph_topic(
+        tag_id: str,
+        conn: Conn,
+        min_confidence: Annotated[float, Query(ge=0, le=1)] = 0.0,
+        limit: Annotated[int, Query(ge=1, le=200)] = 200,
+    ) -> TopicStar:
+        """Sicht 1 (PRD 7.5): das Thema in der Mitte, seine Geschäfte darum, nach Konfidenz und
+        höchstens 200. Dieselben Zeilen wie GET /v1/topics/{tag_id}/affairs."""
+        name = queries.tag_name(conn, tag_id)
+        if name is None:
+            raise HTTPException(404, f"Thema {tag_id} unbekannt")
+        total, items = queries.topic_affairs(
+            conn,
+            [tag_id],
+            body_key=None,
+            date_from=None,
+            date_to=None,
+            min_confidence=min_confidence,
+            limit=limit,
+            offset=0,
+        )
+        return TopicStar(center=TopicName(tag_id=tag_id, name_de=name), total=total, nodes=items)
+
+    @api.get(
+        "/graph/affairs/{affair_id}",
+        tags=["Geschäfte"],
+        summary="Graph: ein Geschäft und seine Nachbarn",
+        responses={404: {"description": "Geschäft unbekannt"}, **no_database},
+    )
+    def graph_affair(
+        affair_id: int, conn: Conn, limit: Annotated[int, Query(ge=1, le=50)] = 50
+    ) -> AffairStar:
+        """Sicht 2 (PRD 7.5): das Geschäft mit seinen aktiven Themen und die Geschäfte, die
+        Themen mit ihm teilen, höchstens 50. Ohne aktives Thema keine Nachbarn."""
+        center = queries.hits(conn, [affair_id])
+        if not center:
+            raise HTTPException(404, f"Geschäft {affair_id} unbekannt")
+        return AffairStar(center=center[0], neighbours=queries.neighbours(conn, affair_id, limit))
 
     @api.get("/proposals", tags=["Review"], summary="Tag-Vorschläge", responses=no_database)
     def proposal_list(

@@ -94,6 +94,8 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/affairs/{affair_id}/docs",
         "/v1/docs/{doc_id}",
         "/v1/bodies/{body_key}",
+        "/v1/graph/topics/{tag_id}",
+        "/v1/graph/affairs/{affair_id}",
     } <= set(paths)
     parameters = paths["/v1/topics/{tag_id}/affairs"]["get"]["parameters"]
     names = {parameter["name"] for parameter in parameters}

@@ -313,6 +313,41 @@ def test_topic_graph_by_area_and_related_topics(conn, repo_root, api_settings):
         assert related[0]["name_de"] == "Digitalisierung (breit)"
         assert client.get("/v1/topics/aps:9.9/related").status_code == 404
 
+        # Alle Themen: jedes freigegebene Thema ein Knoten; das vorläufige Ad-hoc-Thema fehlt.
+        conn.execute(label, (70437, "adhoc:ki-verwaltung", "adhoc:ki-verwaltung"))
+        everything = client.get("/v1/graph/topics", params={"area": "all", "limit": 2}).json()
+        nodes = [(n["id"], n["kind"], n["count"], n["group"]) for n in everything["nodes"]]
+        assert nodes == [
+            ("aps:2.4.1", "tag", 2, "aps:2"),
+            ("aps:6.1", "kapitel", 1, "aps:6"),
+            ("aps:6.1.9", "tag", 3, "aps:6"),
+            ("adhoc:digitalisierung-breit", "querschnitt", 1, "adhoc"),
+        ]
+        assert everything["edges"] == [
+            {"a": "aps:2.4.1", "b": "aps:6.1.9", "weight": 2},
+            {"a": "adhoc:digitalisierung-breit", "b": "aps:6.1.9", "weight": 1},
+        ]
+        assert (everything["area"], everything["hidden"]) == ("all", 2)
+
+        star = client.get("/v1/graph/topics/aps:6.1.9").json()
+        assert (star["center"], star["total"]) == (
+            {"tag_id": "aps:6.1.9", "name_de": "Digitalisierung"},
+            3,
+        )
+        assert [node["affair_id"] for node in star["nodes"]] == [70435, 70437, 70436]
+        params = {"limit": 1, "min_confidence": 0.85}
+        assert client.get("/v1/graph/topics/aps:6.1.9", params=params).json()["total"] == 1
+        assert client.get("/v1/graph/topics/aps:9.9").status_code == 404
+
+        around = client.get("/v1/graph/affairs/70435").json()
+        assert around["center"]["topics"][0]["tag_id"] == "aps:6.1.9"
+        assert [(n["affair_id"], n["shared"], n["score"]) for n in around["neighbours"]] == [
+            (70436, ["aps:2.4.1", "aps:6.1.9"], 1.6),
+            (70437, ["aps:6.1.9"], 0.8),
+        ]
+        assert len(client.get("/v1/graph/affairs/70435?limit=1").json()["neighbours"]) == 1
+        assert client.get("/v1/graph/affairs/1").status_code == 404
+
 
 def test_navigation_search_walks_back_falls_back_and_logs(
     conn, repo_root, api_settings, monkeypatch

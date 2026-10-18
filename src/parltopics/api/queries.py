@@ -111,13 +111,17 @@ WHERE l.review_status IS NOT NULL AND l.status IN ('active', 'rejected')
 ORDER BY l.reviewed_at, l.id
 """
 # Graph (F20), Themen untereinander: Kantengewicht = gemeinsame Geschäfte. Ohne Bereich ein
-# Knoten je APS-Bereich (der Teil der ID vor dem ersten Punkt), mit Bereich seine Themen.
+# Knoten je APS-Bereich (der Teil der ID vor dem ersten Punkt), mit Bereich seine Themen, mit
+# all jedes freigegebene Thema (APS und Ad-hoc; vorläufige Ad-hoc-Themen fehlen).
 GRAPH_LABELLED = """
 SELECT DISTINCT affair_id,
        CASE WHEN %(area)s::text IS NULL THEN split_part(tag_id, '.', 1) ELSE tag_id END AS node
 FROM affair_tags
-WHERE status = 'active' AND scheme = 'aps'
-  AND (%(area)s::text IS NULL OR tag_id LIKE %(area)s::text || '.%%')
+WHERE status = 'active'
+  AND CASE WHEN %(area)s::text IS NULL THEN scheme = 'aps'
+           WHEN %(area)s::text = 'all'
+               THEN tag_id IN (SELECT tag_id FROM tags WHERE status = 'active')
+           ELSE tag_id LIKE %(area)s::text || '.%%' END
 """
 GRAPH_NODES = f"""
 WITH labelled AS ({GRAPH_LABELLED})
@@ -130,6 +134,16 @@ FROM labelled x JOIN labelled y ON y.affair_id = x.affair_id AND x.node < y.node
 GROUP BY x.node, y.node
 HAVING count(*) >= %(min_weight)s
 ORDER BY weight DESC, a, b
+LIMIT %(limit)s
+"""
+# Graph, Sicht 2: Geschäfte mit gemeinsamen aktiven Themen, die meisten gemeinsamen zuerst.
+NEIGHBOURS = """
+SELECT o.affair_id, array_agg(o.tag_id ORDER BY o.tag_id) AS shared, sum(o.confidence) AS score
+FROM affair_tags m
+JOIN affair_tags o ON o.tag_id = m.tag_id AND o.status = 'active' AND o.affair_id <> m.affair_id
+WHERE m.affair_id = %(affair_id)s AND m.status = 'active'
+GROUP BY o.affair_id
+ORDER BY count(*) DESC, score DESC, o.affair_id DESC
 LIMIT %(limit)s
 """
 CO_TOPICS = """
@@ -275,6 +289,11 @@ def topics(conn: psycopg.Connection, scheme: str | None) -> list[dict]:
 
 def tag_exists(conn: psycopg.Connection, tag_id: str) -> bool:
     return conn.execute("SELECT 1 FROM tags WHERE tag_id = %s", (tag_id,)).fetchone() is not None
+
+
+def tag_name(conn: psycopg.Connection, tag_id: str) -> str | None:
+    row = conn.execute("SELECT name_de FROM tags WHERE tag_id = %s", (tag_id,)).fetchone()
+    return row[0] if row else None
 
 
 def topic_affairs(
@@ -426,6 +445,14 @@ def topic_graph(
     )
     edges = cursor.execute(GRAPH_EDGES, params).fetchall()
     return nodes, edges, (edges[0]["qualifying"] - len(edges)) if edges else 0
+
+
+def neighbours(conn: psycopg.Connection, affair_id: int, limit: int) -> list[dict]:
+    """Köpfe der Nachbarn mit den gemeinsamen Themen und der Summe ihrer Konfidenzen darauf."""
+    params = {"affair_id": affair_id, "limit": limit}
+    rows = conn.cursor(row_factory=dict_row).execute(NEIGHBOURS, params).fetchall()
+    heads = {head["affair_id"]: head for head in affair_heads(conn, [r["affair_id"] for r in rows])}
+    return [{**heads[row["affair_id"]], **row} for row in rows]
 
 
 def co_topics(conn: psycopg.Connection, tag_id: str, limit: int) -> list[dict]:

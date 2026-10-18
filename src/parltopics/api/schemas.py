@@ -314,9 +314,14 @@ class GoldLabel(BaseModel):
 class GraphNode(BaseModel):
     id: str = Field(description="Seite und Tag", examples=["aps:6"])
     label: str = Field(examples=["Infrastruktur und Umwelt"])
-    kind: PageKind = Field(description="bereich in der Übersicht, sonst kapitel oder tag")
+    kind: PageKind = Field(
+        description="bereich in der Übersicht, sonst kapitel, tag oder querschnitt (Ad-hoc)"
+    )
     count: int = Field(description="Geschäfte mit aktivem Label auf diesem Knoten")
-    group: str = Field(description="APS-Bereich, zum Beispiel für die Farbe", examples=["aps:6"])
+    group: str = Field(
+        description="APS-Bereich, zum Beispiel für die Farbe; adhoc bei Ad-hoc-Themen",
+        examples=["aps:6"],
+    )
 
 
 class GraphEdge(BaseModel):
@@ -326,7 +331,9 @@ class GraphEdge(BaseModel):
 
 
 class TopicGraph(BaseModel):
-    area: str | None = Field(description="geöffneter Bereich; null in der Übersicht")
+    area: str | None = Field(
+        description="geöffneter Bereich oder all für alle Themen; null in der Übersicht"
+    )
     nodes: list[GraphNode] = Field(description="sortiert wie der Seitenbaum")
     edges: list[GraphEdge] = Field(description="stärkste zuerst, höchstens limit")
     hidden: int = Field(description="Kanten ab min_weight, die wegen limit fehlen")
@@ -578,3 +585,25 @@ class AffairRecord(BaseModel):
         description="die ersten 20 nach Datum; alle unter GET /v1/affairs/{affair_id}/docs"
     )
     n_docs: int = Field(description="Dokumente des Geschäfts insgesamt")
+
+
+class TopicStar(BaseModel):
+    """Graph, Sicht 1: ein Thema in der Mitte, jede Kante führt zu einem seiner Geschäfte."""
+
+    center: TopicName
+    total: int = Field(description="Geschäfte mit aktivem Label ab min_confidence")
+    nodes: list[TopicAffair] = Field(description="höchste Konfidenz zuerst, höchstens limit")
+
+
+class Neighbour(AffairHead):
+    shared: list[str] = Field(description="gemeinsame aktive Themen", examples=[["aps:6.1.9"]])
+    score: float = Field(description="Summe der Konfidenzen des Nachbarn auf diesen Themen")
+
+
+class AffairStar(BaseModel):
+    """Graph, Sicht 2: ein Geschäft mit seinen Themen und Nachbarn über gemeinsame Themen."""
+
+    center: NavigateHit
+    neighbours: list[Neighbour] = Field(
+        description="die meisten gemeinsamen Themen zuerst, dann nach score, höchstens limit"
+    )
