@@ -1,18 +1,11 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
+import { RoleSwitch } from "@/components/role-switch"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useReview } from "@/hooks/use-review"
 import { useReviewQueue } from "@/hooks/use-review-queue"
 import { buildQueue, openRows } from "@/lib/review-queue"
-
-// Der Verarbeitungsstand steht bewusst nicht in der Hauptnavigation (Council 18.10.2026).
-const NAV = [
-  { to: "/", label: "Wiki" },
-  { to: "/suche", label: "Suche" },
-  { to: "/review", label: "Review" },
-  { to: "/graph", label: "Graph" },
-]
 
 function isActive(pathname: string, to: string): boolean {
   if (to === "/") {
@@ -27,9 +20,19 @@ function isActive(pathname: string, to: string): boolean {
 
 export function Layout() {
   const { pathname } = useLocation()
-  const { decisions, active } = useReview()
+  const { decisions, active, isAdmin } = useReview()
   const queue = useReviewQueue()
   const openReviews = openRows(buildQueue(queue.candidates, decisions)).length
+
+  // Die Navigation folgt der gewählten Ansicht: Review für Reviewer und Admin, Admin nur für Admin.
+  const nav = [
+    { to: "/", label: "Wiki" },
+    { to: "/suche", label: "Suche" },
+    ...(active ? [{ to: "/review", label: "Review" }] : []),
+    ...(isAdmin ? [{ to: "/admin", label: "Admin" }] : []),
+    { to: "/graph", label: "Graph" },
+  ]
+
   return (
     <div className="flex min-h-svh flex-col">
       <header className="flex flex-wrap items-center gap-4 px-6 py-3">
@@ -37,7 +40,7 @@ export function Layout() {
           ParlTopics
         </Link>
         <nav aria-label="Hauptnavigation" className="flex flex-wrap gap-1">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <Button
               key={item.to}
               size="sm"
@@ -51,6 +54,9 @@ export function Layout() {
             </Button>
           ))}
         </nav>
+        <div className="ml-auto">
+          <RoleSwitch />
+        </div>
       </header>
       <Separator />
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-8">

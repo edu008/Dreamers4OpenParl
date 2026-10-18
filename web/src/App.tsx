@@ -3,7 +3,7 @@ import { Route, Routes } from "react-router"
 import { Layout } from "@/components/layout"
 import { HomePage } from "@/pages/home"
 import { AffairPage } from "@/pages/affair"
-import { StatusPage } from "@/pages/status"
+import { AdminPage } from "@/pages/admin"
 import { ReviewPage } from "@/pages/review"
 import { GraphPage, NotFoundPage, SearchPage } from "@/pages/placeholders"
 import { TagPage } from "@/pages/tag-page"
@@ -27,7 +27,7 @@ export function App() {
           element={<AffairPage mode="review" />}
         />
         <Route path="graph" element={<GraphPage />} />
-        <Route path="status" element={<StatusPage />} />
+        <Route path="admin" element={<AdminPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

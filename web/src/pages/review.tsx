@@ -2,8 +2,8 @@ import { useState } from "react"
 import { Link } from "react-router"
 
 import { Confidence } from "@/components/confidence"
-import { JobTable, ProcessingBadge, SystemList } from "@/components/job-summary"
-import { ReviewSignIn } from "@/components/review-signin"
+import { ProcessingBadge } from "@/components/job-summary"
+import { ReviewerName } from "@/components/reviewer-name"
 import { PlainHeader, SortHeader } from "@/components/sort-header"
 import { Button } from "@/components/ui/button"
 import { compareValues, useSort, type SortDir } from "@/hooks/use-sort"
@@ -219,13 +219,10 @@ export function ReviewPage() {
           <ProcessingBadge />
         </div>
         <p className="max-w-[68ch] text-muted-foreground">
-          Der Review ist für Mitarbeitende, die Labels prüfen. Nach der
-          Anmeldung siehst du die Warteschlange und kannst Labels bestätigen
-          oder verwerfen.
+          Der Review ist für Mitarbeitende, die Labels prüfen. Wähle oben rechts
+          die Ansicht «Reviewer», um die Warteschlange zu sehen und Labels zu
+          bestätigen oder zu verwerfen.
         </p>
-        <div className="pt-2">
-          <ReviewSignIn />
-        </div>
       </div>
     )
   }
@@ -245,7 +242,7 @@ export function ReviewPage() {
           lies den Beleg und entscheide.
         </p>
         <div className="pt-2">
-          <ReviewSignIn />
+          <ReviewerName />
         </div>
         <p className="text-xs text-muted-foreground">
           Echte Labels aus der API. Entscheide gelten vorerst nur in diesem
@@ -304,19 +301,6 @@ export function ReviewPage() {
           </div>
         </details>
       )}
-      <section
-        aria-labelledby="processing-heading"
-        className="flex flex-col gap-3 pt-4"
-      >
-        <h2
-          id="processing-heading"
-          className="font-heading text-lg font-medium"
-        >
-          Verarbeitungsstand
-        </h2>
-        <SystemList />
-        <JobTable />
-      </section>
     </>
   )
 }
