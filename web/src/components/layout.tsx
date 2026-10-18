@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
 import { RoleSwitch } from "@/components/role-switch"
+import { SearchForm } from "@/components/search-form"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useReview } from "@/hooks/use-review"
@@ -27,7 +28,6 @@ export function Layout() {
   // Die Navigation folgt der gewählten Ansicht: Review für Reviewer und Admin, Admin nur für Admin.
   const nav = [
     { to: "/", label: "Wiki" },
-    { to: "/suche", label: "Suche" },
     ...(active ? [{ to: "/review", label: "Review" }] : []),
     ...(isAdmin ? [{ to: "/admin", label: "Admin" }] : []),
     { to: "/graph", label: "Graph" },
@@ -35,7 +35,7 @@ export function Layout() {
 
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="flex flex-wrap items-center gap-4 px-6 py-3">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
         <Link to="/" className="font-heading text-base font-medium">
           ParlTopics
         </Link>
@@ -54,7 +54,11 @@ export function Layout() {
             </Button>
           ))}
         </nav>
-        <div className="ml-auto">
+        {/* Auf schmalen Fenstern in eine eigene Zeile, das Suchfeld nimmt den freien Platz. */}
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 lg:ml-auto lg:w-auto lg:flex-nowrap">
+          {pathname !== "/" && !pathname.startsWith("/suche") && (
+            <SearchForm compact />
+          )}
           <RoleSwitch />
         </div>
       </header>
