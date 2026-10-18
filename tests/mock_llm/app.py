@@ -1,13 +1,66 @@
 """OpenAI-kompatibler Mock für Tests und den Offline-Test (AIRGAP.md 4).
 
-Kein Modell, immer dieselbe Antwort.
+Kein Modell. Die Klassifikations-Prompts (Stufe 1 und 2) bekommen gültiges JSON mit der ersten
+angebotenen ID, alle anderen Anfragen die Antwort "OK" (für `parltopics llm check`).
 """
 
+import json
+import re
 import time
 
 from fastapi import FastAPI, Request
 
+AFFAIR = re.compile(r"Geschäft (\d+):")
+CHAPTER = re.compile(r"^(aps:\d+\.\d+) \|", re.MULTILINE)
+TOPIC = re.compile(r"^(aps:\d+\.\d+\.\d+|adhoc:[a-z0-9.\-]+) \|", re.MULTILINE)
+TEXT = re.compile(r"<<<\n(.*?)\n>>>", re.DOTALL)
+
 app = FastAPI(title="Mock-LLM")
+
+
+def completion(content: str, model: str) -> dict:
+    return {
+        "id": "mock-1",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": model,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": content},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 1, "total_tokens": 1},
+    }
+
+
+def fake_completion(messages: list[dict]) -> str:
+    """Antwort auf eine Anfrage: JSON nach PRD Anhang B oder "OK"."""
+    system = next((m["content"] for m in messages if m["role"] == "system"), "")
+    user = next((m["content"] for m in messages if m["role"] == "user"), "")
+    affair = AFFAIR.search(user)
+    if affair is None:
+        return "OK"
+    affair_id = int(affair.group(1))
+    if '"chapter_id"' in system:
+        chapters = [{"chapter_id": c, "confidence": 0.9} for c in CHAPTER.findall(system)[:1]]
+        return json.dumps({"affair_id": affair_id, "language": "de", "chapters": chapters})
+    text = TEXT.search(user)
+    body = text.group(1) if text else ""
+    evidence = (body if len(body) <= 120 else body[:120].rsplit(" ", 1)[0]) or "Mock"
+    tags = [
+        {"tag_id": tag_id, "confidence": 0.9, "evidence": evidence}
+        for tag_id in TOPIC.findall(system)[:1]
+    ]
+    output = {
+        "affair_id": affair_id,
+        "language": "de",
+        "summary_de": f"Geschäft {affair_id} (Mock).",
+        "tags": tags,
+        "proposed_tags": [],
+    }
+    return json.dumps(output, ensure_ascii=False)
 
 
 @app.get("/v1/models")
@@ -24,13 +77,4 @@ def models() -> dict:
 @app.post("/v1/chat/completions")
 async def chat(request: Request) -> dict:
     body = await request.json()
-    return {
-        "id": "mock-1",
-        "object": "chat.completion",
-        "created": int(time.time()),
-        "model": body.get("model", "mock"),
-        "choices": [
-            {"index": 0, "message": {"role": "assistant", "content": "OK"}, "finish_reason": "stop"}
-        ],
-        "usage": {"prompt_tokens": 0, "completion_tokens": 1, "total_tokens": 1},
-    }
+    return completion(fake_completion(body.get("messages", [])), body.get("model", "mock"))

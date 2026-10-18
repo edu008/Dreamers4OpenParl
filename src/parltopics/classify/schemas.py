@@ -10,6 +10,7 @@ MAX_CHAPTERS = 3
 MAX_TAGS = 5
 MAX_PROPOSALS = 2
 SUMMARY_MAX = 300
+EVIDENCE_MAX = 300
 
 
 class OutputError(ValueError):
@@ -31,10 +32,21 @@ class Stage1Output(_Output):
     chapters: list[ChapterChoice] = Field(min_length=1)
 
 
+def _shorten(text: str, limit: int) -> str:
+    """Kürzt an einer Wortgrenze und markiert den Schnitt mit …"""
+    return text if len(text) <= limit else text[: limit - 1].rsplit(" ", 1)[0] + "…"
+
+
 class TagAssignment(_Output):
     tag_id: str
     confidence: float = Field(ge=0, le=1)
-    evidence: str = Field(min_length=1, max_length=300)
+    evidence: str = Field(min_length=1)
+
+    @field_validator("evidence")
+    @classmethod
+    def _evidence(cls, value: str) -> str:
+        """Ein zu langes Zitat wird gekürzt, nicht verworfen; das Tag bleibt (wie summary_de)."""
+        return _shorten(value, EVIDENCE_MAX)
 
 
 class TagProposal(_Output):
@@ -58,15 +70,17 @@ class Stage2Output(_Output):
         if not isinstance(value, str):
             return None
         text = " ".join(value.split())
-        if not text:
-            return None
-        if len(text) > SUMMARY_MAX:
-            text = text[: SUMMARY_MAX - 1].rsplit(" ", 1)[0] + "…"
-        return text
+        return _shorten(text, SUMMARY_MAX) if text else None
 
 
 def _by_confidence(items: list, limit: int) -> list:
     return sorted(items, key=lambda item: item.confidence, reverse=True)[:limit]
+
+
+def _offered_id(tag_id: str, offered: set[str]) -> str:
+    """Modelle lassen das Präfix manchmal weg ("7.2" statt "aps:7.2"); eindeutig, also ergänzen."""
+    prefixed = f"aps:{tag_id}"
+    return prefixed if tag_id not in offered and prefixed in offered else tag_id
 
 
 def parse_stage1(data: dict, *, affair_id: int, offered: set[str]) -> Stage1Output:
@@ -74,10 +88,14 @@ def parse_stage1(data: dict, *, affair_id: int, offered: set[str]) -> Stage1Outp
     output = Stage1Output.model_validate(data)
     if output.affair_id != affair_id:
         raise OutputError(f"Antwort für Geschäft {output.affair_id}, angefragt war {affair_id}")
-    unknown = sorted({c.chapter_id for c in output.chapters} - offered)
+    chapters = [
+        c.model_copy(update={"chapter_id": _offered_id(c.chapter_id, offered)})
+        for c in output.chapters
+    ]
+    unknown = sorted({c.chapter_id for c in chapters} - offered)
     if unknown:
         raise OutputError(f"Kapitel nicht angeboten: {', '.join(unknown)}")
-    return output.model_copy(update={"chapters": _by_confidence(output.chapters, MAX_CHAPTERS)})
+    return output.model_copy(update={"chapters": _by_confidence(chapters, MAX_CHAPTERS)})
 
 
 def parse_stage2(
@@ -85,16 +103,21 @@ def parse_stage2(
 ) -> tuple[Stage2Output, list[str]]:
     """Stufe 2 prüfen. Gibt die bereinigte Ausgabe und die verworfenen Tag-IDs zurück.
 
-    Nicht angebotene Tags werden verworfen; behalten werden die 5 Tags mit der höchsten
-    Konfidenz und die ersten 2 Vorschläge.
+    Nicht angebotene Tags werden verworfen; ein mehrfach genanntes Tag zählt einmal, mit seiner
+    höchsten Konfidenz; behalten werden die 5 Tags mit der höchsten Konfidenz und die ersten 2
+    Vorschläge.
     """
     output = Stage2Output.model_validate(data)
     if output.affair_id != affair_id:
         raise OutputError(f"Antwort für Geschäft {output.affair_id}, angefragt war {affair_id}")
-    kept = [tag for tag in output.tags if tag.tag_id in offered]
-    dropped = [tag.tag_id for tag in output.tags if tag.tag_id not in offered]
-    best = _by_confidence(kept, MAX_TAGS)
-    dropped += [tag.tag_id for tag in kept if tag not in best]
+    tags = [t.model_copy(update={"tag_id": _offered_id(t.tag_id, offered)}) for t in output.tags]
+    unique: dict[str, TagAssignment] = {}
+    for tag in _by_confidence(tags, len(tags)):
+        if tag.tag_id in offered:
+            unique.setdefault(tag.tag_id, tag)
+    best = list(unique.values())[:MAX_TAGS]
+    kept = {tag.tag_id for tag in best}
+    dropped = [tag.tag_id for tag in tags if tag.tag_id not in kept]
     cleaned = output.model_copy(
         update={"tags": best, "proposed_tags": output.proposed_tags[:MAX_PROPOSALS]}
     )

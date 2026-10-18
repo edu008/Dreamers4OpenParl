@@ -18,6 +18,7 @@ def test_help_lists_all_commands():
         "inputs",
         "classify",
         "worker",
+        "jobs",
         "adhoc",
         "export",
         "wiki",
@@ -46,5 +47,11 @@ def test_registry_validate_reports_errors(tmp_path):
 
 
 def test_planned_commands_name_their_milestone():
-    result = runner.invoke(app, ["worker"])
+    result = runner.invoke(app, ["export"])
     assert result.exit_code == NOT_IMPLEMENTED_EXIT
+
+
+def test_classify_accepts_only_the_aps_task_in_m1():
+    result = runner.invoke(app, ["classify", "--task", "classify:adhoc:x"])
+    assert result.exit_code == 2
+    assert "classify:aps" in result.output

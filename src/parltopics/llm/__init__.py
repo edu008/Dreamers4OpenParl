@@ -6,9 +6,11 @@ from parltopics.llm.client import (
     ChatResult,
     HostNotAllowedError,
     LLMClient,
+    blocked_by_allowlist,
     call_with_retry,
 )
 from parltopics.llm.json_utils import JSONExtractionError, extract_json
+from parltopics.llm.prompts import Prompt, load_prompt
 
 __all__ = [
     "AdaptiveLimiter",
@@ -17,6 +19,9 @@ __all__ = [
     "HostNotAllowedError",
     "JSONExtractionError",
     "LLMClient",
+    "Prompt",
+    "blocked_by_allowlist",
     "call_with_retry",
     "extract_json",
+    "load_prompt",
 ]

@@ -12,22 +12,7 @@ from parltopics.llm import (
     LLMClient,
     call_with_retry,
 )
-
-
-def completion(content: str = "OK", model: str = "test-8b") -> dict:
-    return {
-        "id": "c1",
-        "object": "chat.completion",
-        "created": 0,
-        "model": model,
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": content},
-                "finish_reason": "stop",
-            }
-        ],
-    }
+from tests.mock_llm.app import completion
 
 
 async def no_sleep(_seconds: float) -> None:
@@ -55,7 +40,7 @@ async def test_chat_uses_only_the_configured_endpoint(settings):
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        return httpx.Response(200, json=completion())
+        return httpx.Response(200, json=completion("OK", "test-8b"))
 
     async with LLMClient(settings, transport=httpx.MockTransport(handler)) as client:
         result = await client.chat([{"role": "user", "content": "Hallo"}])
@@ -70,7 +55,7 @@ async def test_chat_uses_only_the_configured_endpoint(settings):
 
 async def test_large_switches_to_70b(settings):
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=completion(model=json.loads(request.content)["model"]))
+        return httpx.Response(200, json=completion("OK", json.loads(request.content)["model"]))
 
     async with LLMClient(settings, transport=httpx.MockTransport(handler)) as client:
         result = await client.chat([{"role": "user", "content": "Hallo"}], large=True)

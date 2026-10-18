@@ -1,19 +1,22 @@
 """Kommandozeile `parltopics` (PRD 10.4).
 
-Funktionsfähig: version, db migrate, registry validate, llm check, download, ingest.
-Die übrigen Kommandos zeigen ihre geplante Schnittstelle und nennen ihren Meilenstein.
+Funktionsfähig: version, db migrate, registry validate/sync/import-aps, llm check, download,
+ingest, inputs, classify, worker, jobs summary. Die übrigen Kommandos zeigen ihre geplante
+Schnittstelle und nennen ihren Meilenstein.
 """
 
 import asyncio
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from parltopics import __version__
-from parltopics.config import get_settings
+from parltopics.config import Settings, get_settings
 
 NOT_IMPLEMENTED_EXIT = 3
+DATE = ["%Y-%m-%d"]
 
 app = typer.Typer(
     help="ParlTopics: Themen-Klassifikation für OpenParlData mit Apertus.", no_args_is_help=True
@@ -21,9 +24,11 @@ app = typer.Typer(
 db_app = typer.Typer(help="Datenbank und Migrationen.", no_args_is_help=True)
 registry_app = typer.Typer(help="Tag-Registry registry/tags.yaml.", no_args_is_help=True)
 llm_app = typer.Typer(help="LLM-Endpunkt (LLM_BASE_URL).", no_args_is_help=True)
+jobs_app = typer.Typer(help="Job-Queue der Klassifikation.", no_args_is_help=True)
 app.add_typer(db_app, name="db")
 app.add_typer(registry_app, name="registry")
 app.add_typer(llm_app, name="llm")
+app.add_typer(jobs_app, name="jobs")
 
 
 def _planned(milestone: str, reference: str) -> None:
@@ -78,8 +83,27 @@ def registry_validate(
 
 @registry_app.command("sync")
 def registry_sync() -> None:
-    """Registry in die Tabelle tags spiegeln; geänderte Datei ohne neue Version ablehnen."""
-    _planned("M0", "F4")
+    """Registry in die Tabelle tags spiegeln; geänderte Datei ohne neue Version ablehnen (F4)."""
+    from parltopics.db import connect
+    from parltopics.registry import RegistryError, file_hash, load_registry
+    from parltopics.registry.sync import sync_registry
+
+    settings = get_settings()
+    path = settings.registry_path
+    try:
+        registry = load_registry(path)
+        with connect(settings.database_url, autocommit=True) as conn:
+            result = sync_registry(conn, registry, file_hash(path))
+    except RegistryError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+    version = registry.registry_version
+    if not result.changed:
+        typer.echo(f"registry_version {version}: unverändert")
+        return
+    typer.echo(f"registry_version {version}: {result.tags} Tags neu oder geändert")
+    for scheme, digest in result.scheme_hashes.items():
+        typer.echo(f"  {scheme:<6} scheme_hash {digest[:16]}")
 
 
 @registry_app.command("import-aps")
@@ -170,26 +194,113 @@ def ingest(
 
 
 @app.command()
-def inputs() -> None:
+def inputs(
+    body: Annotated[list[str] | None, typer.Option(help="body_keys, z. B. CHE")] = None,
+    since: Annotated[datetime | None, typer.Option(formats=DATE, help="Geschäfte ab Datum")] = None,
+    limit: Annotated[int | None, typer.Option(min=1, help="höchstens so viele Geschäfte")] = None,
+) -> None:
     """Klassifikationstexte bauen: HTML weg, Sprache, Längenlimit, input_hash (F3)."""
-    _planned("M0", "F3")
+    from parltopics.db import connect
+    from parltopics.inputs import build_inputs
+
+    with connect(get_settings().database_url, autocommit=True) as conn:
+        result = build_inputs(
+            conn, bodies=body or None, since=since.date() if since else None, limit=limit
+        )
+    typer.echo(
+        f"{result.changed} neu oder geändert, {result.unchanged} unverändert,"
+        f" {result.skipped} ohne Text, {result.reopened} Jobs wieder geöffnet"
+    )
 
 
 @app.command()
 def classify(
-    task: Annotated[str, typer.Option(help="classify:aps, classify:adhoc:<tag>, reclassify:<tag>")],
+    task: Annotated[str, typer.Option(help="classify:aps (Ad-hoc und Nachklassifizierung: M2)")],
     body: Annotated[list[str] | None, typer.Option(help="body_keys")] = None,
-    since: Annotated[str | None, typer.Option(help="Geschäfte ab Datum, JJJJ-MM-TT")] = None,
+    since: Annotated[datetime | None, typer.Option(formats=DATE, help="Geschäfte ab Datum")] = None,
+    limit: Annotated[int | None, typer.Option(min=1, help="höchstens so viele Geschäfte")] = None,
     wait: Annotated[bool, typer.Option(help="Jobs im selben Prozess abarbeiten")] = True,
 ) -> None:
-    """Jobs öffnen und einen Lauf starten (F5, F18)."""
-    _planned("M1", "F5, F18")
+    """Lauf starten: Jobs öffnen und mit --wait gleich abarbeiten (F5, F18, F19)."""
+    from parltopics.classify.queue import TASK_APS, acquire_run_lock, open_jobs
+    from parltopics.classify.worker import load_classifier
+    from parltopics.db import connect
+    from parltopics.registry.sync import synced_version
+
+    if task != TASK_APS:
+        raise typer.BadParameter("In M1 gibt es nur classify:aps.", param_hint="--task")
+    settings = get_settings()
+    classifier = load_classifier(settings)
+    # Die Verbindung hält die Lauf-Sperre, bis der Lauf mit --wait fertig ist.
+    with connect(settings.database_url, autocommit=True) as conn:
+        if synced_version(conn) != classifier.registry_version:
+            typer.secho(
+                "Registry nicht synchronisiert: zuerst `parltopics registry sync`.",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        if not acquire_run_lock(conn, task):
+            typer.secho(f"Ein Lauf für {task} läuft bereits.", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1)
+        run = open_jobs(
+            conn,
+            task=task,
+            bodies=body or None,
+            since=since.date() if since else None,
+            limit=limit,
+            kind="full",
+            registry_version=classifier.registry_version,
+            scheme_hash=classifier.scheme_hash,
+            prompt_version=classifier.prompt_version,
+        )
+        typer.echo(
+            f"Lauf {run.run_id}: {run.total} Jobs ({run.new} neu, {run.reopened} wieder geöffnet)"
+        )
+        if wait and run.total:
+            _run_worker(settings, task=task, run_id=run.run_id, once=True)
 
 
 @app.command()
-def worker() -> None:
-    """Dauerhafter Worker: übernimmt offene Jobs aller Aufgaben nach Priorität (F19)."""
-    _planned("M1", "F19")
+def worker(
+    task: Annotated[str | None, typer.Option(help="nur diese Aufgabe")] = None,
+    once: Annotated[bool, typer.Option(help="beenden, wenn keine Jobs mehr offen sind")] = False,
+) -> None:
+    """Worker: übernimmt offene Jobs nach Priorität; mehrere Prozesse parallel möglich (F19)."""
+    _run_worker(get_settings(), task=task, once=once)
+
+
+def _run_worker(settings: Settings, **options) -> None:
+    import logging
+
+    from parltopics.classify.worker import run_worker
+    from parltopics.registry import RegistryError
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    try:
+        counts = asyncio.run(run_worker(settings, **options))
+    except RegistryError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+    except KeyboardInterrupt:
+        typer.echo("Abgebrochen; laufende Jobs gehen nach dem Timeout zurück auf open.", err=True)
+        raise typer.Exit(code=130) from None
+    typer.echo("Fertig: " + (", ".join(f"{n} {s}" for s, n in sorted(counts.items())) or "-"))
+
+
+@jobs_app.command("summary")
+def jobs_summary() -> None:
+    """Jobs je Aufgabe und Status (F18)."""
+    from parltopics.classify.queue import summary
+    from parltopics.db import connect
+
+    with connect(get_settings().database_url, autocommit=True) as conn:
+        rows = summary(conn)
+    if not rows:
+        typer.echo("Keine Jobs.")
+    for task, status, count in rows:
+        typer.echo(f"  {task:<24} {status:<8} {count:>8}")
 
 
 @app.command()

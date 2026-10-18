@@ -3,20 +3,17 @@ from pathlib import Path
 
 import pytest
 import yaml
-from jinja2 import Environment, StrictUndefined
 
+from parltopics.llm.prompts import ENV, load_prompt, split_prompt
 from parltopics.registry import Registry
 
 ROOT = Path(__file__).resolve().parents[2]
 PROMPTS = sorted((ROOT / "prompts").glob("*_v*.md"))
 FIXTURE = ROOT / "tests" / "fixtures" / "tags_example.yaml"
-ENV = Environment(undefined=StrictUndefined, keep_trailing_newline=True)
 
 
 def split(path: Path) -> tuple[dict, dict[str, str]]:
-    _, header, body = path.read_text(encoding="utf-8").split("---", 2)
-    parts = re.split(r"^## (system|user)\s*$", body, flags=re.MULTILINE)
-    return yaml.safe_load(header), dict(zip(parts[1::2], parts[2::2], strict=True))
+    return split_prompt(path.read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("path", PROMPTS, ids=lambda p: p.name)
@@ -46,6 +43,29 @@ def test_classification_prompts_render_with_registry_tags():
     assert "Digitale Transformation, E-Government" in system2
     assert "summary_de" in system2
     assert "<<<\nDer Bundesrat …\n>>>" in user
+
+
+def test_load_prompt_builds_messages_and_version():
+    registry = Registry.model_validate(yaml.safe_load(FIXTURE.read_text(encoding="utf-8")))
+    chapters = [t for t in registry.active("aps") if t.aps_level == "kapitel"]
+    prompt = load_prompt(ROOT / "prompts", "classify_chapters_v1")
+    system, user = prompt.messages({"chapters": chapters}, {"affair_id": 7, "text": "Text"})
+    assert re.fullmatch(r"classify_chapters_v1\+[0-9a-f]{8}", prompt.version)
+    assert system["role"] == "system"
+    assert "aps:6.1 | Verkehr und Kommunikation" in system["content"]
+    assert user == {"role": "user", "content": "Geschäft 7:\n<<<\nText\n>>>"}
+
+
+def test_prompt_version_ignores_line_endings(tmp_path):
+    """Ein Windows-Checkout (CRLF) ergibt dieselbe prompt_version wie LF."""
+    text = (ROOT / "prompts" / "classify_topics_v1.md").read_text(encoding="utf-8")
+    versions = set()
+    for newline in ("\n", "\r\n"):
+        folder = tmp_path / str(len(newline))
+        folder.mkdir()
+        (folder / "classify_topics_v1.md").write_text(text, encoding="utf-8", newline=newline)
+        versions.add(load_prompt(folder, "classify_topics_v1").version)
+    assert len(versions) == 1
 
 
 def render(name: str, section: str, **context) -> str:
