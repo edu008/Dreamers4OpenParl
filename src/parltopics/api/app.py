@@ -29,6 +29,8 @@ from parltopics.api import queries, reviews
 from parltopics.api.schemas import (
     AffairTopics,
     BodyOut,
+    Calibration,
+    GoldLabel,
     JobCounts,
     JobsSummary,
     Lang,
@@ -71,6 +73,7 @@ TAGS = [
     {"name": "Themen", "description": "Tags der Registry (APS und Ad-hoc) und ihre Geschäfte."},
     {"name": "Review", "description": "Entscheide von Menschen zu Labels, mit Name und Zeit."},
     {"name": "Suche", "description": "Volltext über Titel und Texte (de, fr, it), ohne LLM."},
+    {"name": "Evaluation", "description": "Kalibrierung und Gold-Set aus den Entscheiden."},
     {"name": "Jobs", "description": "Stand der Klassifikation je Aufgabe."},
     {"name": "Seiten", "description": "Seitenbaum des ParlWiki."},
     {"name": "System", "description": "Betrieb."},
@@ -334,6 +337,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         affair = queries.affair_topics(conn, body.affair_id)
         assert affair is not None  # ein Label hängt immer an einem Geschäft (Fremdschlüssel)
         return AffairTopics(**affair)
+
+    @api.get(
+        "/eval/calibration",
+        tags=["Evaluation"],
+        summary="Trefferquote je Konfidenzband",
+        responses=no_database,
+    )
+    def eval_calibration(conn: Conn) -> Calibration:
+        """Wie ehrlich ist die Konfidenz? Je Band der Anteil der Modell-Labels, die ein Mensch
+        bestätigt hat (verworfen und ersetzt zählen als falsch). Für den Bericht zählt die
+        Stichprobe, denn die übrige Warteschlange wählt nach tiefer Konfidenz aus."""
+        bands = queries.calibration(conn)
+        return Calibration(
+            threshold=settings.confidence_threshold,
+            reviewed=sum(band["reviewed"] for band in bands),
+            confirmed=sum(band["confirmed"] for band in bands),
+            bands=bands,
+        )
+
+    @api.get("/eval/gold", tags=["Evaluation"], summary="Gold-Set (Export)", responses=no_database)
+    def eval_gold(conn: Conn) -> list[GoldLabel]:
+        """Alle aktuellen Entscheide als Gold-Labels, ältester zuerst: bestätigt und von Hand
+        gesetzt gehören dazu, verworfen und ersetzt nicht. Mit Modell-, Prompt- und
+        Registry-Version und dem Text (input_hash), auf den sich der Entscheid bezieht."""
+        return [GoldLabel(**row) for row in queries.gold(conn)]
 
     @api.get("/search", tags=["Suche"], summary="Volltextsuche", responses=no_database)
     def search(

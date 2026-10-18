@@ -266,3 +266,42 @@ class SearchResult(BaseModel):
     offset: int
     duration_ms: int = Field(description="Dauer der Abfragen in der API")
     items: list[SearchHit] = Field(description="nach Rang, dann neueste zuerst")
+
+
+class CalibrationBand(BaseModel):
+    low: float = Field(description="untere Grenze der Konfidenz, eingeschlossen", examples=[0.6])
+    high: float = Field(description="obere Grenze, ausgeschlossen (beim letzten Band 1.0 dabei)")
+    reviewed: int = Field(description="Labels des Modells mit Entscheid")
+    confirmed: int
+    precision: float | None = Field(description="Anteil bestätigt; null ohne Entscheide")
+    sample_reviewed: int = Field(description="davon in der Stichprobe (jedes 50. Geschäft)")
+    sample_confirmed: int
+    sample_precision: float | None = Field(
+        description="Trefferquote nur in der Stichprobe: unabhängig davon, wie die Warteschlange"
+        " auswählt, darum die ehrliche Zahl für den Bericht"
+    )
+
+
+class Calibration(BaseModel):
+    threshold: float = Field(description="CONFIDENCE_THRESHOLD der Klassifikation")
+    reviewed: int
+    confirmed: int
+    bands: list[CalibrationBand] = Field(description="fünf Bänder zu 0.2, tiefste zuerst")
+
+
+class GoldLabel(BaseModel):
+    """Ein Entscheid eines Menschen: gehört das Thema zum Geschäft?"""
+
+    affair_id: int
+    tag_id: str
+    decision: Literal["confirmed", "rejected", "changed", "added"]
+    belongs: bool = Field(description="true bei confirmed und added, false bei rejected, changed")
+    confidence: float | None = Field(description="Konfidenz des Modells; null bei added")
+    stage: Stage
+    model_version: str
+    prompt_version: str
+    registry_version: str
+    input_hash: str = Field(description="Text, auf den sich der Entscheid bezieht")
+    reviewed_by: str | None
+    reviewed_at: datetime | None
+    sample: bool = Field(description="Geschäft der Stichprobe (jedes 50.)")

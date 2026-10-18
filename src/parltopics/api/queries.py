@@ -73,6 +73,34 @@ SELECT page.*,
 FROM page JOIN affair_inputs i ON i.affair_id = page.affair_id
 ORDER BY page.rank DESC, page.begin_date DESC NULLS LAST, page.affair_id DESC
 """
+# Evaluation aus den Entscheiden der Menschen. Nur Labels des Modells zählen; die Stichprobe
+# (jedes 50. Geschäft) ist unabhängig von der Konfidenz ausgewählt, die übrige Warteschlange nicht.
+BANDS = 5
+REVIEWED_MODEL_LABELS = """
+FROM affair_tags
+WHERE stage <> 'human' AND review_status IS NOT NULL AND status IN ('active', 'rejected')
+"""
+CALIBRATION = f"""
+SELECT least(floor(confidence * {BANDS}), {BANDS - 1})::int AS band, count(*) AS reviewed,
+       count(*) FILTER (WHERE review_status = 'confirmed') AS confirmed,
+       count(*) FILTER (WHERE mod(affair_id, {SAMPLE_EVERY}) = 0) AS sample_reviewed,
+       count(*) FILTER (WHERE mod(affair_id, {SAMPLE_EVERY}) = 0
+                          AND review_status = 'confirmed') AS sample_confirmed
+{REVIEWED_MODEL_LABELS}
+GROUP BY 1
+"""
+# Gold-Set: der aktuelle Entscheid je Geschäft und Thema, auch von Hand gesetzte Labels.
+GOLD = f"""
+SELECT l.affair_id, l.tag_id,
+       CASE WHEN l.stage = 'human' THEN 'added' ELSE l.review_status END AS decision,
+       l.review_status = 'confirmed' AS belongs,
+       CASE WHEN l.stage = 'human' THEN NULL ELSE l.confidence END AS confidence,
+       l.stage, l.model_version, l.prompt_version, l.registry_version, l.input_hash,
+       l.reviewed_by, l.reviewed_at, mod(l.affair_id, {SAMPLE_EVERY}) = 0 AS sample
+FROM affair_tags l
+WHERE l.review_status IS NOT NULL AND l.status IN ('active', 'rejected')
+ORDER BY l.reviewed_at, l.id
+"""
 RUNS = """
 SELECT id, task, kind, started_at, finished_at, n_total, n_done, n_failed, n_escalated,
        prompt_version, registry_version,
@@ -296,3 +324,33 @@ def search(
         escaped = html.escape(row["headline"])
         row["headline"] = escaped.replace(MARK[0], "<mark>").replace(MARK[1], "</mark>")
     return total, rows
+
+
+def calibration(conn: psycopg.Connection) -> list[dict]:
+    """Je Konfidenzband: geprüft, bestätigt und Trefferquote, gesamt und nur in der Stichprobe."""
+    rows = {row["band"]: row for row in conn.cursor(row_factory=dict_row).execute(CALIBRATION)}
+    empty = {"reviewed": 0, "confirmed": 0, "sample_reviewed": 0, "sample_confirmed": 0}
+
+    def share(part: int, whole: int) -> float | None:
+        return part / whole if whole else None
+
+    bands = []
+    for band in range(BANDS):
+        row = rows.get(band, empty)
+        bands.append(
+            {
+                "low": band / BANDS,
+                "high": (band + 1) / BANDS,
+                "reviewed": row["reviewed"],
+                "confirmed": row["confirmed"],
+                "precision": share(row["confirmed"], row["reviewed"]),
+                "sample_reviewed": row["sample_reviewed"],
+                "sample_confirmed": row["sample_confirmed"],
+                "sample_precision": share(row["sample_confirmed"], row["sample_reviewed"]),
+            }
+        )
+    return bands
+
+
+def gold(conn: psycopg.Connection) -> list[dict]:
+    return conn.cursor(row_factory=dict_row).execute(GOLD).fetchall()
