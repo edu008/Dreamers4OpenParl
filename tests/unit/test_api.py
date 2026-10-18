@@ -82,6 +82,10 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/eval/gold",
         "/v1/graph/topics",
         "/v1/topics/{tag_id}/related",
+        "/v1/adhoc/keywords",
+        "/v1/adhoc/preview",
+        "/v1/adhoc",
+        "/v1/adhoc/{tag_id}/activate",
     } <= set(paths)
     parameters = paths["/v1/topics/{tag_id}/affairs"]["get"]["parameters"]
     names = {parameter["name"] for parameter in parameters}
@@ -194,3 +198,30 @@ def test_page_tree_reports_a_broken_registry(tmp_path):
 
 def test_invalid_path_is_404_not_500(built):
     assert client_for(built).get("/%00").status_code == 404
+
+
+def test_adhoc_keywords_come_from_the_model_or_503(tmp_path, monkeypatch):
+    import json
+
+    import httpx
+
+    from parltopics.llm import LLMClient
+    from tests.mock_llm.app import completion, fake_completion
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        return httpx.Response(200, json=completion(fake_completion(body["messages"]), "m"))
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("kein LLM")
+
+    body = {"name_de": "Velowege", "description_de": "Geschäfte zum Veloverkehr"}
+    for handler, status in ((answer, 200), (unreachable, 503)):
+        mock = httpx.MockTransport(handler)
+        monkeypatch.setattr(
+            "parltopics.classify.adhoc.LLMClient",
+            lambda settings, transport=None, mock=mock: LLMClient(settings, transport=mock),
+        )
+        response = client_for(tmp_path).post("/v1/adhoc/keywords", json=body)
+        assert response.status_code == status
+    assert client_for(tmp_path).post("/v1/adhoc/keywords", json={"name_de": "V"}).status_code == 422
