@@ -59,3 +59,10 @@ def test_compose_falls_back_to_the_first_document_then_the_title():
 def test_compose_cuts_long_texts():
     text, _, _ = compose({"title_de": "T"}, [("de", "x" * 10_000)], None, never)
     assert len(text) == INPUT_MAX_CHARS
+
+
+def test_compose_prefers_the_long_title_in_each_language():
+    affair = {"title_de": "Hitze", "title_long_de": "Motion Muster. Hitze in Städten"}
+    assert compose(affair, [], None, lambda _: "de")[0] == "Motion Muster. Hitze in Städten"
+    only_short_fr = {"title_fr": "Chaleur", "title_long_de": "Motion Muster. Hitze"}
+    assert compose(only_short_fr, [("fr", "Texte")], None, never)[0] == "Chaleur\nTexte"

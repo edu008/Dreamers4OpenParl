@@ -70,7 +70,7 @@ Der tägliche Lauf (F17) verkettet 2 bis 10 ohne Review. Diagramm: [02-pipeline]
 
 ### 3.2 Ablauf pro Job
 
-1. **Job übernehmen.** Der Worker holt einen Stapel offener Jobs und setzt sie auf `pending`:
+1. **Job übernehmen.** Der Worker holt einen Stapel offener Jobs und setzt sie auf `pending`. Er hält `PARALLEL_8B` Jobs gleichzeitig in Arbeit; wird ein Platz frei, startet sofort der nächste Job aus dem Stapel, ein langsamer Job (etwa nach Eskalation an 70B) hält die übrigen nicht auf. Ist der Stapel leer, holt er den nächsten:
 
    ```sql
    WITH next AS (
@@ -141,7 +141,7 @@ Der gleichbleibende Teil steht vorne, damit Prefix-Caching greifen kann. Die Pro
 
 | Prüfung | Regel | Folge bei Verstoss |
 |---|---|---|
-| JSON-Form | Pydantic-Modell aus Anhang B | eine Wiederholung mit Fehlerhinweis, dann 70B, dann `failed` |
+| JSON-Form | Pydantic-Modell aus Anhang B | eine Wiederholung mit Fehlerhinweis, dann 70B, dann `failed`; ist nur die 70B-Antwort ungültig, gilt das gültige 8B-Ergebnis |
 | Tag-IDs | nur aus dem angebotenen Ausschnitt | Tag verworfen, Ereignis protokolliert |
 | Anzahl | höchstens 5 Tags, 2 Vorschläge | überzählige verworfen |
 | Beleg | `word_similarity(evidence, text) ≥ 0.9` | Konfidenz halbiert, `evidence_verified = false` |

@@ -193,7 +193,8 @@ async def classify_affair(
 ) -> tuple[Result, list[str]]:
     """Klassifiziert ein Geschäft. Gibt das Ergebnis und die Gründe einer Eskalation zurück.
 
-    OutputFailure: auch 70B lieferte keine gültige Antwort, der Job ist dauerhaft failed.
+    OutputFailure: weder 8B noch 70B lieferten eine gültige Antwort, der Job ist dauerhaft failed.
+    Ist nur die 70B-Antwort ungültig, gilt das 8B-Ergebnis (Grund `70b_ungueltig`).
     """
     passes: list[Pass] = []
     try:
@@ -204,8 +205,14 @@ async def classify_affair(
         reasons = ["json"]
     if reasons:
         await escalate()
-        final, output = await _pass(c, client, job, large=True, verify=verify)
-        passes.append(final)
+        try:
+            final, output = await _pass(c, client, job, large=True, verify=verify)
+            passes.append(final)
+        except OutputFailure:
+            if not passes:
+                raise
+            # 70B unbrauchbar, 8B gültig: das 8B-Ergebnis gilt, statt den Job zu verwerfen.
+            reasons.append("70b_ungueltig")
     result = Result(
         passes=passes,
         summary_de=output.summary_de,
@@ -315,19 +322,48 @@ async def run_worker(
                     client.limiter(settings.llm_name).limit,
                 )
 
+            async def claim_jobs(n: int) -> list[Job]:
+                await db(release_stale, settings.job_timeout_seconds)
+                return await db(claim, worker_id, n, task=task, run_id=run_id)
+
             beating = asyncio.create_task(beat())
             try:
-                while True:
-                    await db(release_stale, settings.job_timeout_seconds)
-                    jobs = await db(
-                        claim, worker_id, settings.parallel_8b, task=task, run_id=run_id
-                    )
-                    if not jobs:
-                        if once:
-                            break
-                        await asyncio.sleep(IDLE_SECONDS)
-                        continue
-                    await asyncio.gather(*(process(job) for job in jobs))
+                await fill_slots(claim_jobs, process, settings.parallel_8b, once=once)
             finally:
                 beating.cancel()
     return counts
+
+
+async def fill_slots(
+    claim_jobs: Callable[[int], Awaitable[list[Job]]],
+    process: Callable[[Job], Awaitable[None]],
+    slots: int,
+    *,
+    once: bool,
+    idle_seconds: float = IDLE_SECONDS,
+) -> None:
+    """Hält bis zu `slots` Jobs in Arbeit; ein frei gewordener Platz startet sofort den nächsten.
+
+    So wartet nicht der ganze Stapel auf den langsamsten Job (etwa nach Eskalation an 70B).
+    Übernommen wird weiter stapelweise, damit die Queue nicht öfter abgefragt wird; Jobs im Vorrat
+    sind pending und vom Heartbeat gedeckt. Mit once endet die Schleife, wenn nichts mehr offen ist.
+    """
+    waiting: list[Job] = []
+    running: set[asyncio.Task[None]] = set()
+    try:
+        while True:
+            if not waiting and len(running) < slots:
+                waiting = await claim_jobs(slots)
+            while waiting and len(running) < slots:
+                running.add(asyncio.create_task(process(waiting.pop(0))))
+            if not running:
+                if once:
+                    return
+                await asyncio.sleep(idle_seconds)
+                continue
+            done, running = await asyncio.wait(running, return_when=asyncio.FIRST_COMPLETED)
+            for finished in done:
+                finished.result()  # ein Fehler wie ein Allowlist-Verstoss beendet den Worker
+    finally:
+        for task in running:
+            task.cancel()

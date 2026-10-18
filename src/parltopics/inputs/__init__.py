@@ -3,6 +3,7 @@
 Mit Texten (Bund, einige Kantone): Titel, eingereichter Text, Begründung, übrige Texte. Antworten
 der Regierung und die Titel-Zeilen aus affair_texts zählen nicht, der Titel kommt aus affairs.
 Ohne Texte: Titel und das älteste Dokument mit Text (PRD 15, Frage 8), sonst nur der Titel.
+Als Titel dient der lange Titel aus raw, wenn es ihn in der Sprache gibt, sonst der kurze.
 """
 
 import functools
@@ -33,7 +34,10 @@ RANK = {
 INLINE_TAGS = {"a", "b", "em", "font", "i", "span", "strong", "sub", "sup", "u"}  # sonst Umbruch
 
 AFFAIRS = """
-SELECT id, title_de, title_fr, title_it, title_rm FROM affairs
+SELECT id, title_de, title_fr, title_it, title_rm,
+       raw->>'title_long_de' AS title_long_de, raw->>'title_long_fr' AS title_long_fr,
+       raw->>'title_long_it' AS title_long_it, raw->>'title_long_rm' AS title_long_rm
+FROM affairs
 WHERE id > %(last)s
   AND (%(bodies)s::text[] IS NULL OR body_key = ANY(%(bodies)s::text[]))
   AND (%(since)s::date IS NULL OR begin_date >= %(since)s::date)
@@ -129,7 +133,11 @@ def text_blocks(rows: list[dict]) -> list[tuple[str | None, str]]:
 
 def _title(affair: dict, language: str | None) -> str:
     order = (language, *LANGS) if language else LANGS
-    titles = (strip_html(affair.get(f"title_{lang}") or "") for lang in order)
+    # Der lange Titel (Geschäftsart, Urheber, Titel) sagt mehr; sonst der kurze.
+    titles = (
+        strip_html(affair.get(f"title_long_{lang}") or affair.get(f"title_{lang}") or "")
+        for lang in order
+    )
     return next((title for title in titles if title), "")
 
 
