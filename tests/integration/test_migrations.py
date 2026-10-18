@@ -9,7 +9,7 @@ pytestmark = pytest.mark.integration
 
 
 def test_migrations_apply_once(conn, repo_root):
-    assert migrate(conn, repo_root / "migrations") == ["0001_init"]
+    assert migrate(conn, repo_root / "migrations") == ["0001_init", "0002_one_active_label"]
     assert migrate(conn, repo_root / "migrations") == []
     tables = {
         row[0]
@@ -31,13 +31,19 @@ def test_only_one_active_label_per_key(conn, repo_root):
     label = (
         "INSERT INTO affair_tags (affair_id, tag_id, scheme, confidence, task, stage,"
         " model_version, prompt_version, registry_version, input_hash)"
-        " VALUES (1, 'adhoc:x', 'adhoc', 0.8, 'classify:aps', %s, 'm', 'p1', 'v', 'i1')"
+        " VALUES (1, 'adhoc:x', 'adhoc', 0.8, %s, %s, 'm', %s, 'v', %s)"
     )
-    conn.execute(label, ("8b",))
-    with pytest.raises(psycopg.errors.UniqueViolation):
-        conn.execute(label, ("70b",))
+    conn.execute(label, ("classify:aps", "8b", "p1", "i1"))
+    # Gleiches Tag aus einer anderen Aufgabe, mit neuem Text oder neuem Prompt: ebenfalls gesperrt.
+    for other in [
+        ("classify:aps", "70b", "p1", "i1"),
+        ("reclassify:adhoc:x", "8b", "p1", "i1"),
+        ("classify:aps", "8b", "p2", "i2"),
+    ]:
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            conn.execute(label, other)
     conn.execute("UPDATE affair_tags SET status = 'superseded' WHERE stage = '8b'")
-    conn.execute(label, ("70b",))
+    conn.execute(label, ("reclassify:adhoc:x", "8b", "p1", "i1"))
 
 
 def test_pending_job_needs_owner(conn, repo_root):
