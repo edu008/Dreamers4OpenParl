@@ -61,8 +61,14 @@ function OpenTable({ rows }: { rows: QueueRow[] }) {
   const sorted = sortRows(rows, sort.key, sort.dir)
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-collapse text-sm">
+      <table className="w-full min-w-[38rem] table-fixed border-collapse text-sm">
         <caption className="sr-only">Labels mit Prüfbedarf</caption>
+        <colgroup>
+          <col style={{ width: "42%" }} />
+          <col style={{ width: "22%" }} />
+          <col style={{ width: "12%" }} />
+          <col style={{ width: "24%" }} />
+        </colgroup>
         <thead className="border-b border-border bg-margin-tint">
           <tr>
             <SortHeader
@@ -112,8 +118,14 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
   const sorted = sortRows(rows, sort.key, sort.dir)
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-collapse text-sm">
+      <table className="w-full min-w-[38rem] table-fixed border-collapse text-sm">
         <caption className="sr-only">Entschiedene Labels</caption>
+        <colgroup>
+          <col style={{ width: "42%" }} />
+          <col style={{ width: "22%" }} />
+          <col style={{ width: "12%" }} />
+          <col style={{ width: "24%" }} />
+        </colgroup>
         <thead className="border-b border-border bg-margin-tint">
           <tr>
             <SortHeader
@@ -140,9 +152,6 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
               dir={sort.dir}
               onSort={() => sort.sortBy("date", "desc")}
             />
-            <PlainHeader>
-              <span className="sr-only">Aktion</span>
-            </PlainHeader>
           </tr>
         </thead>
         <tbody>
@@ -165,16 +174,16 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
                   <span className="tabular block text-muted-foreground">
                     {formatDate(entry.at)}
                   </span>
-                </td>
-                <td className="px-3 py-3">
                   {review.active && (
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() => review.undo(key)}
-                    >
-                      Rückgängig
-                    </Button>
+                    <div className="mt-2">
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => review.undo(key)}
+                      >
+                        Rückgängig
+                      </Button>
+                    </div>
                   )}
                 </td>
               </tr>
