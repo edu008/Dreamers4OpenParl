@@ -96,7 +96,10 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/bodies/{body_key}",
         "/v1/graph/topics/{tag_id}",
         "/v1/graph/affairs/{affair_id}",
+        "/v1/reviews/summary",
     } <= set(paths)
+    parameters = paths["/v1/reviews/queue"]["get"]["parameters"]
+    assert {"state", "tag_id", "body_key", "page_id", "reason"} <= {p["name"] for p in parameters}
     parameters = paths["/v1/topics/{tag_id}/affairs"]["get"]["parameters"]
     names = {parameter["name"] for parameter in parameters}
     assert {"tag_id", "body_key", "from", "to", "min_confidence", "limit", "offset"} <= names

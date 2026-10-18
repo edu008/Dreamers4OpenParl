@@ -231,12 +231,13 @@ LIMIT %(limit)s OFFSET %(offset)s
 """
 # Warteschlange: dieselben Gründe wie in der Web-App (web/src/lib/label-state.ts) und die
 # Stichprobe des Workers. Ohne Beleg ist ein Label nie belegt (evidence_verified = false).
-REASONS = f"""array_remove(ARRAY[
+REASON_ARRAY = f"""array_remove(ARRAY[
            CASE WHEN l.confidence < %(threshold)s THEN 'low_confidence' END,
            CASE WHEN l.evidence IS NULL THEN 'no_evidence'
                 WHEN NOT l.evidence_verified THEN 'evidence_unverified' END,
            CASE WHEN l.affair_id %% {SAMPLE_EVERY} = 0 THEN 'sample' END
-       ], NULL) AS reasons"""
+       ], NULL)"""
+REASONS = f"{REASON_ARRAY} AS reasons"
 QUEUE_STATE = {
     "open": "l.status = 'active' AND l.review_status IS NULL AND (l.confidence < %(threshold)s"
     f" OR NOT l.evidence_verified OR l.affair_id %% {SAMPLE_EVERY} = 0)",
@@ -250,10 +251,22 @@ QUEUE_FROM = """
 FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id JOIN affairs a ON a.id = l.affair_id
 LEFT JOIN bodies b ON b.body_key = a.body_key
 """
-QUEUE_FILTER = """
+QUEUE_FILTER = f"""
   AND (%(tag_id)s::text IS NULL OR l.tag_id = %(tag_id)s::text)
   AND (%(body_key)s::text IS NULL OR a.body_key = %(body_key)s::text)
+  AND (%(tag_ids)s::text[] IS NULL OR l.tag_id = ANY(%(tag_ids)s::text[]))
+  AND (%(reasons)s::text[] IS NULL OR {REASON_ARRAY} && %(reasons)s::text[])
 """
+# Zähler der offenen Warteschlange je Grund, Bereich (nur APS), Parlament und Thema.
+REVIEW_COUNTS = {
+    "reason": f"SELECT key, count(*) AS count"
+    f" FROM (SELECT unnest({REASON_ARRAY}) AS key {{where}}) reasons GROUP BY key",
+    "area": "SELECT split_part(l.tag_id, '.', 1) AS key, count(*) AS count {where}"
+    " AND l.scheme = 'aps' GROUP BY 1",
+    "body": "SELECT a.body_key, b.name, count(*) AS count {where}"
+    " GROUP BY a.body_key, b.name ORDER BY b.name, a.body_key",
+    "topic": "SELECT l.tag_id, t.name_de, count(*) AS count {where} GROUP BY l.tag_id, t.name_de",
+}
 
 
 def affair_topics(conn: psycopg.Connection, affair_id: int) -> dict | None:
@@ -336,8 +349,11 @@ def review_queue(
     threshold: float,
     limit: int,
     offset: int,
+    tag_ids: list[str] | None = None,
+    reasons: list[str] | None = None,
 ) -> tuple[int, list[dict]]:
     """Labels mit Prüfbedarf (open) oder mit Entscheid (done): (Treffer insgesamt, eine Seite).
+    tag_ids: nur diese Themen (Teilbaum einer Seite); reasons: mit mindestens einem dieser Gründe.
 
     shortcut: liest alle aktiven Labels ohne Entscheid; ab einigen 100'000 Labels braucht es einen
     partiellen Index auf confidence (Migration).
@@ -347,6 +363,8 @@ def review_queue(
         "threshold": threshold,
         "tag_id": tag_id,
         "body_key": body_key,
+        "tag_ids": tag_ids,
+        "reasons": reasons,
         "limit": limit,
         "offset": offset,
     }
@@ -358,6 +376,34 @@ def review_queue(
         params,
     ).fetchall()
     return total, rows
+
+
+def review_summary(
+    conn: psycopg.Connection, *, body_key: str | None, tag_ids: list[str] | None, threshold: float
+) -> dict:
+    """Offene und erledigte Labels und die Zähler der offenen je Grund, Bereich, Parlament und
+    Thema; Bereiche und Themen sortiert wie der Seitenbaum."""
+    params = {
+        "threshold": threshold,
+        "tag_id": None,
+        "body_key": body_key,
+        "tag_ids": tag_ids,
+        "reasons": None,
+    }
+    where = {
+        state: f"{QUEUE_FROM} WHERE {QUEUE_STATE[state]} {QUEUE_FILTER}" for state in QUEUE_STATE
+    }
+    cursor = conn.cursor(row_factory=dict_row)
+    summary: dict = {
+        state: cursor.execute(f"SELECT count(*) AS n {where[state]}", params).fetchone()["n"]
+        for state in where
+    }
+    for group, sql in REVIEW_COUNTS.items():
+        summary[group] = cursor.execute(sql.format(where=where["open"]), params).fetchall()
+    summary["reason"] = {row["key"]: row["count"] for row in summary["reason"]}
+    summary["area"].sort(key=lambda row: sort_key(row["key"]))
+    summary["topic"].sort(key=lambda row: sort_key(row["tag_id"]))
+    return summary
 
 
 def search(

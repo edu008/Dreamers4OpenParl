@@ -607,3 +607,45 @@ class AffairStar(BaseModel):
     neighbours: list[Neighbour] = Field(
         description="die meisten gemeinsamen Themen zuerst, dann nach score, höchstens limit"
     )
+
+
+class ReasonCounts(BaseModel):
+    low_confidence: int = 0
+    no_evidence: int = 0
+    evidence_unverified: int = 0
+    sample: int = 0
+
+
+class AreaCount(BaseModel):
+    page_id: str = Field(examples=["aps:6"])
+    title: str = Field(examples=["Infrastruktur und Umwelt"])
+    count: int
+
+
+class BodyCount(BaseModel):
+    body_key: str = Field(examples=["CHE"])
+    name: str | None = Field(examples=["Schweiz"])
+    count: int
+
+
+class TopicCount(BaseModel):
+    tag_id: str = Field(examples=["aps:6.1.9"])
+    name_de: str
+    count: int
+
+
+class ReviewSummary(BaseModel):
+    """Zähler der Review-Warteschlange, ohne die Labels selbst zu laden."""
+
+    threshold: float = Field(description="CONFIDENCE_THRESHOLD der Klassifikation")
+    open: int = Field(description="Labels mit Prüfbedarf")
+    done: int = Field(description="Labels mit Entscheid")
+    by_reason: ReasonCounts = Field(
+        description="offene Labels je Grund; ein Label kann mehrere Gründe haben"
+    )
+    by_area: list[AreaCount] = Field(
+        description="offene Labels je APS-Bereich, wie der Seitenbaum; Ad-hoc-Themen gehören zu"
+        " keinem Bereich"
+    )
+    by_body: list[BodyCount] = Field(description="offene Labels je Parlament, nach Name")
+    by_topic: list[TopicCount] = Field(description="offene Labels je Thema, wie der Seitenbaum")

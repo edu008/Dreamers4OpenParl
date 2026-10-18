@@ -58,9 +58,11 @@ from parltopics.api.schemas import (
     ProposalDecisionIn,
     ProposalDecisionOut,
     ProposalList,
+    Reason,
     RelatedTopic,
     ReviewIn,
     ReviewQueue,
+    ReviewSummary,
     SearchResult,
     Stats,
     TopicAffairs,
@@ -149,6 +151,15 @@ def page_out(page: Page, lang: Lang) -> PageOut:
         parent_id=page.parent_id,
         linked_from=list(page.linked_from),
     )
+
+
+def subtree_tag_ids(tree: dict[str, Page], page_id: str) -> list[str]:
+    """Tags dieser Seite und aller Seiten darunter; verlinkte Querschnittsseiten zählen nicht."""
+    return [
+        page.tag_id
+        for page in tree.values()
+        if page.tag_id and (page.page_id == page_id or page_id in ancestors(tree, page.page_id))
+    ]
 
 
 class TreeCache:
@@ -377,8 +388,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         return TopicAffairs(total=total, limit=limit, offset=offset, items=items)
 
+    PageFilter = Annotated[
+        str | None, Query(description="nur Themen dieser Seite und der Seiten darunter")
+    ]
+
+    def subtree(page_id: str) -> list[str]:
+        """Tags der Seite und ihrer Unterseiten; 404, wenn es die Seite nicht gibt."""
+        _, tree = load()
+        if page_id not in tree:
+            raise HTTPException(404, f"Seite {page_id} gibt es nicht")
+        return subtree_tag_ids(tree, page_id)
+
     @api.get(
-        "/reviews/queue", tags=["Review"], summary="Labels mit Prüfbedarf", responses=no_database
+        "/reviews/queue",
+        tags=["Review"],
+        summary="Labels mit Prüfbedarf",
+        responses={404: {"description": "Seite unbekannt"}, **no_database},
     )
     def review_queue(
         conn: Conn,
@@ -388,12 +413,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ] = "open",
         tag_id: Annotated[str | None, Query(description="nur dieses Thema")] = None,
         body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
+        page_id: PageFilter = None,
+        reason: Annotated[
+            list[Reason] | None,
+            Query(description="nur Labels mit einem dieser Gründe; mehrfach möglich"),
+        ] = None,
         limit: Annotated[int, Query(ge=1, le=500)] = 50,
         offset: Annotated[int, Query(ge=0)] = 0,
     ) -> ReviewQueue:
         """Warteschlange der Review-Seite (F9). Offen sind aktive Labels ohne Entscheid mit
         mindestens einem Grund: Konfidenz unter `threshold`, kein oder kein gefundener Beleg,
-        Stichprobe. Erledigt sind Labels mit Entscheid, auch verworfene."""
+        Stichprobe. Erledigt sind Labels mit Entscheid, auch verworfene. Der Filter «Beleg» der
+        Web-App ist reason=no_evidence&reason=evidence_unverified."""
         total, rows = queries.review_queue(
             conn,
             state=state,
@@ -402,6 +433,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             threshold=settings.confidence_threshold,
             limit=limit,
             offset=offset,
+            tag_ids=subtree(page_id) if page_id else None,
+            reasons=reason,
         )
         return ReviewQueue(
             threshold=settings.confidence_threshold,
@@ -409,6 +442,44 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             limit=limit,
             offset=offset,
             items=[{**row, "label": row} for row in rows],
+        )
+
+    @api.get(
+        "/reviews/summary",
+        tags=["Review"],
+        summary="Zähler der Warteschlange",
+        responses={404: {"description": "Seite unbekannt"}, **no_database},
+    )
+    def review_summary(
+        conn: Conn,
+        body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
+        page_id: PageFilter = None,
+    ) -> ReviewSummary:
+        """Wie viele Labels offen und erledigt sind, und die offenen je Grund, Bereich,
+        Parlament und Thema: für Filter, Zähler und `threshold`, ohne die Warteschlange zu
+        laden. Die Zähler folgen body_key und page_id."""
+        _, tree = load()
+        summary = queries.review_summary(
+            conn,
+            body_key=body_key,
+            tag_ids=subtree(page_id) if page_id else None,
+            threshold=settings.confidence_threshold,
+        )
+        return ReviewSummary(
+            threshold=settings.confidence_threshold,
+            open=summary["open"],
+            done=summary["done"],
+            by_reason=summary["reason"],
+            by_area=[
+                {
+                    "page_id": row["key"],
+                    "title": tree[row["key"]].title if row["key"] in tree else row["key"],
+                    "count": row["count"],
+                }
+                for row in summary["area"]
+            ],
+            by_body=summary["body"],
+            by_topic=summary["topic"],
         )
 
     @api.get(
@@ -926,17 +997,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         Tag- oder Querschnittsseite die ihres Tags, auf Kapitel, Bereich und Heart die aller
         Unterseiten. Eine Zeile je Geschäft und Thema: Ein Geschäft mit zwei Themen eines
         Kapitels erscheint zweimal. Verlinkte Querschnittsseiten zählen nicht dazu."""
-        _, tree = load()
-        if page_id not in tree:
-            raise HTTPException(404, f"Seite {page_id} gibt es nicht")
-        tag_ids = [
-            page.tag_id
-            for page in tree.values()
-            if page.tag_id and (page.page_id == page_id or page_id in ancestors(tree, page.page_id))
-        ]
         total, items = queries.topic_affairs(
             conn,
-            tag_ids,
+            subtree(page_id),
             body_key=body_key,
             level=level,
             affair_type=affair_type,
