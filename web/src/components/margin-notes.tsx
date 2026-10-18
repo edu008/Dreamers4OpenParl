@@ -152,7 +152,7 @@ export function MarginNotes({
         <p>
           <Link
             to={`/review/geschaefte/${affairId}`}
-            className="font-medium underline underline-offset-2"
+            className="inline-block py-2 font-medium underline underline-offset-2"
           >
             Im Review prüfen
           </Link>

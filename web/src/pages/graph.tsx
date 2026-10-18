@@ -1,49 +1,64 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router"
 
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  buildGraph,
+  buildView,
   groupColor,
   HEIGHT,
   loadGraphData,
-  radius,
+  pageTitle,
   WIDTH,
-  type GraphData,
+  type GraphNode,
+  type RawData,
 } from "@/lib/graph"
 
-// Themengraph: zeigt, welche Themen zusammenhängen. Klick auf einen Punkt öffnet die Seite.
+const SHOWN_LINKS = 12
+
+// Themengraph: zeigt, welche Themen zusammenhängen. Die Übersicht zeigt die Bereiche, ein Klick
+// öffnet einen Bereich und zeigt dessen Themen, ein weiterer Klick öffnet die Seite des Themas.
 export function GraphPage() {
   const navigate = useNavigate()
-  const [graph, setGraph] = useState<GraphData | null>(null)
+  const [raw, setRaw] = useState<RawData | null>(null)
   const [error, setError] = useState<string | undefined>()
   const [hovered, setHovered] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
+  const changed = useRef(false)
 
   useEffect(() => {
-    loadGraphData().then(
-      (raw) => setGraph(buildGraph(raw)),
-      (reason: unknown) =>
-        setError(reason instanceof Error ? reason.message : String(reason))
+    loadGraphData().then(setRaw, (reason: unknown) =>
+      setError(reason instanceof Error ? reason.message : String(reason))
     )
   }, [])
 
+  // Nach dem Wechsel der Ansicht springt der Fokus zur Überschrift, damit Tastatur und
+  // Screenreader merken, dass sich etwas geändert hat.
+  useEffect(() => {
+    if (changed.current) heading.current?.focus()
+    changed.current = true
+  }, [expanded])
+
+  const graph = useMemo(
+    () => (raw ? buildView(raw, expanded) : null),
+    [raw, expanded]
+  )
   const groups = useMemo(
-    () => [
-      ...new Set(
-        (graph?.nodes ?? [])
-          .filter((n) => n.kind === "bereich")
-          .map((n) => n.id)
-      ),
-    ],
-    [graph]
+    () =>
+      (raw?.pages ?? [])
+        .filter((page) => page.kind === "bereich")
+        .map((page) => page.page_id),
+    [raw]
   )
   const byId = useMemo(
     () => new Map((graph?.nodes ?? []).map((node) => [node.id, node])),
     [graph]
   )
-  const shared = (graph?.edges ?? [])
-    .filter((edge) => edge.kind === "gemeinsam")
+  const maxWeight = Math.max(1, ...(graph?.edges ?? []).map((e) => e.weight))
+  const strongestLinks = [...(graph?.edges ?? [])]
     .sort((a, b) => b.weight - a.weight)
+    .slice(0, SHOWN_LINKS)
   const linkedToHovered = new Set<string>()
   if (hovered) {
     linkedToHovered.add(hovered)
@@ -52,23 +67,33 @@ export function GraphPage() {
       if (edge.b === hovered) linkedToHovered.add(edge.a)
     }
   }
-  const open = (node: { id: string; kind: "bereich" | "thema" }) =>
-    navigate(`/tags/${node.id}`)
+
+  const opensGroup = (node: GraphNode) =>
+    expanded === null && node.kind === "bereich"
+  const activate = (node: GraphNode) => {
+    if (opensGroup(node)) {
+      setHovered(null)
+      setExpanded(node.id)
+    } else {
+      navigate(`/tags/${node.id}`)
+    }
+  }
 
   return (
-    <>
+    <div
+      className="flex flex-col gap-6"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && expanded !== null) setExpanded(null)
+      }}
+    >
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
           Themengraph
         </h1>
         <p className="max-w-[68ch] text-muted-foreground">
-          Jeder Punkt ist ein Thema mit Geschäften, die grossen Punkte sind die
-          Bereiche. Eine dicke Linie bedeutet, dass zwei Themen dieselben
-          Geschäfte tragen. Klicke auf einen Punkt, um die Seite zu öffnen.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Es sind erst wenige Geschäfte klassifiziert, deshalb ist der Graph
-          noch klein.
+          Die Übersicht zeigt die Bereiche. Eine dicke Linie bedeutet, dass zwei
+          Bereiche viele Geschäfte gemeinsam haben. Klicke auf einen Bereich, um
+          seine Themen zu sehen, und auf ein Thema, um dessen Seite zu öffnen.
         </p>
       </div>
 
@@ -81,8 +106,35 @@ export function GraphPage() {
           Noch keine klassifizierten Geschäfte, also nichts zu zeichnen.
         </p>
       )}
-      {graph && graph.nodes.length > 0 && (
+      {raw && graph && graph.nodes.length > 0 && (
         <>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <h2
+              ref={heading}
+              tabIndex={-1}
+              className="font-heading text-lg font-medium outline-none"
+            >
+              {expanded === null ? "Bereiche" : pageTitle(raw, expanded)}
+            </h2>
+            {expanded !== null && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setExpanded(null)}
+                >
+                  Zurück zur Übersicht
+                </Button>
+                <Link
+                  to={`/tags/${expanded}`}
+                  className="py-2 text-sm underline underline-offset-2"
+                >
+                  Seite des Bereichs öffnen
+                </Link>
+              </>
+            )}
+          </div>
+
           <svg
             viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
             role="group"
@@ -103,30 +155,31 @@ export function GraphPage() {
                   y1={a.y}
                   x2={b.x}
                   y2={b.y}
-                  stroke={
-                    edge.kind === "gemeinsam"
-                      ? "var(--foreground)"
-                      : "var(--border)"
-                  }
-                  strokeWidth={
-                    edge.kind === "gemeinsam" ? 1 + edge.weight * 1.5 : 1
-                  }
-                  opacity={dim ? 0.15 : edge.kind === "gemeinsam" ? 0.7 : 1}
+                  stroke="var(--foreground)"
+                  strokeWidth={1 + (edge.weight / maxWeight) * 7}
+                  opacity={dim ? 0.08 : 0.35}
                 />
               )
             })}
             {graph.nodes.map((node) => {
               const dim = hovered !== null && !linkedToHovered.has(node.id)
-              const r = radius(node.count, node.kind)
+              const groupNode = opensGroup(node)
               return (
                 <g
                   key={node.id}
-                  role="link"
+                  role={groupNode ? "button" : "link"}
                   tabIndex={0}
-                  aria-label={`${node.label}${node.kind === "thema" ? `, ${node.count} Geschäfte` : ", Bereich"}`}
-                  onClick={() => open(node)}
+                  aria-label={
+                    groupNode
+                      ? `${node.label}, Bereich, ${node.count} Geschäfte, Themen anzeigen`
+                      : `${node.label}, ${node.count} Geschäfte, Seite öffnen`
+                  }
+                  onClick={() => activate(node)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") open(node)
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault()
+                      activate(node)
+                    }
                   }}
                   onMouseEnter={() => setHovered(node.id)}
                   onMouseLeave={() => setHovered(null)}
@@ -138,23 +191,23 @@ export function GraphPage() {
                   <circle
                     cx={node.x}
                     cy={node.y}
-                    r={Math.max(r, 18)}
+                    r={Math.max(node.r, 18)}
                     fill="transparent"
                   />
                   <circle
                     cx={node.x}
                     cy={node.y}
-                    r={r}
+                    r={node.r}
                     fill={groupColor(node.group, groups)}
                     stroke="var(--background)"
                     strokeWidth={2}
                   />
                   <text
                     x={node.x}
-                    y={node.y + r + 12}
+                    y={node.y + node.r + 12}
                     textAnchor="middle"
-                    fontSize={node.kind === "bereich" ? 12 : 10.5}
-                    fontWeight={node.kind === "bereich" ? 600 : 400}
+                    fontSize={groupNode ? 12 : 10.5}
+                    fontWeight={groupNode ? 600 : 400}
                     fill="var(--foreground)"
                     stroke="var(--background)"
                     strokeWidth={3}
@@ -166,21 +219,27 @@ export function GraphPage() {
               )
             })}
           </svg>
+          {graph.hidden > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Gezeichnet sind die stärksten Verbindungen, {graph.hidden}{" "}
+              schwächere sind ausgeblendet.
+            </p>
+          )}
 
           <section
             aria-labelledby="links-heading"
             className="flex flex-col gap-2"
           >
             <h2 id="links-heading" className="font-heading text-lg font-medium">
-              Verbindungen
+              Stärkste Verbindungen
             </h2>
-            {shared.length === 0 ? (
+            {strongestLinks.length === 0 ? (
               <p className="text-muted-foreground">
-                Noch tragen keine zwei Themen dasselbe Geschäft.
+                Noch tragen keine zwei Punkte dasselbe Geschäft.
               </p>
             ) : (
               <ul className="flex flex-col gap-1 text-sm">
-                {shared.map((edge) => (
+                {strongestLinks.map((edge) => (
                   <li key={`${edge.a}|${edge.b}`}>
                     <Link
                       to={`/tags/${edge.a}`}
@@ -208,6 +267,6 @@ export function GraphPage() {
           </section>
         </>
       )}
-    </>
+    </div>
   )
 }
