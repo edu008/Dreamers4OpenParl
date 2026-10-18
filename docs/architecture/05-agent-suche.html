@@ -5271,27 +5271,27 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
         </g>
 
-        <g data-edge-from="llm" data-edge-to="agent" data-edge-label="search_affairs(ab 2024)" data-edge-key="7" data-edge-id="call-search">
+        <g data-edge-from="llm" data-edge-to="agent" data-edge-label="navigate_tree(Frage)" data-edge-key="7" data-edge-id="call-search">
           <path data-composition-edge-from="llm" data-composition-edge-to="agent" data-composition-edge-id="call-search" data-composition-points="634.75,380;478,380" d="M 634.75 380 L 478 380" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="474.475" y="360" width="163.79999999999998" height="18" rx="3" class="c-mask"/>
-          <text x="556.375" y="370" class="t-muted" font-size="11" text-anchor="middle">search_affairs(ab 2024)</text>
+          <rect x="484.375" y="360" width="144" height="18" rx="3" class="c-mask"/>
+          <text x="556.375" y="370" class="t-muted" font-size="11" text-anchor="middle">navigate_tree(Frage)</text>
         </g>
         </g>
 
-        <g data-edge-from="agent" data-edge-to="tools" data-edge-label="search_affairs" data-edge-key="8" data-edge-id="run-search">
+        <g data-edge-from="agent" data-edge-to="tools" data-edge-label="navigate_tree" data-edge-key="8" data-edge-id="run-search">
           <path data-composition-edge-from="agent" data-composition-edge-to="tools" data-composition-edge-id="run-search" data-composition-points="478,408;805.5,408" d="M 478 408 L 805.5 408" class="a-emphasis" data-animate="edge" style="--step:8" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="589.55" y="388" width="104.39999999999999" height="18" rx="3" class="c-mask"/>
-          <text x="641.75" y="398" class="t-edge-emphasis" font-size="11" text-anchor="middle">search_affairs</text>
+          <rect x="592.85" y="388" width="97.8" height="18" rx="3" class="c-mask"/>
+          <text x="641.75" y="398" class="t-edge-emphasis" font-size="11" text-anchor="middle">navigate_tree</text>
         </g>
         </g>
 
-        <g data-edge-from="tools" data-edge-to="agent" data-edge-label="Treffer mit IDs" data-edge-key="9" data-edge-id="hits">
+        <g data-edge-from="tools" data-edge-to="agent" data-edge-label="Suchweg, Treffer mit IDs" data-edge-key="9" data-edge-id="hits">
           <path data-composition-edge-from="tools" data-composition-edge-to="agent" data-composition-edge-id="hits" data-composition-points="805.5,436;478,436" d="M 805.5 436 L 478 436" class="a-default" data-animate="edge" style="--step:9" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="586.25" y="416" width="111" height="18" rx="3" class="c-mask"/>
-          <text x="641.75" y="426" class="t-muted" font-size="11" text-anchor="middle">Treffer mit IDs</text>
+          <rect x="556.55" y="416" width="170.39999999999998" height="18" rx="3" class="c-mask"/>
+          <text x="641.75" y="426" class="t-muted" font-size="11" text-anchor="middle">Suchweg, Treffer mit IDs</text>
         </g>
         </g>
 
@@ -5344,8 +5344,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
 
         <!-- Participants -->
-        <g id="node-user" data-node-id="user" data-node-label="Nutzer" tabindex="0" role="button" aria-label="Focus Nutzer, Browser, Sequence participant" aria-pressed="false" data-node-kind="external" data-node-sublabel="Browser" data-node-context="Sequence participant">
-          <title>Nutzer · Browser · Sequence participant</title>
+        <g id="node-user" data-node-id="user" data-node-label="Nutzer" tabindex="0" role="button" aria-label="Focus Nutzer, Web-App (React), Sequence participant" aria-pressed="false" data-node-kind="external" data-node-sublabel="Web-App (React)" data-node-context="Sequence participant">
+          <title>Nutzer · Web-App (React) · Sequence participant</title>
           <rect x="62" y="72" width="135" height="60" rx="6" class="c-mask"/>
           <rect x="62" y="72" width="135" height="60" rx="6" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(68 78) scale(0.6875)">
@@ -5353,11 +5353,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="129.5" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Nutzer</text>
-          <text data-detail="context" x="129.5" y="122" class="t-muted" font-size="7" text-anchor="middle">Browser</text>
+          <text data-detail="context" x="129.5" y="122" class="t-muted" font-size="7" text-anchor="middle">Web-App (React)</text>
         </g>
 
-        <g id="node-api" data-node-id="api" data-node-label="Web-App &amp; API" tabindex="0" role="button" aria-label="Focus Web-App &amp; API, POST /v1/agent/search, Sequence participant" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="POST /v1/agent/search" data-node-context="Sequence participant">
-          <title>Web-App &amp; API · POST /v1/agent/search · Sequence participant</title>
+        <g id="node-api" data-node-id="api" data-node-label="FastAPI" tabindex="0" role="button" aria-label="Focus FastAPI, POST /v1/agent/search, Sequence participant" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="POST /v1/agent/search" data-node-context="Sequence participant">
+          <title>FastAPI · POST /v1/agent/search · Sequence participant</title>
           <rect x="232.75" y="72" width="135" height="60" rx="6" class="c-mask"/>
           <rect x="232.75" y="72" width="135" height="60" rx="6" class="c-frontend" data-animate="node" style="--step:1" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(238.75 78) scale(0.6875)">
@@ -5366,7 +5366,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="300.25" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Web-App &amp; API</text>
+          <text data-node-label="" data-detail-anchor="" x="300.25" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">FastAPI</text>
           <text data-detail="context" x="300.25" y="122" class="t-muted" font-size="7" text-anchor="middle">POST /v1/agent/search</text>
         </g>
 
@@ -5393,8 +5393,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text data-detail="context" x="641.75" y="122" class="t-muted" font-size="7" text-anchor="middle">Tool-Calling</text>
         </g>
 
-        <g id="node-tools" data-node-id="tools" data-node-label="Werkzeuge" tabindex="0" role="button" aria-label="Focus Werkzeuge, lesend, PostgreSQL, Sequence participant" aria-pressed="false" data-node-kind="database" data-node-sublabel="lesend, PostgreSQL" data-node-context="Sequence participant">
-          <title>Werkzeuge · lesend, PostgreSQL · Sequence participant</title>
+        <g id="node-tools" data-node-id="tools" data-node-label="Werkzeuge" tabindex="0" role="button" aria-label="Focus Werkzeuge, lesend: DB, Seitenbaum, Sequence participant" aria-pressed="false" data-node-kind="database" data-node-sublabel="lesend: DB, Seitenbaum" data-node-context="Sequence participant">
+          <title>Werkzeuge · lesend: DB, Seitenbaum · Sequence participant</title>
           <rect x="745" y="72" width="135" height="60" rx="6" class="c-mask"/>
           <rect x="745" y="72" width="135" height="60" rx="6" class="c-database" data-animate="node" style="--step:4" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(751 78) scale(0.6875)">
@@ -5402,7 +5402,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="812.5" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Werkzeuge</text>
-          <text data-detail="context" x="812.5" y="122" class="t-muted" font-size="7" text-anchor="middle">lesend, PostgreSQL</text>
+          <text data-detail="context" x="812.5" y="122" class="t-muted" font-size="7" text-anchor="middle">lesend: DB, Seitenbaum</text>
         </g>
 
         <!-- Legend -->
@@ -5616,7 +5616,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <h3>Grenzen</h3>
         </div>
         <ul>
-          <li>Höchstens 6 Werkzeugaufrufe, 60 s Gesamtzeit</li>
+          <li>Höchstens 6 Werkzeugaufrufe, 60 s Gesamtzeit; navigate_tree zählt als einer</li>
           <li>Alle Werkzeuge lesend; Anlegen nur nach Bestätigung im UI</li>
           <li>Ohne Tool-Calling: JSON-Protokoll mit denselben Pydantic-Modellen</li>
         </ul>

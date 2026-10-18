@@ -4,14 +4,14 @@
     "01-systemarchitektur": {
       "type": "architecture",
       "quality": "showcase",
-      "source_sha256": "113e71461fa79f723402fe4ca4d38a3545ba87df09586a8e98ec6777220665a1",
-      "html_sha256": "75ccbd6031c09a8ac322fa12ea10efc79bccc55d0c3393b688fb8b92ec95c6a9"
+      "source_sha256": "3782cb2b43187dab3c0d01e3642eb22dc666730b9589596ab8b3a61e2b389c7d",
+      "html_sha256": "641bcb3a6893021637ba6638e2f073824fdff2bb4532f0d4d8f088bb80361929"
     },
     "02-pipeline": {
       "type": "workflow",
       "quality": "showcase",
-      "source_sha256": "536f90fbeb748840aa659473d6606f00fe48ecacca29a47c542dd0f4f4e8514f",
-      "html_sha256": "773ad4af3ee56bc2e00029c2254be71925048221aab5c2ca08975f10e20dee53"
+      "source_sha256": "b44dcf8b49628ebe86bc9b2866e39071dbd05b7612d0c13fa2ce0e0abd9d339c",
+      "html_sha256": "fd7ed8f053126f219f5d7a09a6323dbcfc7a43ee12030c664489018724103ec2"
     },
     "03-job-lifecycle": {
       "type": "lifecycle",
@@ -28,8 +28,8 @@
     "05-agent-suche": {
       "type": "sequence",
       "quality": "showcase",
-      "source_sha256": "518986ff6c5f8987473a06b0d896642b3b3253fb01799593912132cb9bd632bf",
-      "html_sha256": "9e240e08ea3e26e64e65c70fa0e2c59db5508a5263a6fe6be0c83f250acac34a"
+      "source_sha256": "fb4c8958265dac25f9614c5d598e498ba8d0178381159f375c5d52c21cb8f931",
+      "html_sha256": "a495e41b7df5a1c9efe9d75691c666e71737e290a4fff4403c63677c453fc2e0"
     },
     "06-adhoc-thema": {
       "type": "workflow",
@@ -40,14 +40,26 @@
     "07-datenmodell": {
       "type": "erd",
       "quality": "standard",
-      "source_sha256": "a87a1aed3cb8314299465b6aaf0afb4a8119378f6ae98db8b900b6bceeee62de",
-      "html_sha256": "15b8d64a41580186e6aab724ff6afd1d661e4daa73aca7c37b3614a36d483b0b"
+      "source_sha256": "2f18dfa16f39589f3dabfdb07a24a6d7d4b89d43a001004fb701166ad1aa1c0f",
+      "html_sha256": "a4b6d777a79a096a1425ab22ea2005fcfad151ada5bb780da0b441c1f60e09b6"
     },
     "08-airgap-deployment": {
       "type": "dataflow",
       "quality": "showcase",
-      "source_sha256": "c1b60b41b2df4f21f1142b1f22765aeb8b7f246519228bb5e03804fd78e70870",
-      "html_sha256": "e5fa931a9564c86adba582dad2186a7498d18bac118a8156a04ad7dff57eafeb"
+      "source_sha256": "82f63bac25109c1d72e21f2bbe5ef70620880a4eb114abadaa1727c75c87745b",
+      "html_sha256": "668c845c43df194fb84a439ebbcbc25ef6448f98521170cc8d21483b1c3b0113"
+    },
+    "09-wiki-hierarchie": {
+      "type": "tree",
+      "quality": "showcase",
+      "source_sha256": "d3b2294eed7c6e60614d4916e24f3b9131437e3852df3b8c2ef7d86307c7d1cc",
+      "html_sha256": "8410f4149b53a799239a49e6ac6452d483d3d9124793697a03626657209d77bb"
+    },
+    "10-navigationssuche": {
+      "type": "workflow",
+      "quality": "showcase",
+      "source_sha256": "a05bd41c107f871381f7c8cab431f06bf52dad615a98a5120741249cc164c3f8",
+      "html_sha256": "48ba0f7b50001f5f3edff0ff3f6b8b3d4debd7d6bbf05d2448d72381870b11e4"
     }
   }
 }

@@ -112,7 +112,7 @@
       "id": "worker",
       "type": "backend",
       "label": "Worker",
-      "sublabel": "Klassifikation 8B → 70B",
+      "sublabel": "Klassifikation und Seiten",
       "tag": "SKIP LOCKED",
       "pos": [
         760,
@@ -125,9 +125,9 @@
     },
     {
       "id": "api",
-      "type": "frontend",
-      "label": "Web-App & API",
-      "sublabel": "Wiki, Review, Graph, /v1",
+      "type": "backend",
+      "label": "FastAPI",
+      "sublabel": "/v1, liefert web/dist aus",
       "pos": [
         520,
         460
@@ -140,8 +140,8 @@
     {
       "id": "agent",
       "type": "backend",
-      "label": "Agent",
-      "sublabel": "Suche & Ad-hoc-Dialog",
+      "label": "Suche & Agent",
+      "sublabel": "Navigation, Ad-hoc-Dialog",
       "tag": "nur lesend",
       "pos": [
         760,
@@ -169,9 +169,9 @@
     },
     {
       "id": "user",
-      "type": "external",
-      "label": "Nutzer & Reviewer",
-      "sublabel": "Browser",
+      "type": "frontend",
+      "label": "Web-App (React)",
+      "sublabel": "im Browser, shadcn/ui",
       "pos": [
         520,
         600
@@ -240,7 +240,7 @@
       "id": "worker-db",
       "from": "worker",
       "to": "db",
-      "label": "Jobs, Labels",
+      "label": "Labels, Seiten",
       "variant": "emphasis"
     },
     {
@@ -260,13 +260,13 @@
       "id": "api-agent",
       "from": "api",
       "to": "agent",
-      "label": "Anfragen"
+      "label": "Suchanfragen"
     },
     {
       "id": "agent-llm",
       "from": "agent",
       "to": "llm",
-      "label": "70B Tools"
+      "label": "8B / 70B"
     },
     {
       "id": "review-registry",
@@ -281,7 +281,7 @@
       "id": "user-api",
       "from": "user",
       "to": "api",
-      "label": "HTTP"
+      "label": "HTTP /v1"
     }
   ],
   "cards": [
@@ -290,16 +290,19 @@
       "title": "Offline zur Laufzeit",
       "items": [
         "Einziger Netzwerkzugriff: LLM_BASE_URL, Allowlist im HTTP-Client",
-        "Hack: Keera. Air-Gap: Apertus-Endpunkt im internen Netz",
+        "Hack: Keera (gateway.keera.ch/api/v1). Air-Gap: Apertus-Endpunkt im internen Netz",
+        "Web-App als statischer Build im Image, Systemschriften, kein CDN",
         "Daten kommen als Import-Bündel per Datenträger"
       ]
     },
     {
       "dot": "emerald",
-      "title": "Zwei KI-Rollen",
+      "title": "KI-Rollen",
       "items": [
         "Worker: deterministisch, ein Geschäft pro Aufruf, 8B mit Eskalation an 70B",
-        "Agent: Tool-Calling mit 70B, nur lesende Werkzeuge, läuft im Prozess der Web-App"
+        "Seitenlauf: Zusammenfassungen von den Tag-Seiten bis Heart, nur offene Seiten",
+        "Navigationssuche: 8B vergleicht je Knoten alle Kinder, 70B wählt am Blatt",
+        "Agent: Tool-Calling mit 70B, nur lesende Werkzeuge, auch navigate_tree"
       ]
     },
     {

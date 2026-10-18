@@ -47,6 +47,10 @@
       "label": "Review (Mensch)"
     },
     {
+      "id": "seiten",
+      "label": "Seiten (ParlWiki)"
+    },
+    {
       "id": "ausgabe",
       "label": "Ausgabe"
     }
@@ -79,6 +83,7 @@
     "classify",
     "store",
     "review",
+    "pages",
     "output"
   ],
   "nodes": [
@@ -155,12 +160,20 @@
       "sublabel": "in der Web-App"
     },
     {
+      "id": "pages",
+      "lane": "seiten",
+      "col": 5,
+      "type": "backend",
+      "label": "Seitenlauf",
+      "sublabel": "Tag → Kapitel → Heart"
+    },
+    {
       "id": "output",
       "lane": "ausgabe",
       "col": 5,
       "type": "frontend",
       "label": "Ausgabe",
-      "sublabel": "API, Wiki, Export"
+      "sublabel": "API, Wiki, Export, Suche"
     }
   ],
   "edges": [
@@ -240,10 +253,17 @@
       "variant": "dashed"
     },
     {
-      "id": "review-output",
+      "id": "review-pages",
       "from": "review",
-      "to": "output",
+      "to": "pages",
       "label": "bestätigt",
+      "role": "main"
+    },
+    {
+      "id": "pages-output",
+      "from": "pages",
+      "to": "output",
+      "label": "Seiten",
       "role": "main"
     }
   ],
@@ -252,8 +272,9 @@
       "dot": "cyan",
       "title": "Täglicher Lauf",
       "items": [
-        "Ein Kommando verkettet Ingest, Input, Jobs, Klassifikation, Export und Wiki",
-        "Nur neue oder geänderte Geschäfte, erkannt über input_hash und scheme_hash"
+        "Ein Kommando verkettet Ingest, Input, Jobs, Klassifikation, Seiten, Export und Wiki",
+        "Nur neue oder geänderte Geschäfte, erkannt über input_hash und scheme_hash",
+        "Seitenlauf: nur offene Seiten, von den Tag-Seiten bis Heart"
       ]
     },
     {

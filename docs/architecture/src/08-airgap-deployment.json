@@ -60,12 +60,20 @@
       "row": 1
     },
     {
+      "id": "npm",
+      "type": "external",
+      "label": "npm-Registry",
+      "sublabel": "nach package-lock",
+      "stage": 0,
+      "row": 2
+    },
+    {
       "id": "odp",
       "type": "external",
       "label": "OpenParlData",
       "sublabel": "Exporte",
       "stage": 0,
-      "row": 2
+      "row": 3
     },
     {
       "id": "wheels",
@@ -84,12 +92,20 @@
       "row": 1
     },
     {
+      "id": "web",
+      "type": "frontend",
+      "label": "web/dist",
+      "sublabel": "make web-build",
+      "stage": 1,
+      "row": 2
+    },
+    {
       "id": "data",
       "type": "database",
       "label": "Import-Bündel",
       "sublabel": "parltopics download",
       "stage": 1,
-      "row": 2
+      "row": 3
     },
     {
       "id": "bundle",
@@ -105,7 +121,7 @@
       "label": "Daten-Kopie",
       "sublabel": "täglich neu",
       "stage": 2,
-      "row": 2
+      "row": 3
     },
     {
       "id": "load",
@@ -129,7 +145,7 @@
       "label": "PostgreSQL",
       "sublabel": "Volume pgdata",
       "stage": 3,
-      "row": 2
+      "row": 3
     },
     {
       "id": "llm",
@@ -148,6 +164,12 @@
       "label": "pip download"
     },
     {
+      "id": "npm-web",
+      "from": "npm",
+      "to": "web",
+      "label": "npm ci, vite build"
+    },
+    {
       "id": "hub-images",
       "from": "hub",
       "to": "images",
@@ -159,6 +181,13 @@
       "from": "wheels",
       "to": "images",
       "label": "pip --no-index",
+      "variant": "emphasis"
+    },
+    {
+      "id": "web-images",
+      "from": "web",
+      "to": "images",
+      "label": "COPY web/dist",
       "variant": "emphasis"
     },
     {
@@ -229,7 +258,8 @@
       "title": "Build-Zeit (online)",
       "items": [
         "Wheels exakt nach uv.lock, geladen im Ziel-Image python:3.12-slim",
-        "Das App-Image entsteht nur aus diesen Wheels, ohne Zugriff auf PyPI",
+        "Web-App mit Node 22 aus web/package-lock.json gebaut, Prüfung auf externe URLs",
+        "Das App-Image entsteht nur aus Wheels und web/dist, ohne PyPI und npm",
         "SHA256SUMS über alle Dateien des Bundles"
       ]
     },
@@ -240,7 +270,7 @@
         "Container ohne Route nach aussen",
         "Einziger Zielhost: LLM_BASE_URL, Allowlist im HTTP-Client",
         "Registry und Import-Bündel liegen fest in REGISTRY_DIR und IMPORT_DIR",
-        "Hack: Keera. Air-Gap: Apertus-Endpunkt im internen Netz"
+        "Hack: Keera (gateway.keera.ch/api/v1). Air-Gap: Apertus-Endpunkt im internen Netz"
       ]
     },
     {
