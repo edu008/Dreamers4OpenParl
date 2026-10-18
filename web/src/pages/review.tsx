@@ -393,10 +393,6 @@ export function ReviewPage() {
         <div className="pt-2">
           <ReviewerName />
         </div>
-        <p className="text-xs text-muted-foreground">
-          Echte Labels aus der API. Entscheide gelten vorerst nur in diesem
-          Browser; zum Speichern fehlt noch der Endpunkt im Backend.
-        </p>
       </div>
       <section
         aria-labelledby="queue-heading"
