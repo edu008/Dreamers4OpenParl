@@ -6,6 +6,7 @@ import { AffairPage } from "@/pages/affair"
 import { AdminPage } from "@/pages/admin"
 import { ReviewPage } from "@/pages/review"
 import { GraphPage } from "@/pages/graph"
+import { HelpPage } from "@/pages/help"
 import { NotFoundPage } from "@/pages/placeholders"
 import { SearchPage } from "@/pages/search"
 import { TagPage } from "@/pages/tag-page"
@@ -29,6 +30,7 @@ export function App() {
           element={<AffairPage mode="review" />}
         />
         <Route path="graph" element={<GraphPage />} />
+        <Route path="hilfe" element={<HelpPage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

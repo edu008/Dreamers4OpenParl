@@ -31,6 +31,7 @@ export function Layout() {
     ...(active ? [{ to: "/review", label: "Review" }] : []),
     ...(isAdmin ? [{ to: "/admin", label: "Admin" }] : []),
     { to: "/graph", label: "Graph" },
+    { to: "/hilfe", label: "So funktioniert's" },
   ]
 
   return (
