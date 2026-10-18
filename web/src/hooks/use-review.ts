@@ -5,7 +5,7 @@ import type { ReviewDecision, ReviewMap, Role } from "@/lib/review"
 export interface ReviewState {
   /** Gewählte Ansicht. Im MVP eine Darstellung, keine Zugangskontrolle. */
   role: Role
-  /** Reviewer und Admin dürfen Labels entscheiden. */
+  /** Admin darf Labels entscheiden. */
   active: boolean
   isAdmin: boolean
   name: string

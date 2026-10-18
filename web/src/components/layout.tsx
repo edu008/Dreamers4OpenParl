@@ -38,7 +38,7 @@ export function Layout() {
   const queue = useReviewQueue()
   const openReviews = openRows(buildQueue(queue.candidates, decisions)).length
 
-  // Die Navigation folgt der gewählten Ansicht: Review für Reviewer und Admin, Admin nur für Admin.
+  // Die Navigation folgt der gewählten Ansicht: Review und Admin nur in der Ansicht Admin.
   const nav = [
     { to: "/", label: "Themen" },
     ...(active ? [{ to: "/review", label: "Review" }] : []),
@@ -86,7 +86,7 @@ export function Layout() {
       <main
         id="main"
         tabIndex={-1}
-        className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-8 outline-none"
+        className={`mx-auto flex w-full flex-1 flex-col gap-6 px-6 py-8 outline-none ${pathname === "/review" ? "max-w-6xl" : "max-w-4xl"}`}
       >
         <Outlet />
       </main>
