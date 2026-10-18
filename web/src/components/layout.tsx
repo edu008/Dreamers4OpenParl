@@ -27,7 +27,7 @@ function isActive(pathname: string, to: string): boolean {
 
 export function Layout() {
   const { pathname } = useLocation()
-  const { decisions } = useReview()
+  const { decisions, active } = useReview()
   const queue = useReviewQueue()
   const openReviews = openRows(buildQueue(queue.candidates, decisions)).length
   return (
@@ -45,7 +45,7 @@ export function Layout() {
               nativeButton={false}
               render={<NavLink to={item.to} end={item.to === "/"} />}
             >
-              {item.to === "/review" && openReviews > 0
+              {item.to === "/review" && active && openReviews > 0
                 ? `${item.label} (${openReviews})`
                 : item.label}
             </Button>
@@ -56,11 +56,6 @@ export function Layout() {
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-8">
         <Outlet />
       </main>
-      <footer className="px-6 py-6 text-xs text-muted-foreground">
-        <Link to="/status" className="underline underline-offset-2">
-          Verarbeitungsstand
-        </Link>
-      </footer>
     </div>
   )
 }
