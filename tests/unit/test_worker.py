@@ -60,7 +60,7 @@ async def test_two_stages_offer_only_the_topics_of_the_chosen_chapter(settings, 
     assert (only.stage, only.model_version) == ("8b", "test-8b")
     assert [(label.tag_id, label.confidence) for label in only.labels] == [("aps:2.4.1", 0.9)]
     assert result.summary_de == "Geschäft 7 (Mock)."
-    assert result.prompt_version.startswith("classify_chapters_v1+")
+    assert result.prompt_version.startswith("classify_chapters_v2+")
     assert len(requests) == 2
     stage2 = requests[1]["messages"][0]["content"]
     assert "aps:2.4.1 |" in stage2
@@ -149,6 +149,10 @@ def changing_8b(change):
     return answer
 
 
+def no_tags(data):
+    data["tags"] = []
+
+
 def low_confidence(data):
     data["tags"][0]["confidence"] = 0.3
 
@@ -165,6 +169,7 @@ def with_proposal(data):
         (None, {"language": "other"}, verified, "sprache"),
         (None, {"affair_id": 100}, verified, "stichprobe"),
         (None, {}, unverified, "konfidenz"),
+        (no_tags, {}, verified, "keine_themen"),
     ],
 )
 async def test_escalation_rules(settings, classifier, change, job_args, verify, reason):
@@ -178,3 +183,62 @@ async def test_escalation_rules(settings, classifier, change, job_args, verify, 
     assert (first.stage, final.stage, final.model_version) == ("8b", "70b", "test-70b")
     if verify is unverified:
         assert (first.labels[0].confidence, first.labels[0].evidence_verified) == (0.45, False)
+
+
+async def contains(text, evidences):
+    return [evidence in text for evidence in evidences]
+
+
+def paraphrasing(quote_on_retry):
+    """8B umschreibt den Beleg; auf die Nachfrage zitiert es (oder umschreibt wieder)."""
+
+    def answer(body):
+        data = json.loads(fake_completion(body["messages"]))
+        asked_again = "nicht wörtlich" in body["messages"][-1]["content"]
+        if "tags" in data and not (quote_on_retry and asked_again):
+            data["tags"][0]["evidence"] = "Eine eigene Umschreibung des Geschäfts"
+        return json.dumps(data)
+
+    return answer
+
+
+async def test_a_paraphrased_evidence_is_asked_for_again(settings, classifier):
+    client, requests = mock_llm(settings, paraphrasing(quote_on_retry=True))
+    async with client:
+        result, reasons = await classify_affair(
+            classifier, client, job(), threshold=0.6, verify=contains, escalate=nothing
+        )
+    assert reasons == []
+    (label,) = result.passes[-1].labels
+    assert (label.evidence_verified, label.confidence) == (True, 0.9)
+    assert len(requests) == 3
+    assert "aps:2.4.1" in requests[2]["messages"][-1]["content"]
+
+
+async def test_a_second_paraphrase_keeps_the_first_answer(settings, classifier):
+    client, requests = mock_llm(settings, paraphrasing(quote_on_retry=False))
+    async with client:
+        result, _ = await classify_affair(
+            classifier, client, job(), threshold=0.0, verify=contains, escalate=nothing
+        )
+    (label,) = result.passes[-1].labels
+    assert (label.evidence_verified, label.confidence) == (False, 0.45)
+    assert len(requests) == 3
+
+
+async def test_no_matching_chapter_offers_only_adhoc_tags(settings, classifier):
+    def answer(body):
+        data = json.loads(fake_completion(body["messages"]))
+        if "chapters" in data:
+            data["chapters"] = []
+        return json.dumps(data)
+
+    client, requests = mock_llm(settings, answer)
+    async with client:
+        result, _ = await classify_affair(
+            classifier, client, job(), threshold=0.6, verify=verified, escalate=nothing
+        )
+    stage2 = requests[1]["messages"][0]["content"]
+    assert "adhoc:digitalisierung-breit |" in stage2
+    assert "aps:2.4.1 |" not in stage2
+    assert [label.tag_id for label in result.passes[-1].labels] == ["adhoc:digitalisierung-breit"]

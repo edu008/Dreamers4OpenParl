@@ -62,7 +62,7 @@ def test_stage1_keeps_three_best_chapters():
             },
             OutputError,
         ),
-        ({"affair_id": 1, "language": "de", "chapters": []}, ValidationError),
+        ({"affair_id": 1, "language": "de"}, ValidationError),
         (
             {
                 "affair_id": 1,
@@ -161,3 +161,10 @@ def test_stage2_summary_never_costs_the_tags():
     assert len(long.summary_de) <= 300
     assert long.summary_de.endswith("…")
     assert [tag.tag_id for tag in long.tags] == ["aps:6.1.9"]
+
+
+def test_stage1_accepts_no_matching_chapter():
+    output = parse_stage1(
+        {"affair_id": 1, "language": "de", "chapters": []}, affair_id=1, offered={"aps:6.1"}
+    )
+    assert output.chapters == []

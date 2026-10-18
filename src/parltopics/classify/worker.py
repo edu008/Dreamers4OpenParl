@@ -51,7 +51,7 @@ from parltopics.registry.sync import synced_version
 
 log = logging.getLogger("parltopics.worker")
 
-STAGE_PROMPTS = ("classify_chapters_v1", "classify_topics_v1")
+STAGE_PROMPTS = ("classify_chapters_v2", "classify_topics_v2")
 SAMPLE_EVERY = 50  # Stichprobe von 2 % nach affair_id: reproduzierbar, ohne Zufall
 IDLE_SECONDS = 5
 INVALID = (JSONExtractionError, OutputError, ValidationError)
@@ -146,8 +146,14 @@ async def _pass(
         large,
         lambda data: parse_stage1(data, affair_id=job.affair_id, offered=chapter_ids),
     )
+    stage = "70b" if large else "8b"
     offered = {tag.tag_id: tag for choice in stage1.chapters for tag in c.topics[choice.chapter_id]}
     offered |= {tag.tag_id: tag for tag in c.adhoc}
+    if not offered:  # kein Kapitel und kein aktives Ad-hoc-Tag: nichts zur Auswahl
+        empty = Stage2Output(affair_id=job.affair_id, language=stage1.language)
+        settings = client.settings
+        model = settings.llm_name_large if large else settings.llm_name
+        return Pass(stage, model, []), empty
     dropped: list[str] = []
 
     def parse2(data: dict) -> Stage2Output:
@@ -155,18 +161,55 @@ async def _pass(
         dropped.extend(rejected)
         return output
 
-    stage2, model = await _ask(
-        client, c.stage2.messages({"tags": list(offered.values())}, user), large, parse2
-    )
+    messages = c.stage2.messages({"tags": list(offered.values())}, user)
+    stage2, model = await _ask(client, messages, large, parse2)
+    verified = await verify(job.text, [tag.evidence for tag in stage2.tags])
+    if not all(verified):
+        stage2, verified = await _requote(
+            client, messages, large, parse2, stage2, verified, job.text, verify
+        )
     if dropped:
         log.info("affair_id=%s verworfene Tags: %s", job.affair_id, ", ".join(dropped))
-    verified = await verify(job.text, [tag.evidence for tag in stage2.tags])
     labels = [
         # Unbelegt: Konfidenz halbiert (PRD 7.3); gerundet wie numeric(4,3) in affair_tags.
         Label(tag.tag_id, round(tag.confidence if ok else tag.confidence / 2, 3), tag.evidence, ok)
         for tag, ok in zip(stage2.tags, verified, strict=True)
     ]
-    return Pass("70b" if large else "8b", model, labels), stage2
+    return Pass(stage, model, labels), stage2
+
+
+async def _requote(
+    client: LLMClient,
+    messages: list[dict[str, Any]],
+    large: bool,
+    parse: Callable[[dict], Stage2Output],
+    stage2: Stage2Output,
+    verified: list[bool],
+    text: str,
+    verify: Callable[[str, list[str]], Awaitable[list[bool]]],
+) -> tuple[Stage2Output, list[bool]]:
+    """Einmal nachfragen, wenn Belege nicht wörtlich im Text stehen (Modelle umschreiben gern).
+
+    Die neue Antwort gilt nur, wenn sie gültig ist und mehr Belege im Text gefunden werden.
+    """
+    missing = [tag.tag_id for tag, ok in zip(stage2.tags, verified, strict=True) if not ok]
+    hint = (
+        f"Diese Belege stehen nicht wörtlich im Geschäftstext: {', '.join(missing)}."
+        " Ersetze sie durch exakt kopierte Abschnitte zwischen <<< und >>>, ohne eigene"
+        " Formulierung. Antworte nur mit dem vollständigen JSON-Objekt nach dem Schema."
+    )
+    retry = [
+        *messages,
+        {"role": "assistant", "content": stage2.model_dump_json()},
+        {"role": "user", "content": hint},
+    ]
+    reply = await client.chat(retry, large=large)
+    try:
+        again = parse(extract_json(reply.content))
+    except INVALID:
+        return stage2, verified
+    checked = await verify(text, [tag.evidence for tag in again.tags])
+    return (again, checked) if sum(checked) > sum(verified) else (stage2, verified)
 
 
 def escalation_reasons(
@@ -175,6 +218,7 @@ def escalation_reasons(
     """Wann 70B übernimmt (ARCHITEKTUR 3.4)."""
     checks = {
         "konfidenz": any(label.confidence < threshold for label in labels),
+        "keine_themen": not labels,  # auch wenn 8B kein passendes Kapitel fand
         "vorschlag": bool(output.proposed_tags),
         "sprache": job.language in (None, "other"),
         "stichprobe": job.affair_id % SAMPLE_EVERY == 0,
