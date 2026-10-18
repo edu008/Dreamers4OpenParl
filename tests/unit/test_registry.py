@@ -1,5 +1,6 @@
 import copy
 import random
+import re
 from pathlib import Path
 
 import pytest
@@ -161,7 +162,7 @@ def test_duplicate_ids_are_named(data):
 def test_load_registry_reports_file_errors(tmp_path, content):
     path = tmp_path / "tags.yaml"
     path.write_text(content, encoding="utf-8")
-    with pytest.raises(RegistryError, match=str(path)):
+    with pytest.raises(RegistryError, match=re.escape(str(path))):
         load_registry(path)
 
 

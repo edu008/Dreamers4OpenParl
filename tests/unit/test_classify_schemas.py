@@ -27,6 +27,14 @@ def test_stage1_valid():
     assert parse_stage1(data, affair_id=1, offered={"aps:6.1"}).chapters[0].chapter_id == "aps:6.1"
 
 
+def test_a_missing_aps_prefix_is_added_when_the_id_was_offered():
+    data = {"affair_id": 1, "language": "de", "chapters": [{"chapter_id": "6.1", "confidence": 1}]}
+    assert parse_stage1(data, affair_id=1, offered={"aps:6.1"}).chapters[0].chapter_id == "aps:6.1"
+    tags = [{"tag_id": "6.1.9", "confidence": 0.8, "evidence": "x"}]
+    result, dropped = parse_stage2(stage2(tags=tags), affair_id=70435, offered=OFFERED_TAGS)
+    assert ([t.tag_id for t in result.tags], dropped) == (["aps:6.1.9"], [])
+
+
 def test_stage1_keeps_three_best_chapters():
     chapters = [{"chapter_id": f"aps:{i}.1", "confidence": i / 10} for i in range(1, 6)]
     data = {"affair_id": 1, "language": "de", "chapters": chapters}
@@ -98,11 +106,24 @@ def test_stage2_keeps_five_best_tags_and_two_proposals():
     assert [p.name_de for p in result.proposed_tags] == ["P0", "P1"]
 
 
+def test_stage2_counts_a_repeated_tag_once_with_its_highest_confidence():
+    tags = [
+        {"tag_id": "aps:6.1.9", "confidence": 0.5, "evidence": "schwach"},
+        {"tag_id": "aps:6.1.4", "confidence": 0.7, "evidence": "b"},
+        {"tag_id": "aps:6.1.9", "confidence": 0.9, "evidence": "stark"},
+    ]
+    result, dropped = parse_stage2(stage2(tags=tags), affair_id=70435, offered=OFFERED_TAGS)
+    assert [(t.tag_id, t.evidence) for t in result.tags] == [
+        ("aps:6.1.9", "stark"),
+        ("aps:6.1.4", "b"),
+    ]
+    assert dropped == []
+
+
 @pytest.mark.parametrize(
     "overrides",
     [
         {"tags": [{"tag_id": "aps:6.1.9", "confidence": 1.5, "evidence": "x"}]},
-        {"tags": [{"tag_id": "aps:6.1.9", "confidence": 0.5, "evidence": "x" * 301}]},
         {"tags": [{"tag_id": "aps:6.1.9", "confidence": 0.5, "evidence": ""}]},
         {"unexpected": True},
     ],
@@ -110,6 +131,16 @@ def test_stage2_keeps_five_best_tags_and_two_proposals():
 def test_stage2_rejects_invalid_values(overrides):
     with pytest.raises(ValidationError):
         parse_stage2(stage2(**overrides), affair_id=70435, offered=OFFERED_TAGS)
+
+
+def test_a_long_quote_is_shortened_and_keeps_the_tag():
+    quote = "Der Bundesrat kann ausnahmsweise verzichten " * 10
+    tags = [{"tag_id": "aps:6.1.9", "confidence": 0.9, "evidence": quote}]
+    result, _ = parse_stage2(stage2(tags=tags), affair_id=70435, offered=OFFERED_TAGS)
+    (tag,) = result.tags
+    assert len(tag.evidence) <= 300
+    assert tag.evidence.endswith("…")
+    assert quote.startswith(tag.evidence[:-1] + " ")  # Schnitt an einer Wortgrenze
 
 
 def test_stage2_rejects_wrong_affair():

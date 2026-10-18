@@ -65,7 +65,7 @@ $COMPOSE exec api parltopics registry validate
 $COMPOSE exec api parltopics llm check
 ```
 
-`load-bundle.sh` prüft zuerst `SHA256SUMS` und bricht bei einer Abweichung ab. Beim ersten Mal legt es `/srv/parltopics/.env` aus `.env.example` an und trägt `REGISTRY_DIR`, `IMPORT_DIR` und `PARLTOPICS_ENV_FILE` ein. Das Import-Bündel kommt nach `/srv/parltopics/import` und ist im Container schreibgeschützt unter `/data/import` eingebunden. Ab Meilenstein M0 folgen `registry sync` und `ingest --bundle /data/import`, ab M1 der Dienst `worker` (`--profile worker`).
+`load-bundle.sh` prüft zuerst `SHA256SUMS` und bricht bei einer Abweichung ab. Beim ersten Mal legt es `/srv/parltopics/.env` aus `.env.example` an und trägt `REGISTRY_DIR`, `IMPORT_DIR` und `PARLTOPICS_ENV_FILE` ein. Das Import-Bündel kommt nach `/srv/parltopics/import` und ist im Container schreibgeschützt unter `/data/import` eingebunden. Danach folgen `$COMPOSE exec api parltopics registry sync`, `ingest --bundle /data/import` und `inputs`; den Dienst `worker` startet `$COMPOSE --profile worker up -d`. Die API-Dokumentation (Swagger UI) liefert das Image unter `/v1/docs` selbst aus, ohne CDN.
 
 ### 2.5 Updates
 

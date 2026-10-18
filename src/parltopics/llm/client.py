@@ -106,7 +106,8 @@ class AdaptiveLimiter:
             self._streak = 0
 
 
-def _blocked_by_allowlist(error: BaseException | None) -> bool:
+def blocked_by_allowlist(error: BaseException | None) -> bool:
+    """True, wenn der Fehler (oder seine Ursache) ein Verstoss gegen die Allowlist ist."""
     while error is not None:
         if isinstance(error, HostNotAllowedError):
             return True
@@ -132,7 +133,7 @@ async def call_with_retry(
             try:
                 result = await call()
             except RETRYABLE as error:
-                if _blocked_by_allowlist(error):
+                if blocked_by_allowlist(error):
                     raise
                 if isinstance(error, OVERLOAD):
                     await limiter.record_overload()

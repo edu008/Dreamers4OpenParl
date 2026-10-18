@@ -4,9 +4,9 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: ^(\.claude/skills/|docs/architecture/.*\.html$)
+        exclude: ^(\.claude/skills/|docs/architecture/.*\.html$|src/parltopics/api/static/)
       - id: end-of-file-fixer
-        exclude: ^(\.claude/skills/|docs/architecture/.*\.html$)
+        exclude: ^(\.claude/skills/|docs/architecture/.*\.html$|src/parltopics/api/static/)
       - id: check-yaml
         args: [--unsafe]
         exclude: ^\.claude/skills/

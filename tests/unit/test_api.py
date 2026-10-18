@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,9 @@ FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tags_example.yaml"
 
 
 def client_for(dist: Path, registry: Path = FIXTURE) -> TestClient:
-    return TestClient(create_app(Settings(web_dist_dir=dist, registry_path=registry)))
+    """Ohne `with`: die App startet nicht, ihr Datenbank-Pool bleibt geschlossen."""
+    settings = Settings(_env_file=None, web_dist_dir=dist, registry_path=registry)
+    return TestClient(create_app(settings))
 
 
 @pytest.fixture
@@ -40,6 +43,44 @@ def test_openapi_without_cdn_docs(built):
         assert "swagger" not in text
         assert "redoc" not in text
         assert "cdn" not in text
+
+
+def test_swagger_ui_is_served_from_the_package(built):
+    client = client_for(built)
+    page = client.get("/v1/docs").text
+    assert "http://" not in page
+    assert "https://" not in page
+    assert '"validatorUrl": null' in page
+    assets = re.findall(r'(?:src|href)="(/v1/docs/static/[^"]+)"', page)
+    assert len(assets) == 2
+    for asset in assets:
+        assert client.get(asset).status_code == 200
+    css = client.get("/v1/docs/static/swagger-ui.css").text
+    assert "@import" not in css
+    assert "url(http" not in css
+
+
+def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
+    paths = client_for(tmp_path).get("/v1/openapi.json").json()["paths"]
+    assert {
+        "/healthz",
+        "/v1/pages",
+        "/v1/pages/{page_id}",
+        "/v1/jobs/summary",
+        "/v1/topics",
+        "/v1/affairs/{affair_id}/topics",
+        "/v1/topics/{tag_id}/affairs",
+    } <= set(paths)
+    parameters = paths["/v1/topics/{tag_id}/affairs"]["get"]["parameters"]
+    names = {parameter["name"] for parameter in parameters}
+    assert {"tag_id", "body_key", "from", "to", "min_confidence", "limit", "offset"} <= names
+
+
+def test_database_endpoints_answer_503_without_database(tmp_path):
+    client = client_for(tmp_path)
+    for path in ("/v1/jobs/summary", "/v1/topics", "/v1/affairs/1/topics"):
+        assert client.get(path).status_code == 503
+    assert client.get("/healthz").status_code == 200
 
 
 def test_without_build_a_hint_page_without_external_urls(tmp_path):
