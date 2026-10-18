@@ -6,19 +6,24 @@ import {
   type WikiPage,
 } from "@/lib/api"
 
-// Themengraph: Punkte sind Themen mit Geschäften und ihre Bereiche, Linien zeigen die Zugehörigkeit
-// zum Bereich und gemeinsame Geschäfte. Übergangslösung: Die Verbindungen werden hier aus den
-// Geschäften je Thema berechnet. Mit vielen Geschäften braucht es einen Endpunkt im Backend
-// (z. B. GET /v1/graph/topics mit Knoten und Kanten, begrenzt auf eine Höchstzahl).
+// Themengraph in zwei Stufen. Übersicht: ein Punkt je Bereich, die Linien zeigen gemeinsame
+// Geschäfte zwischen Bereichen. Ein Klick öffnet einen Bereich und zeigt dessen Themen. So bleibt
+// die Zeichnung lesbar, auch wenn viele Themen Geschäfte tragen. Übergangslösung: Die Verbindungen
+// werden hier aus den Geschäften je Thema berechnet. Mit mehr Daten braucht es einen Endpunkt im
+// Backend (z. B. GET /v1/graph/topics mit Knoten und Kanten).
+
+export const WIDTH = 800
+export const HEIGHT = 560
 
 export interface GraphNode {
   id: string
   label: string
   kind: "bereich" | "thema"
-  /** Zahl der Geschäfte (nur Themen). */
+  /** Zahl der Geschäfte, die der Punkt trägt. */
   count: number
   /** Bereich, zu dem der Punkt gehört; bestimmt die Farbe. */
   group: string
+  r: number
   x: number
   y: number
 }
@@ -26,33 +31,31 @@ export interface GraphNode {
 export interface GraphEdge {
   a: string
   b: string
-  kind: "bereich" | "gemeinsam"
+  /** Zahl der Geschäfte, die beide Punkte tragen. */
   weight: number
 }
 
 export interface GraphData {
   nodes: GraphNode[]
+  /** Nur die stärksten Verbindungen, damit die Zeichnung lesbar bleibt. */
   edges: GraphEdge[]
-}
-
-export function radius(count: number, kind: "bereich" | "thema"): number {
-  return kind === "bereich" ? 9 : 5 + Math.sqrt(count) * 2
+  /** Zahl der Verbindungen, die aus Platzgründen nicht gezeichnet werden. */
+  hidden: number
 }
 
 /** Platzbedarf eines Punktes samt Beschriftung (Näherung nach Zeichenzahl), Mitte = Punktmitte. */
 function box(node: GraphNode): { halfW: number; up: number; down: number } {
-  const r = radius(node.count, node.kind)
   const perChar = node.kind === "bereich" ? 6.6 : 5.4
   return {
-    halfW: Math.max(r, (node.label.length * perChar) / 2) + 3,
-    up: r + 2,
-    down: r + 18,
+    halfW: Math.max(node.r, (node.label.length * perChar) / 2) + 3,
+    up: node.r + 2,
+    down: node.r + 18,
   }
 }
 
 /** Schiebt Punkte auseinander, bis sich keine Beschriftung mehr mit einer anderen überlappt. */
 function separate(nodes: GraphNode[]): void {
-  for (let pass = 0; pass < 120; pass++) {
+  for (let pass = 0; pass < 160; pass++) {
     let moved = false
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
@@ -90,13 +93,28 @@ function separate(nodes: GraphNode[]): void {
   }
 }
 
-export const WIDTH = 800
-export const HEIGHT = 600
-
-interface RawData {
+export interface RawData {
   pages: WikiPage[]
   topics: TopicOut[]
   affairs: Map<string, number[]>
+}
+
+/** Führt die Aufgaben mit höchstens `size` gleichzeitigen Anfragen aus. */
+async function pool<T, R>(
+  items: T[],
+  size: number,
+  work: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let next = 0
+  async function run(): Promise<void> {
+    while (next < items.length) {
+      const index = next++
+      results[index] = await work(items[index])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, run))
+  return results
 }
 
 async function loadRaw(): Promise<RawData> {
@@ -105,14 +123,12 @@ async function loadRaw(): Promise<RawData> {
     fetchJson<TopicOut[]>("/v1/topics"),
   ])
   const withAffairs = topics.filter((topic) => topic.n_affairs > 0)
-  const lists = await Promise.all(
-    withAffairs.map(async (topic) => {
-      const found = await fetchJson<TopicAffairs>(
-        `/v1/topics/${encodeURIComponent(topic.tag_id)}/affairs?limit=500`
-      )
-      return [topic.tag_id, found.items.map((item) => item.affair_id)] as const
-    })
-  )
+  const lists = await pool(withAffairs, 8, async (topic) => {
+    const found = await fetchJson<TopicAffairs>(
+      `/v1/topics/${encodeURIComponent(topic.tag_id)}/affairs?limit=500`
+    )
+    return [topic.tag_id, found.items.map((item) => item.affair_id)] as const
+  })
   return { pages: tree.pages, topics, affairs: new Map(lists) }
 }
 
@@ -139,77 +155,92 @@ function bereichOf(pages: Map<string, WikiPage>, id: string): WikiPage | null {
   return null
 }
 
-export function buildGraph(raw: RawData): GraphData {
-  const pageById = new Map(raw.pages.map((page) => [page.page_id, page]))
-  const nodes = new Map<string, GraphNode>()
-  const edges: GraphEdge[] = []
+function radiusOf(count: number, large: boolean): number {
+  return large
+    ? 9 + Math.min(20, Math.sqrt(count) * 1.4)
+    : 5 + Math.min(14, Math.sqrt(count) * 1.6)
+}
 
-  const topics = raw.topics.filter((topic) => topic.n_affairs > 0)
-  for (const topic of topics) {
-    const bereich = bereichOf(pageById, topic.tag_id)
-    const group = bereich?.page_id ?? "adhoc"
-    nodes.set(topic.tag_id, {
-      id: topic.tag_id,
-      label: topic.name_de,
-      kind: "thema",
-      count: topic.n_affairs,
-      group,
-      x: 0,
-      y: 0,
-    })
-    if (bereich) {
-      if (!nodes.has(bereich.page_id)) {
-        nodes.set(bereich.page_id, {
-          id: bereich.page_id,
-          label: bereich.title,
-          kind: "bereich",
-          count: 0,
-          group: bereich.page_id,
-          x: 0,
-          y: 0,
-        })
-      }
-      edges.push({
-        a: topic.tag_id,
-        b: bereich.page_id,
-        kind: "bereich",
-        weight: 1,
-      })
-    }
-  }
-
-  // Gemeinsame Geschäfte: zwei Themen tragen dasselbe Geschäft.
-  const topicsByAffair = new Map<number, string[]>()
-  for (const [tagId, affairIds] of raw.affairs) {
-    for (const affairId of affairIds) {
-      topicsByAffair.set(affairId, [
-        ...(topicsByAffair.get(affairId) ?? []),
-        tagId,
-      ])
-    }
-  }
+/** Paare von Punkten, die dasselbe Geschäft tragen, mit der Zahl der gemeinsamen Geschäfte. */
+function pairsOf(membership: Map<number, Set<string>>): GraphEdge[] {
   const pairs = new Map<string, GraphEdge>()
-  for (const tagIds of topicsByAffair.values()) {
-    for (let i = 0; i < tagIds.length; i++) {
-      for (let j = i + 1; j < tagIds.length; j++) {
-        const [a, b] = [tagIds[i], tagIds[j]].sort()
-        const key = `${a}|${b}`
-        const edge = pairs.get(key) ?? {
-          a,
-          b,
-          kind: "gemeinsam" as const,
-          weight: 0,
-        }
+  for (const members of membership.values()) {
+    const ids = [...members].sort()
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const key = `${ids[i]}|${ids[j]}`
+        const edge = pairs.get(key) ?? { a: ids[i], b: ids[j], weight: 0 }
         edge.weight += 1
         pairs.set(key, edge)
       }
     }
   }
-  edges.push(...pairs.values())
+  return [...pairs.values()]
+}
+
+/** Behält die stärksten Verbindungen, höchstens etwa drei je Punkt (gleich starke bleiben). */
+function strongest(
+  edges: GraphEdge[],
+  nodeCount: number
+): { kept: GraphEdge[]; hidden: number } {
+  const limit = Math.max(6, nodeCount * 3)
+  if (edges.length <= limit) return { kept: edges, hidden: 0 }
+  const sorted = [...edges].sort((a, b) => b.weight - a.weight)
+  const cutoff = sorted[limit - 1].weight
+  const kept = sorted.filter((edge) => edge.weight >= cutoff)
+  return { kept, hidden: edges.length - kept.length }
+}
+
+/** Titel einer Seite, z. B. für die Überschrift eines geöffneten Bereichs. */
+export function pageTitle(raw: RawData, id: string): string {
+  return raw.pages.find((page) => page.page_id === id)?.title ?? id
+}
+
+/**
+ * Zeichnung zum Stand der Ansicht: ohne `expanded` die Bereiche, mit `expanded` die Themen dieses
+ * Bereichs. Themen ohne Bereich (Ad-hoc-Themen) erscheinen in der Übersicht als eigene Punkte.
+ */
+export function buildView(raw: RawData, expanded: string | null): GraphData {
+  const pageById = new Map(raw.pages.map((page) => [page.page_id, page]))
+  const topics = raw.topics.filter((topic) => topic.n_affairs > 0)
+  const nodes = new Map<string, GraphNode>()
+  const membership = new Map<number, Set<string>>()
+  const affairsOfNode = new Map<string, Set<number>>()
+
+  for (const topic of topics) {
+    const bereich = bereichOf(pageById, topic.tag_id)
+    if (expanded !== null && bereich?.page_id !== expanded) continue
+    const unitId =
+      expanded !== null ? topic.tag_id : (bereich?.page_id ?? topic.tag_id)
+    if (!nodes.has(unitId)) {
+      nodes.set(unitId, {
+        id: unitId,
+        label: expanded !== null ? topic.name_de : (bereich?.title ?? topic.name_de),
+        kind: expanded === null && bereich ? "bereich" : "thema",
+        count: 0,
+        group: bereich?.page_id ?? "adhoc",
+        r: 0,
+        x: 0,
+        y: 0,
+      })
+      affairsOfNode.set(unitId, new Set())
+    }
+    for (const affairId of raw.affairs.get(topic.tag_id) ?? []) {
+      affairsOfNode.get(unitId)!.add(affairId)
+      const set = membership.get(affairId) ?? new Set<string>()
+      set.add(unitId)
+      membership.set(affairId, set)
+    }
+  }
+  for (const node of nodes.values()) {
+    node.count = affairsOfNode.get(node.id)!.size
+    node.r = radiusOf(node.count, expanded === null)
+  }
 
   const list = [...nodes.values()]
-  layout(list, edges)
-  return { nodes: list, edges }
+  const { kept, hidden } = strongest(pairsOf(membership), list.length)
+  layout(list, kept)
+  return { nodes: list, edges: kept, hidden }
 }
 
 /** Einfache Kräfteanordnung: Abstossung, Federn entlang der Linien, leichte Zugkraft zur Mitte. */
@@ -222,6 +253,9 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]): void {
   })
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const velocity = new Map(nodes.map((node) => [node.id, { x: 0, y: 0 }]))
+  const maxWeight = Math.max(1, ...edges.map((edge) => edge.weight))
+  // Wenige Punkte bekommen mehr Abstand, damit die Fläche genutzt wird.
+  const spread = count <= 12 ? 1.7 : 1
   const steps = 400
   for (let step = 0; step < steps; step++) {
     const cooling = 1 - step / steps
@@ -230,7 +264,7 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]): void {
         const dx = nodes[j].x - nodes[i].x
         const dy = nodes[j].y - nodes[i].y
         const distSq = dx * dx + dy * dy + 0.01
-        const force = 6000 / distSq
+        const force = (count <= 12 ? 14000 : 6000) / distSq
         const dist = Math.sqrt(distSq)
         const fx = (dx / dist) * force
         const fy = (dy / dist) * force
@@ -244,13 +278,12 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]): void {
       const a = byId.get(edge.a)
       const b = byId.get(edge.b)
       if (!a || !b) continue
-      const rest = edge.kind === "bereich" ? 90 : 70
+      const share = edge.weight / maxWeight
+      const rest = (130 - 60 * share) * spread
       const dx = b.x - a.x
       const dy = b.y - a.y
       const dist = Math.sqrt(dx * dx + dy * dy) || 1
-      const pull =
-        (dist - rest) *
-        (edge.kind === "gemeinsam" ? 0.05 + edge.weight * 0.01 : 0.04)
+      const pull = (dist - rest) * (0.015 + 0.04 * share)
       velocity.get(a.id)!.x += (dx / dist) * pull
       velocity.get(a.id)!.y += (dy / dist) * pull
       velocity.get(b.id)!.x -= (dx / dist) * pull
