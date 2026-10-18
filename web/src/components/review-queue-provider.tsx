@@ -1,98 +1,109 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 
 import {
   ReviewQueueContext,
   type ReviewQueueState,
 } from "@/hooks/use-review-queue"
-import {
-  fetchJson,
-  type PageTree,
-  type TopicAffairs,
-  type TopicOut,
-} from "@/lib/api"
-import { pool } from "@/lib/pool"
+import { fetchJson, type PageTree, type ReviewQueue } from "@/lib/api"
 import { ancestorsOf } from "@/lib/tree"
-import { reviewReasons } from "@/lib/label-state"
-import type { ReviewCandidate } from "@/lib/review-queue"
+import { toCandidate, type ReviewCandidate } from "@/lib/review-queue"
 
-// Es gibt noch keinen Endpunkt "Labels mit Prüfbedarf". Übergangslösung: alle Themen mit
-// Geschäften laden und die auffälligen Labels hier herausfiltern. Das trägt nur bei wenigen
-// Themen; mit mehr Daten braucht es einen Endpunkt im Backend (Auftrag an edu).
-async function loadCandidates(signal: AbortSignal): Promise<ReviewCandidate[]> {
-  const [topics, tree] = await Promise.all([
-    fetchJson<TopicOut[]>("/v1/topics", signal),
-    fetchJson<PageTree>("/v1/pages", signal),
-  ])
-  const withAffairs = topics.filter((topic) => topic.n_affairs > 0)
-  const lists = await pool(withAffairs, 8, async (topic) => ({
-    topic,
-    found: await fetchJson<TopicAffairs>(
-      `/v1/topics/${encodeURIComponent(topic.tag_id)}/affairs?limit=500`,
-      signal
-    ),
-  }))
-  const areaOf = (tagId: string) => {
+const PAGE = 500
+// Obergrenze der Seiten je Zustand, damit eine fehlerhafte Antwort nicht endlos weiterlädt.
+const MAX_PAGES = 20
+
+type AreaOf = (tagId: string) => { id: string; name: string } | null
+
+/** Bereich eines Themas aus dem Seitenbaum, für den Filter in der Review-Liste. */
+function areaLookup(tree: PageTree): AreaOf {
+  return (tagId) => {
     const self = tree.pages.find((page) => page.page_id === tagId)
     const chain = [...ancestorsOf(tree.pages, tagId), ...(self ? [self] : [])]
-    return chain.find((page) => page.kind === "bereich") ?? null
+    const area = chain.find((page) => page.kind === "bereich")
+    return area ? { id: area.page_id, name: area.title } : null
   }
-  return lists.flatMap(({ topic, found }) => {
-    const area = areaOf(topic.tag_id)
-    return found.items.flatMap((item) => {
-      const reasons = reviewReasons({
-        confidence: item.confidence,
-        evidence: item.evidence,
-        evidenceVerified: item.evidence_verified,
-      })
-      return reasons.length === 0
-        ? []
-        : [
-            {
-              affairId: String(item.affair_id),
-              number: item.number,
-              title: item.title ?? `Geschäft ${item.affair_id}`,
-              body: item.body_name,
-              tagId: topic.tag_id,
-              labelName: topic.name_de,
-              confidence: item.confidence,
-              evidence: item.evidence,
-              evidenceVerified: item.evidence_verified,
-              areaId: area?.page_id ?? null,
-              areaName: area?.title ?? null,
-              reasons,
-            },
-          ]
-    })
-  })
+}
+
+async function loadState(
+  state: "open" | "done",
+  areaOf: AreaOf,
+  signal: AbortSignal
+): Promise<{ threshold: number; rows: ReviewCandidate[] }> {
+  const rows: ReviewCandidate[] = []
+  let threshold = 0
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const queue = await fetchJson<ReviewQueue>(
+      `/v1/reviews/queue?state=${state}&limit=${PAGE}&offset=${page * PAGE}`,
+      signal
+    )
+    threshold = queue.threshold
+    rows.push(
+      ...queue.items.map((item) => toCandidate(item, areaOf(item.label.tag_id)))
+    )
+    if (queue.items.length === 0 || rows.length >= queue.total) break
+  }
+  return { threshold, rows }
+}
+
+interface Loaded {
+  open: ReviewCandidate[]
+  done: ReviewCandidate[]
+  threshold: number | null
+  error: string | undefined
 }
 
 export function ReviewQueueProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<ReviewQueueState>({
-    candidates: [],
-    loading: true,
-    error: undefined,
-  })
+  const [loaded, setLoaded] = useState<Loaded | null>(null)
+  const [version, setVersion] = useState(0)
+  const reload = useCallback(() => setVersion((current) => current + 1), [])
 
   useEffect(() => {
     const controller = new AbortController()
-    loadCandidates(controller.signal).then(
-      (candidates) =>
-        setState({ candidates, loading: false, error: undefined }),
+    fetchJson<PageTree>("/v1/pages", controller.signal)
+      .then((tree) => {
+        const areaOf = areaLookup(tree)
+        return Promise.all([
+          loadState("open", areaOf, controller.signal),
+          loadState("done", areaOf, controller.signal),
+        ])
+      })
+      .then(
+      ([open, done]) =>
+        setLoaded({
+          open: open.rows,
+          done: done.rows,
+          threshold: open.threshold,
+          error: undefined,
+        }),
       (error: unknown) => {
         if (!controller.signal.aborted) {
-          setState({
-            candidates: [],
-            loading: false,
+          setLoaded({
+            open: [],
+            done: [],
+            threshold: null,
             error: error instanceof Error ? error.message : String(error),
           })
         }
       }
     )
     return () => controller.abort()
-  }, [])
+  }, [version])
+
+  // Beim Neuladen bleibt die alte Liste stehen, bis die neue da ist.
+  const value = useMemo<ReviewQueueState>(
+    () => ({
+      open: loaded?.open ?? [],
+      done: loaded?.done ?? [],
+      threshold: loaded?.threshold ?? null,
+      loading: loaded === null,
+      error: loaded?.error,
+      reload,
+    }),
+    [loaded, reload]
+  )
 
   return (
-    <ReviewQueueContext.Provider value={state}>
+    <ReviewQueueContext.Provider value={value}>
       {children}
     </ReviewQueueContext.Provider>
   )

@@ -1,24 +1,17 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react"
 
 import { ReviewContext, type ReviewState } from "@/hooks/use-review"
-import {
-  loadDecisions,
-  loadName,
-  loadRole,
-  saveDecisions,
-  saveName,
-  saveRole,
-  type ReviewDecision,
-  type ReviewMap,
-  type Role,
-} from "@/lib/review"
+import { useReviewQueue } from "@/hooks/use-review-queue"
+import { postJson, type AffairTopics, type ReviewIn } from "@/lib/api"
+import { loadName, loadRole, saveName, saveRole, type Role } from "@/lib/review"
 
+// Das Backend verlangt einen Namen; wer keinen eintippt, entscheidet als «Reviewer».
 const DEFAULT_NAME = "Reviewer"
 
 export function ReviewProvider({ children }: { children: ReactNode }) {
   const [role, setRoleState] = useState<Role>(() => loadRole())
   const [name, setNameState] = useState(() => loadName())
-  const [decisions, setDecisions] = useState<ReviewMap>(() => loadDecisions())
+  const { reload } = useReviewQueue()
 
   const setRole = useCallback((next: Role) => {
     saveRole(next)
@@ -30,33 +23,21 @@ export function ReviewProvider({ children }: { children: ReactNode }) {
     setNameState(next)
   }, [])
 
-  const decide = useCallback(
-    (key: string, decision: ReviewDecision) => {
-      if (role === "leser") return
-      setDecisions((current) => {
-        const next = {
-          ...current,
-          [key]: {
-            decision,
-            by: name.trim() || DEFAULT_NAME,
-            at: new Date().toISOString(),
-          },
-        }
-        saveDecisions(next)
-        return next
-      })
+  const decide = useCallback<ReviewState["decide"]>(
+    async (affairId, tagId, action) => {
+      if (role === "leser") throw new Error("Die Ansicht «Leser» darf nicht entscheiden.")
+      const body: ReviewIn = {
+        affair_id: Number(affairId),
+        tag_id: tagId,
+        action,
+        user_name: name.trim() || DEFAULT_NAME,
+      }
+      const affair = await postJson<AffairTopics>("/v1/reviews", body)
+      reload()
+      return affair
     },
-    [role, name]
+    [role, name, reload]
   )
-
-  const undo = useCallback((key: string) => {
-    setDecisions((current) => {
-      const next = { ...current }
-      delete next[key]
-      saveDecisions(next)
-      return next
-    })
-  }, [])
 
   const value = useMemo<ReviewState>(
     () => ({
@@ -64,13 +45,11 @@ export function ReviewProvider({ children }: { children: ReactNode }) {
       active: role !== "leser",
       isAdmin: role === "admin",
       name,
-      decisions,
       setRole,
       setName,
       decide,
-      undo,
     }),
-    [role, name, decisions, setRole, setName, decide, undo]
+    [role, name, setRole, setName, decide]
   )
   return (
     <ReviewContext.Provider value={value}>{children}</ReviewContext.Provider>

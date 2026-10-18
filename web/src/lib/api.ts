@@ -35,6 +35,23 @@ export async function fetchJson<T>(
   return (await response.json()) as T
 }
 
+export async function postJson<T>(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal
+): Promise<T> {
+  const response = await fetch(path, {
+    method: "POST",
+    signal,
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw new Error(await errorDetail(response))
+  }
+  return (await response.json()) as T
+}
+
 async function errorDetail(response: Response): Promise<string> {
   try {
     const body: unknown = await response.json()
@@ -54,6 +71,8 @@ async function errorDetail(response: Response): Promise<string> {
 
 // Antworten der Sidecar-API für Geschäfte, Themen und Jobs (siehe /v1/docs).
 export type Stage = "8b" | "70b" | "human"
+
+export type ReviewStatus = "confirmed" | "rejected" | "changed"
 
 export interface TopicOut {
   tag_id: string
@@ -102,7 +121,9 @@ export interface LabelOut {
   evidence: string | null
   evidence_verified: boolean
   status: "active" | "rejected" | "superseded"
-  review_status: "confirmed" | "rejected" | "changed" | null
+  review_status: ReviewStatus | null
+  reviewed_by: string | null
+  reviewed_at: string | null
   task: string
   stage: Stage
   model_version: string
@@ -119,6 +140,7 @@ export interface AffairTopics {
   number: string | null
   title: string | null
   type: string | null
+  type_de: string | null
   begin_date: string | null
   url_external: string | null
   text: string | null
@@ -138,4 +160,82 @@ export interface JobCounts {
 
 export interface JobsSummary {
   tasks: JobCounts[]
+}
+
+export interface BodyOut {
+  body_key: string
+  name: string | null
+  level: string | null
+  n_affairs: number
+}
+
+/** Grund, warum ein Label in der Warteschlange steht (Codes der API, Text in lib/label-state.ts). */
+export type ReviewReason =
+  | "low_confidence"
+  | "no_evidence"
+  | "evidence_unverified"
+  | "sample"
+
+/** Kopf eines Geschäfts, wie ihn Listen der API tragen. */
+export interface AffairHead {
+  affair_id: number
+  body_key: string
+  body_name: string | null
+  body_level: string | null
+  number: string | null
+  title: string | null
+  type: string | null
+  type_de: string | null
+  begin_date: string | null
+}
+
+export interface ReviewItem extends AffairHead {
+  label: LabelOut
+  reasons: ReviewReason[]
+}
+
+export interface ReviewQueue {
+  /** CONFIDENCE_THRESHOLD der Klassifikation; darunter gilt eine Konfidenz als tief. */
+  threshold: number
+  total: number
+  limit: number
+  offset: number
+  items: ReviewItem[]
+}
+
+export type ReviewAction = "confirm" | "reject" | "change" | "add" | "undo"
+
+export interface ReviewIn {
+  affair_id: number
+  tag_id: string
+  action: ReviewAction
+  new_tag_id?: string
+  comment?: string
+  user_name: string
+}
+
+/** Ein aktives Thema eines Suchtreffers mit seinem Beleg. */
+export interface HitTopic {
+  tag_id: string
+  name_de: string
+  confidence: number
+  evidence: string | null
+  evidence_verified: boolean
+  stage: Stage
+}
+
+export interface SearchHit extends AffairHead {
+  rank: number
+  /** Ausschnitt als HTML: alles maskiert, nur Treffer in <mark>. Nie ungeprüft einfügen. */
+  headline: string
+  topics: HitTopic[]
+}
+
+export interface SearchResult {
+  q: string
+  total: number
+  limit: number
+  offset: number
+  duration_ms: number
+  items: SearchHit[]
 }

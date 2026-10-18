@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react"
 
-import type { ReviewDecision, ReviewMap, Role } from "@/lib/review"
+import type { AffairTopics, ReviewAction } from "@/lib/api"
+import type { Role } from "@/lib/review"
 
 export interface ReviewState {
   /** Gewählte Ansicht. Im MVP eine Darstellung, keine Zugangskontrolle. */
@@ -9,11 +10,14 @@ export interface ReviewState {
   active: boolean
   isAdmin: boolean
   name: string
-  decisions: ReviewMap
   setRole: (role: Role) => void
   setName: (name: string) => void
-  decide: (key: string, decision: ReviewDecision) => void
-  undo: (key: string) => void
+  /** Speichert den Entscheid im Backend und gibt das Geschäft mit den neuen Labels zurück. */
+  decide: (
+    affairId: string,
+    tagId: string,
+    action: Extract<ReviewAction, "confirm" | "reject" | "undo">
+  ) => Promise<AffairTopics>
 }
 
 export const ReviewContext = createContext<ReviewState | null>(null)

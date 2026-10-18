@@ -3,10 +3,10 @@ import { Link } from "react-router"
 import { Confidence } from "@/components/confidence"
 import { Button } from "@/components/ui/button"
 import { useReview } from "@/hooks/use-review"
-import type { Stage } from "@/lib/api"
-import { reviewKey } from "@/lib/review"
+import type { LabelOut, Stage } from "@/lib/api"
 
 export interface MarginLabel {
+  id: number
   tagId: string
   name: string
   confidence: number
@@ -17,7 +17,17 @@ export interface MarginLabel {
   /** Die Textstelle lässt sich im Text markieren (wörtliche Übereinstimmung). */
   evidenceMarked: boolean
   needsReview: boolean
+  /** Der Backend-Zustand des Labels: verworfene bleiben sichtbar, durchgestrichen. */
+  status: LabelOut["status"]
+  reviewStatus: LabelOut["review_status"]
+  reviewedBy: string | null
 }
+
+const DECISION_NAME = {
+  confirmed: "Bestätigt",
+  rejected: "Verworfen",
+  changed: "Geändert",
+} as const
 
 const STAGE_NAME: Record<Stage, string> = {
   "8b": "Apertus 8B",
@@ -38,11 +48,18 @@ export function MarginNotes({
   affairId,
   labels,
   versions,
+  pendingId,
+  error,
+  onDecide,
 }: {
   mode: "public" | "review"
   affairId: string
   labels: MarginLabel[]
   versions: Versions | null
+  /** Label, dessen Entscheid gerade gespeichert wird. */
+  pendingId: number | null
+  error: string | undefined
+  onDecide: (label: MarginLabel, action: "confirm" | "reject" | "undo") => void
 }) {
   const review = useReview()
   return (
@@ -58,11 +75,11 @@ export function MarginNotes({
       )}
       <ul className="flex flex-col gap-4">
         {labels.map((label) => {
-          const key = reviewKey(affairId, label.tagId)
-          const entry = review.decisions[key]
-          const rejected = entry?.decision === "rejected"
+          const decided = label.reviewStatus !== null
+          const rejected = label.status === "rejected"
+          const busy = pendingId === label.id
           return (
-            <li key={label.tagId} className="flex flex-col gap-1">
+            <li key={label.id} className="flex flex-col gap-1">
               <p
                 className={
                   rejected
@@ -93,7 +110,7 @@ export function MarginNotes({
                   Beleg nicht im Text gefunden
                 </p>
               )}
-              {entry ? (
+              {decided ? (
                 <p
                   className={
                     rejected
@@ -101,7 +118,8 @@ export function MarginNotes({
                       : "font-semibold text-level-high"
                   }
                 >
-                  {rejected ? "Verworfen" : "Bestätigt"} von {entry.by}
+                  {DECISION_NAME[label.reviewStatus ?? "confirmed"]} von{" "}
+                  {label.reviewedBy}
                 </p>
               ) : mode === "public" ? (
                 <p className="text-muted-foreground">
@@ -117,11 +135,12 @@ export function MarginNotes({
               <p className="text-muted-foreground">{STAGE_NAME[label.stage]}</p>
               {mode === "review" && review.active && (
                 <div className="mt-1 flex flex-wrap gap-1.5">
-                  {entry ? (
+                  {decided ? (
                     <Button
                       size="xs"
                       variant="outline"
-                      onClick={() => review.undo(key)}
+                      disabled={busy}
+                      onClick={() => onDecide(label, "undo")}
                     >
                       Rückgängig
                     </Button>
@@ -129,14 +148,16 @@ export function MarginNotes({
                     <>
                       <Button
                         size="xs"
-                        onClick={() => review.decide(key, "confirmed")}
+                        disabled={busy}
+                        onClick={() => onDecide(label, "confirm")}
                       >
                         Bestätigen
                       </Button>
                       <Button
                         size="xs"
                         variant="outline"
-                        onClick={() => review.decide(key, "rejected")}
+                        disabled={busy}
+                        onClick={() => onDecide(label, "reject")}
                       >
                         Verwerfen
                       </Button>
@@ -148,6 +169,11 @@ export function MarginNotes({
           )
         })}
       </ul>
+      {error && (
+        <p role="alert" className="text-destructive">
+          Entscheid nicht gespeichert: {error}
+        </p>
+      )}
       {mode === "public" && review.active && labels.length > 0 && (
         <p>
           <Link

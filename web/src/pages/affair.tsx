@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link, useParams } from "react-router"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -7,12 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
 import { usePageTitle } from "@/hooks/use-page-title"
-import { affairTypeDe } from "@/lib/affair-type"
 import { useReview } from "@/hooks/use-review"
 import { useReviewQueue } from "@/hooks/use-review-queue"
 import type { AffairTopics } from "@/lib/api"
 import { reviewReasons } from "@/lib/label-state"
-import { buildQueue, nextOpenRow } from "@/lib/review-queue"
+import { nextOpen } from "@/lib/review-queue"
 
 const LANGUAGE_NAME: Record<string, string> = {
   de: "Deutsch",
@@ -50,10 +50,26 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
   )
   const review = useReview()
   const queue = useReviewQueue()
-  const next = nextOpenRow(
-    buildQueue(queue.candidates, review.decisions),
-    affairId
-  )
+  const next = nextOpen(queue.open, affairId)
+  // Nach einem Entscheid liefert POST /v1/reviews das Geschäft mit den neuen Labels.
+  const [saved, setSaved] = useState<AffairTopics | null>(null)
+  const [pendingId, setPendingId] = useState<number | null>(null)
+  const [saveError, setSaveError] = useState<string>()
+
+  async function onDecide(
+    label: MarginLabel,
+    action: "confirm" | "reject" | "undo"
+  ) {
+    setPendingId(label.id)
+    setSaveError(undefined)
+    try {
+      setSaved(await review.decide(affairId, label.tagId, action))
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPendingId(null)
+    }
+  }
 
   if (found.loading) {
     return (
@@ -75,11 +91,21 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
     )
   }
 
-  const affair = found.data
+  const affair = saved?.affair_id === found.data.affair_id ? saved : found.data
   const language = affair.language ?? "de"
   const paragraphs = paragraphsOf(affair.text)
   const active = affair.labels.filter((label) => label.status === "active")
-  const labels: MarginLabel[] = active.map((label) => ({
+  // Verworfene Labels bleiben mit Entscheid sichtbar; Ersetztes (superseded) gehört zum Verlauf.
+  const shown = affair.labels.filter(
+    (label) =>
+      label.status === "active" ||
+      (label.status === "rejected" && label.review_status !== null)
+  )
+  const labels: MarginLabel[] = shown.map((label) => ({
+    id: label.id,
+    status: label.status,
+    reviewStatus: label.review_status,
+    reviewedBy: label.reviewed_by,
     tagId: label.tag_id,
     name: label.name_de,
     confidence: label.confidence,
@@ -89,14 +115,19 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
     evidenceMarked:
       label.evidence !== null && isEvidenceFound(paragraphs, label.evidence),
     needsReview:
-      reviewReasons({
-        confidence: label.confidence,
-        evidence: label.evidence,
-        evidenceVerified: label.evidence_verified,
-      }).length > 0,
+      label.status === "active" &&
+      label.review_status === null &&
+      reviewReasons(
+        {
+          confidence: label.confidence,
+          evidence: label.evidence,
+          evidenceVerified: label.evidence_verified,
+        },
+        queue.threshold
+      ).length > 0,
   }))
   const spans = labels
-    .filter((label) => label.evidenceMarked)
+    .filter((label) => label.status === "active" && label.evidenceMarked)
     .map((label) => ({ key: label.tagId, text: label.evidence as string }))
   const first = active[0] ?? affair.labels[0]
   const versions = first
@@ -158,7 +189,7 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
           <p className="tabular text-xs text-muted-foreground">
             {[
               affair.number,
-              affairTypeDe(affair.type),
+              affair.type_de ?? affair.type,
               affair.body_name ?? affair.body_key,
               formatDate(affair.begin_date),
             ]
@@ -204,6 +235,9 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
               affairId={String(affair.affair_id)}
               labels={labels}
               versions={versions}
+              pendingId={pendingId}
+              error={saveError}
+              onDecide={onDecide}
             />
           </div>
         </div>

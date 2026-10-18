@@ -1,4 +1,3 @@
-import { affairTypeDe } from "@/lib/affair-type"
 import { useMemo } from "react"
 import { Link } from "react-router"
 
@@ -65,7 +64,7 @@ export function AffairTable({ rows }: { rows: TopicAffair[] }) {
             >
               <td className="px-3 py-3">
                 <p className="tabular text-xs text-muted-foreground">
-                  {[row.number, affairTypeDe(row.type)]
+                  {[row.number, row.type_de ?? row.type]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>

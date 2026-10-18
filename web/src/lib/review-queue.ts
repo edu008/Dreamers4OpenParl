@@ -1,11 +1,13 @@
-import { reviewKey, type ReviewEntry, type ReviewMap } from "@/lib/review"
+import type { LabelOut, ReviewItem, ReviewReason } from "@/lib/api"
 
-/** Ein Label mit Prüfbedarf, wie es die Sidecar-API liefert. */
+/** Ein Label aus der Warteschlange der Sidecar-API (offen oder entschieden). */
 export interface ReviewCandidate {
   affairId: string
   number: string | null
   title: string
   body: string | null
+  bodyKey: string
+  bodyLevel: string | null
   tagId: string
   labelName: string
   confidence: number
@@ -14,41 +16,42 @@ export interface ReviewCandidate {
   /** Bereich des Themas (Seitenbaum), für den Filter. */
   areaId: string | null
   areaName: string | null
-  reasons: string[]
+  reasons: ReviewReason[]
+  /** Entscheid des Labels; nur bei erledigten gesetzt. Name und Zeit stammen vom Backend. */
+  decision: LabelOut["review_status"]
+  decidedBy: string | null
+  decidedAt: string | null
 }
 
-export interface QueueRow extends ReviewCandidate {
-  entry: ReviewEntry | undefined
-}
-
-/**
- * Kandidaten mit den lokalen Entscheiden. Entschiedene Labels bleiben in der Liste und rücken
- * ans Ende; die Reihenfolge ist sonst nach Konfidenz aufsteigend.
- */
-export function buildQueue(
-  candidates: ReviewCandidate[],
-  decisions: ReviewMap
-): QueueRow[] {
-  return candidates
-    .map((candidate) => ({
-      ...candidate,
-      entry: decisions[reviewKey(candidate.affairId, candidate.tagId)],
-    }))
-    .sort(
-      (a, b) =>
-        Number(Boolean(a.entry)) - Number(Boolean(b.entry)) ||
-        a.confidence - b.confidence
-    )
-}
-
-export function openRows(rows: QueueRow[]): QueueRow[] {
-  return rows.filter((row) => !row.entry)
+export function toCandidate(
+  item: ReviewItem,
+  area: { id: string; name: string } | null
+): ReviewCandidate {
+  return {
+    affairId: String(item.affair_id),
+    number: item.number,
+    title: item.title ?? `Geschäft ${item.affair_id}`,
+    body: item.body_name,
+    bodyKey: item.body_key,
+    bodyLevel: item.body_level,
+    tagId: item.label.tag_id,
+    labelName: item.label.name_de,
+    confidence: item.label.confidence,
+    evidence: item.label.evidence,
+    evidenceVerified: item.label.evidence_verified,
+    areaId: area?.id ?? null,
+    areaName: area?.name ?? null,
+    reasons: item.reasons,
+    decision: item.label.review_status,
+    decidedBy: item.label.reviewed_by,
+    decidedAt: item.label.reviewed_at,
+  }
 }
 
 /** Nächstes offenes Label in einem anderen Geschäft als dem gerade geöffneten. */
-export function nextOpenRow(
-  rows: QueueRow[],
+export function nextOpen(
+  open: ReviewCandidate[],
   currentAffairId: string
-): QueueRow | undefined {
-  return openRows(rows).find((row) => row.affairId !== currentAffairId)
+): ReviewCandidate | undefined {
+  return open.find((row) => row.affairId !== currentAffairId)
 }

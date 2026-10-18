@@ -1,6 +1,6 @@
-// Ansicht (Rolle) und Review-Entscheide. Das MVP hat keine Zugangskontrolle: die Ansicht ist eine
-// Darstellung für die Demo, keine Berechtigung. Solange es keinen Endpunkt POST /v1/reviews gibt,
-// gelten die Entscheide nur in diesem Browser.
+// Ansicht (Rolle) und Name der prüfenden Person. Das MVP hat keine Zugangskontrolle: die Ansicht ist eine
+// Darstellung für die Demo, keine Berechtigung. Die Entscheide selbst speichert das Backend
+// (POST /v1/reviews); der Browser merkt sich nur Ansicht und Name.
 
 export type Role = "leser" | "admin"
 
@@ -9,23 +9,8 @@ export const ROLES: { value: Role; label: string }[] = [
   { value: "admin", label: "Admin" },
 ]
 
-export type ReviewDecision = "confirmed" | "rejected"
-
-export interface ReviewEntry {
-  decision: ReviewDecision
-  by: string
-  at: string
-}
-
-export type ReviewMap = Record<string, ReviewEntry>
-
 const ROLE_KEY = "parltopics-view-role"
 const NAME_KEY = "parltopics-reviewer-name"
-const DECISIONS_KEY = "parltopics-review-decisions"
-
-export function reviewKey(affairId: string, tagId: string): string {
-  return `${affairId}|${tagId}`
-}
 
 function read(key: string): string | null {
   try {
@@ -62,17 +47,4 @@ export function loadName(): string {
 
 export function saveName(name: string): void {
   write(NAME_KEY, name)
-}
-
-export function loadDecisions(): ReviewMap {
-  try {
-    const raw = read(DECISIONS_KEY)
-    return raw === null ? {} : (JSON.parse(raw) as ReviewMap)
-  } catch {
-    return {}
-  }
-}
-
-export function saveDecisions(decisions: ReviewMap): void {
-  write(DECISIONS_KEY, JSON.stringify(decisions))
 }
