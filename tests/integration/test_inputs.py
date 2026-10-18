@@ -84,3 +84,29 @@ def test_inputs_fill_the_full_text_search_once_per_text(conn, repo_root):
     assert conn.execute(hit, ("german", "Cybersicherheit")).fetchall() == [(1,)]
     conn.execute("DELETE FROM search_documents WHERE affair_id = 2")  # fehlt: wird nachgeholt
     assert build_inputs(conn).indexed == 1
+
+
+def test_placeholder_documents_are_skipped(conn, repo_root):
+    """Pilotlauf 18.10.2026: Platzhalter aus der Quelle sind kein Dokumenttext."""
+    migrate(conn, repo_root / "migrations")
+    affair = "INSERT INTO affairs (id, body_key, title_de, raw) VALUES (%s, 'CHE', %s, '{}')"
+    conn.execute(affair, (1, "Vernehmlassung Energiegesetz"))
+    conn.execute(affair, (2, "Vernehmlassung Zollgesetz"))
+    doc = (
+        "INSERT INTO affair_docs (id, parent_type, parent_id, doc_date, language, text, raw)"
+        " VALUES (%s, 'affair', %s, %s, 'de', %s, '{}')"
+    )
+    fedlex = "[image: Logo] DE: Vielen Dank, dass Sie die Website des Bundesrechts aufgerufen haben"
+    conn.execute(doc, (10, 1, "2026-01-01", "[extraction_failed]"))
+    conn.execute(doc, (11, 1, "2026-01-02", fedlex))
+    conn.execute(doc, (12, 1, "2026-01-03", "Aller au contenu principal Autorités Guichet unique"))
+    conn.execute(doc, (13, 1, "2026-01-04", "Erläuternder Bericht zum Energiegesetz"))
+    conn.execute(doc, (20, 2, "2026-01-01", "[extraction_failed]"))
+    build_inputs(conn)
+    rows = dict(
+        conn.execute("SELECT affair_id, source || ': ' || text FROM affair_inputs").fetchall()
+    )
+    assert rows == {
+        1: "first_doc: Vernehmlassung Energiegesetz\nErläuternder Bericht zum Energiegesetz",
+        2: "title_only: Vernehmlassung Zollgesetz",
+    }
