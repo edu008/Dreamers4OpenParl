@@ -3,12 +3,12 @@ import { Route, Routes } from "react-router"
 import { Layout } from "@/components/layout"
 import { HomePage } from "@/pages/home"
 import { AffairPage } from "@/pages/affair"
+import { StatusPage } from "@/pages/status"
 import { ReviewPage } from "@/pages/review"
 import {
   GraphPage,
   NotFoundPage,
   SearchPage,
-  StatusPage,
 } from "@/pages/placeholders"
 import { TagPage } from "@/pages/tag-page"
 
