@@ -2,6 +2,8 @@ import { useState } from "react"
 import { Link } from "react-router"
 
 import { Confidence } from "@/components/confidence"
+import { JobTable, SystemList } from "@/components/job-summary"
+import { ReviewSignIn } from "@/components/review-signin"
 import { PlainHeader, SortHeader } from "@/components/sort-header"
 import { Button } from "@/components/ui/button"
 import { compareValues, useSort, type SortDir } from "@/hooks/use-sort"
@@ -46,7 +48,7 @@ function AffairCell({ row }: { row: QueueRow }) {
         {affair.number} · {affair.body}
       </p>
       <Link
-        to={`/geschaefte/${affair.id}`}
+        to={`/review/geschaefte/${affair.id}`}
         lang={affair.language}
         className="text-base leading-snug font-medium underline-offset-4 hover:underline"
       >
@@ -218,11 +220,9 @@ export function ReviewPage() {
           Konfidenz oder ein Beleg, der nicht im Text steht. Öffne das Geschäft,
           lies den Beleg und entscheide.
         </p>
-        {!review.active && (
-          <p className="text-xs text-muted-foreground">
-            Zum Entscheiden den Review-Modus oben rechts einschalten.
-          </p>
-        )}
+        <div className="pt-2">
+          <ReviewSignIn />
+        </div>
         <p className="text-xs text-muted-foreground">
           Beispieldaten, nicht aus OpenParlData. Entscheide gelten nur in diesem
           Browser.
@@ -272,6 +272,19 @@ export function ReviewPage() {
           </div>
         </details>
       )}
+      <section
+        aria-labelledby="processing-heading"
+        className="flex flex-col gap-3 pt-4"
+      >
+        <h2
+          id="processing-heading"
+          className="font-heading text-lg font-medium"
+        >
+          Verarbeitungsstand
+        </h2>
+        <SystemList />
+        <JobTable />
+      </section>
     </>
   )
 }

@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useReview } from "@/hooks/use-review"
 
-// Review-Modus: Name und Token eingeben. Der Token schaltet nur die Knöpfe frei; geprüft wird er
-// später vom Server (REVIEW_TOKEN). Ohne Token sind Entscheide nur lesbar.
-export function ReviewBar() {
+// Anmeldung für den Review, einmal oben auf der Seite "Review". Der Token schaltet nur die Knöpfe
+// frei; geprüft wird er vom Server (REVIEW_TOKEN), sobald es den Endpunkt gibt. Das Passwortfeld
+// hält ihn aus Screenshots und Videos heraus.
+export function ReviewSignIn() {
   const review = useReview()
   const [name, setName] = useState("")
   const [token, setToken] = useState("")
@@ -14,15 +15,13 @@ export function ReviewBar() {
 
   if (review.active) {
     return (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
         <span>
-          Review-Modus:{" "}
-          <strong className="font-semibold text-foreground">
-            {review.name}
-          </strong>
+          Angemeldet als{" "}
+          <strong className="font-semibold">{review.name}</strong>
         </span>
         <Button size="xs" variant="outline" onClick={review.deactivate}>
-          Beenden
+          Abmelden
         </Button>
       </div>
     )
@@ -40,15 +39,16 @@ export function ReviewBar() {
   }
 
   return (
-    <details className="relative text-xs">
-      <summary className="cursor-pointer text-muted-foreground underline-offset-4 hover:underline">
-        Review-Modus
-      </summary>
-      <form
-        onSubmit={submit}
-        className="absolute right-0 z-10 mt-2 flex w-64 flex-col gap-2 border border-border bg-background p-3"
-      >
-        <label className="flex flex-col gap-1">
+    <form
+      onSubmit={submit}
+      aria-label="Anmeldung für den Review"
+      className="flex max-w-xl flex-col gap-2 text-sm"
+    >
+      <p className="text-muted-foreground">
+        Zum Entscheiden anmelden. Den Token bekommst du vom Team.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs">
           Dein Name
           <Input
             value={name}
@@ -56,7 +56,7 @@ export function ReviewBar() {
             autoComplete="name"
           />
         </label>
-        <label className="flex flex-col gap-1">
+        <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs">
           Token
           <Input
             type="password"
@@ -65,15 +65,15 @@ export function ReviewBar() {
             autoComplete="off"
           />
         </label>
-        {error && (
-          <p role="alert" className="text-destructive">
-            {error}
-          </p>
-        )}
         <Button type="submit" size="sm">
-          Aktivieren
+          Anmelden
         </Button>
-      </form>
-    </details>
+      </div>
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
+    </form>
   )
 }
