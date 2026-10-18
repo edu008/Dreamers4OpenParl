@@ -9,6 +9,7 @@ nicht von einem CDN (PRD 9, Offline); FastAPIs Standardseiten /docs und /redoc b
 OpenAPI-Schema steht unter /v1/openapi.json.
 """
 
+import asyncio
 import time
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
@@ -27,7 +28,7 @@ from psycopg_pool import ConnectionPool, PoolClosed, PoolTimeout
 from pydantic import ValidationError
 
 from parltopics import __version__
-from parltopics.api import queries, reviews
+from parltopics.api import navigate, queries, reviews
 from parltopics.api.schemas import (
     AdhocActivated,
     AdhocCreated,
@@ -43,9 +44,15 @@ from parltopics.api.schemas import (
     JobsSummary,
     KeywordsIn,
     Lang,
+    NavigateIn,
+    NavigateOut,
     PageDetail,
     PageOut,
     PageTree,
+    PathStep,
+    ProposalDecisionIn,
+    ProposalDecisionOut,
+    ProposalList,
     RelatedTopic,
     ReviewIn,
     ReviewQueue,
@@ -53,14 +60,15 @@ from parltopics.api.schemas import (
     Stats,
     TopicAffairs,
     TopicGraph,
+    TopicName,
     TopicOut,
 )
-from parltopics.classify import adhoc
+from parltopics.classify import adhoc, proposals
 from parltopics.classify.queue import summary as job_summary
 from parltopics.config import Settings, get_settings
 from parltopics.llm import JSONExtractionError
 from parltopics.registry import Registry, RegistryError, load_registry
-from parltopics.registry.edit import adhoc_id
+from parltopics.registry.edit import TagExists
 from parltopics.wiki.tree import (
     Page,
     TreeError,
@@ -121,6 +129,9 @@ NO_BUILD_PAGE = """<!doctype html>
 """
 
 LangQuery = Annotated[Lang, Query(description="Sprache der Titel, sonst Deutsch")]
+# shortcut: höchstens zwei Suchen mit Modell gleichzeitig je API-Prozess; mit mehreren Prozessen
+# oder vielen Nutzern ein Limit je Nutzer und Minute (PRD F10, Rate-Limit).
+NAVIGATE_PARALLEL = 2
 
 
 def page_out(page: Page, lang: Lang) -> PageOut:
@@ -209,6 +220,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     Conn = Annotated[psycopg.Connection, Depends(connection)]
     no_database = {503: {"description": "Datenbank nicht erreichbar"}}
     no_registry = {503: {"description": "Registry nicht lesbar"}}
+    navigations = asyncio.Semaphore(NAVIGATE_PARALLEL)
 
     @app.get("/healthz", tags=["System"], summary="Lebenszeichen der API")
     def healthz() -> dict[str, str]:
@@ -408,6 +420,62 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             hidden=hidden,
         )
 
+    @api.get("/proposals", tags=["Review"], summary="Tag-Vorschläge", responses=no_database)
+    def proposal_list(
+        conn: Conn,
+        state: Annotated[
+            Literal["open", "done"], Query(description="open: zu entscheiden; done: entschieden")
+        ] = "open",
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> ProposalList:
+        """Vorschläge des Modells für fehlende Themen, gruppiert und mit Empfehlung (F7): new,
+        duplicate_of oder child_of. Offene zuerst nach der Zahl betroffener Geschäfte."""
+        total, rows = queries.proposals(conn, state=state, limit=limit, offset=offset)
+        return ProposalList(total=total, limit=limit, offset=offset, items=rows)
+
+    @api.post(
+        "/proposals/{proposal_id}/decision",
+        tags=["Review"],
+        summary="Entscheid zu einem Tag-Vorschlag",
+        responses={
+            404: {"description": "Vorschlag unbekannt"},
+            409: {"description": "Schon entschieden, oder das Tag gibt es schon"},
+            422: {"description": "merged ohne Tag oder ungültiges Tag"},
+            **no_database,
+        },
+    )
+    def proposal_decision(
+        proposal_id: int, body: ProposalDecisionIn, conn: Conn
+    ) -> ProposalDecisionOut:
+        """accepted legt ein Ad-hoc-Thema mit Status proposed an und öffnet Jobs für die
+        betroffenen Geschäfte; ein Mensch schaltet es später frei (/v1/adhoc/{tag_id}/activate).
+        merged und rejected halten den Entscheid mit Name und Zeit fest."""
+        try:
+            decided = proposals.decide(
+                conn,
+                settings,
+                proposal_id,
+                decision=body.decision,
+                by=body.user_name,
+                name_de=body.name_de,
+                definition_de=body.description_de,
+                broader=body.broader,
+                related_tag_id=body.related_tag_id,
+            )
+        except proposals.ProposalNotFound as error:
+            raise HTTPException(404, str(error)) from error
+        except (proposals.ProposalDecided, TagExists) as error:
+            raise HTTPException(409, str(error)) from error
+        except (ValueError, RegistryError) as error:
+            raise HTTPException(422, str(error)) from error
+        return ProposalDecisionOut(
+            proposal=queries.proposal(conn, proposal_id),
+            tag_id=decided.tag_id,
+            run_id=decided.run.run_id if decided.run else None,
+            jobs=decided.run.total if decided.run else None,
+        )
+
     @api.post(
         "/reviews",
         tags=["Review"],
@@ -483,10 +551,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         classify:adhoc:<name> für Kandidaten und Stichprobe. Die Worker prüfen sie mit
         Apertus; die Treffer erscheinen sofort als vorläufig (tag_status proposed). Ohne
         Anmeldung im Hack-MVP; user_name steht im Tag (created.by) und im Lauf."""
-        registry, _ = load()
-        tag_id = adhoc_id(body.name_de)
-        if any(tag.tag_id == tag_id for tag in registry.tags):
-            raise HTTPException(409, f"{tag_id} gibt es schon")
         try:
             created = adhoc.create(
                 conn,
@@ -499,6 +563,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 bodies=body.bodies,
                 since=body.since,
             )
+        except TagExists as error:
+            raise HTTPException(409, str(error)) from error
         except RegistryError as error:
             raise HTTPException(422, str(error)) from error
         return AdhocCreated(
@@ -605,6 +671,65 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         duration_ms = round((time.perf_counter() - start) * 1000)
         return SearchResult(
             q=q, total=total, limit=limit, offset=offset, duration_ms=duration_ms, items=items
+        )
+
+    @api.post(
+        "/search/navigate",
+        tags=["Suche"],
+        summary="Suche in eigenen Worten",
+        responses={
+            429: {"description": "Zu viele Suchen gleichzeitig"},
+            503: {"description": "LLM, Registry oder Datenbank nicht erreichbar"},
+        },
+    )
+    async def search_navigate(body: NavigateIn, conn: Conn) -> NavigateOut:
+        """Navigationssuche (F26): Apertus geht von Heart über Bereich und Kapitel zur Tag-Seite,
+        mit Rückweg und höchstens NAVIGATE_MAX_STEPS Modellaufrufen, wählt dort die passenden
+        Geschäfte und antwortet in belegten Aussagen. Findet der Baum nichts, liefert die
+        Volltextsuche die Kandidaten. Ohne Treffer keine Antwort. Dauert einige Sekunden; jede
+        Suche steht in search_runs."""
+        if navigations.locked():
+            raise HTTPException(429, "Zu viele Suchen gleichzeitig, bitte gleich nochmals")
+        registry, tree = load()
+        start = time.perf_counter()
+        async with navigations:
+            try:
+                searched = await navigate.search(settings, conn, registry, tree, body.query)
+            except openai.APIError as error:
+                elapsed = round((time.perf_counter() - start) * 1000)
+                await asyncio.to_thread(navigate.log_error, conn, body.query, elapsed)
+                raise HTTPException(503, f"LLM nicht erreichbar: {type(error).__name__}") from error
+        result = searched.result
+        hits = await asyncio.to_thread(queries.hits, conn, result.affair_ids)
+        related: dict[str, str] = {}
+        for page_id in result.path:
+            page = tree.get(page_id)
+            if page is not None and page.tag_id is not None:
+                related[page.tag_id] = page.title
+        for hit in hits:
+            for topic in hit["topics"]:
+                related.setdefault(topic["tag_id"], topic["name_de"])
+        return NavigateOut(
+            query=body.query,
+            answer=searched.answer,
+            statements=[statement.model_dump() for statement in result.statements],
+            hits=hits,
+            related_topics=[
+                TopicName(tag_id=tag_id, name_de=name) for tag_id, name in list(related.items())[:8]
+            ],
+            path=[
+                PathStep(
+                    page_id=page_id,
+                    title=tree[page_id].title if page_id in tree else "Volltextsuche",
+                )
+                for page_id in result.path
+            ],
+            status=result.status,
+            steps=result.steps,
+            fallback_used=result.fallback_used,
+            filters=result.filters.model_dump() if result.filters else None,
+            duration_ms=searched.duration_ms,
+            search_run_id=searched.run_id,
         )
 
     @api.get("/pages", tags=["Seiten"], summary="Seitenbaum des ParlWiki", responses=no_registry)

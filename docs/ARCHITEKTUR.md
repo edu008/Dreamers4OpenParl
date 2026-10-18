@@ -55,7 +55,7 @@ Diagramm: [01-systemarchitektur](architecture/01-systemarchitektur.html).
 | 4 Registry | `parltopics registry sync` | Tabelle `tags`, `scheme_hash` je Schema |
 | 5 Jobs öffnen | `parltopics classify --task classify:aps …` | `classification_jobs` auf `open`, Lauf in `classification_runs` |
 | 6 Klassifikation | `parltopics worker` oder `classify --wait` | Labels, Rohvorschläge, Job-Status |
-| 7 Vorschläge gruppieren | Ende des Laufs | `tag_proposals`, `tag_proposal_affairs` |
+| 7 Vorschläge gruppieren | `parltopics proposals group` nach dem Lauf | `tag_proposals` mit Empfehlung (Bezeichnungen, dann 70B), `tag_proposal_affairs` |
 | 8 Review | Web-App | `reviews`, Label-Status, ggf. `tags.yaml` |
 | 9 Seiten | `parltopics pages` (M3) | `wiki_pages` von unten nach oben, Status mit Weitergabe (Abschnitt 5) |
 | 10 Ausgabe | `parltopics export`, `parltopics wiki`, Web-App | Exportdatei, DVS-Liste, Markdown, Seiten |
@@ -345,6 +345,8 @@ Diagramm: [09-wiki-hierarchie](architecture/09-wiki-hierarchie.html).
 ## 6. Navigationssuche
 
 PRD 7.10, ADR 0008. Die Suche steigt durch den Seitenbaum ab. Der Code steuert die Schleife wie bei den Workern; das Modell bewertet nur, es wählt nicht den nächsten Schritt.
+
+Umgesetzt in `parltopics.search.navigate` (Schleife) und `parltopics.api.navigate` (Modell, Datenbank, Seitenbaum), Endpunkt `POST /v1/search/navigate`. Bis der Seitenlauf (M3) Kurzzusammenfassungen schreibt, steht für eine Seite die Definition aus der Registry. Höchstens zwei Suchen laufen je API-Prozess gleichzeitig, weitere bekommen 429. Jede Suche steht in `search_runs`, auch eine ohne Treffer oder mit Fehler.
 
 ```text
 stapel = [heart]; schritte = 0; filter = keine

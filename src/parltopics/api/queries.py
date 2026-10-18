@@ -54,6 +54,18 @@ WHERE d.document @@ {TSQUERY}
 # Treffer markieren STX und ETX; search() maskiert den Rest und macht daraus <mark>.
 MARK = ("\x02", "\x03")
 HEADLINE = f"MaxFragments=2, MaxWords=25, MinWords=10, StartSel={MARK[0]}, StopSel={MARK[1]}"
+
+
+def hit_topics(affair: str) -> str:
+    """Aktive Themen eines Geschäfts als JSON-Liste mit Beleg (schemas.HitTopic)."""
+    return f"""(SELECT coalesce(json_agg(json_build_object(
+                    'tag_id', l.tag_id, 'name_de', t.name_de, 'confidence', l.confidence,
+                    'evidence', l.evidence, 'evidence_verified', l.evidence_verified,
+                    'stage', l.stage) ORDER BY l.confidence DESC), '[]')
+        FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
+        WHERE l.affair_id = {affair} AND l.status = 'active')"""
+
+
 SEARCH = f"""
 WITH page AS (
     SELECT {AFFAIR_HEAD}, d.language, ts_rank_cd(d.document, {TSQUERY}) AS rank
@@ -65,12 +77,7 @@ SELECT page.*,
        ts_headline((CASE page.language WHEN 'de' THEN 'german' WHEN 'fr' THEN 'french'
                                        WHEN 'it' THEN 'italian' ELSE 'simple' END)::regconfig,
                    i.text, {TSQUERY}, %(headline)s) AS headline,
-       (SELECT coalesce(json_agg(json_build_object(
-                    'tag_id', l.tag_id, 'name_de', t.name_de, 'confidence', l.confidence,
-                    'evidence', l.evidence, 'evidence_verified', l.evidence_verified,
-                    'stage', l.stage) ORDER BY l.confidence DESC), '[]')
-        FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
-        WHERE l.affair_id = page.affair_id AND l.status = 'active') AS topics
+       {hit_topics("page.affair_id")} AS topics
 FROM page JOIN affair_inputs i ON i.affair_id = page.affair_id
 ORDER BY page.rank DESC, page.begin_date DESC NULLS LAST, page.affair_id DESC
 """
@@ -134,6 +141,20 @@ GROUP BY o.tag_id, t.name_de
 ORDER BY shared DESC, o.tag_id
 LIMIT %(limit)s
 """
+# Tag-Vorschläge (F7) mit Varianten, Zahl und Auswahl der betroffenen Geschäfte.
+PROPOSALS = """
+SELECT p.id, p.name_de, p.desc_de, p.reason, p.recommendation, p.related_tag_id,
+       rt.name_de AS related_name_de, p.status, p.decision, p.decided_by, p.decided_at,
+       p.created_at, p.model_version,
+       (SELECT count(*) FROM tag_proposal_affairs pa WHERE pa.proposal_id = p.id) AS n_affairs,
+       ARRAY(SELECT DISTINCT r.name_de FROM tag_proposal_raw r WHERE r.proposal_id = p.id
+             ORDER BY r.name_de LIMIT 5) AS variants,
+       ARRAY(SELECT pa.affair_id FROM tag_proposal_affairs pa WHERE pa.proposal_id = p.id
+             ORDER BY pa.affair_id DESC LIMIT 5) AS affair_ids
+FROM tag_proposals p LEFT JOIN tags rt ON rt.tag_id = p.related_tag_id
+"""
+PROPOSAL_STATE = {"open": "p.status <> 'done'", "done": "p.status = 'done'"}
+PROPOSAL_ORDER = {"open": "n_affairs DESC, p.id DESC", "done": "p.decided_at DESC, p.id DESC"}
 RUNS = """
 SELECT id, task, kind, started_at, finished_at, n_total, n_done, n_failed, n_escalated,
        prompt_version, registry_version,
@@ -416,5 +437,44 @@ def affair_heads(conn: psycopg.Connection, ids: list[int]) -> list[dict]:
     """Köpfe dieser Geschäfte in der Reihenfolge von ids."""
     sql = f"""SELECT {AFFAIR_HEAD} FROM affairs a LEFT JOIN bodies b ON b.body_key = a.body_key
               WHERE a.id = ANY(%s)"""
+    rows = {row["affair_id"]: row for row in conn.cursor(row_factory=dict_row).execute(sql, (ids,))}
+    return [rows[affair_id] for affair_id in ids if affair_id in rows]
+
+
+def proposals(
+    conn: psycopg.Connection, *, state: str, limit: int, offset: int
+) -> tuple[int, list[dict]]:
+    """Offene (meiste Geschäfte zuerst) oder entschiedene Vorschläge (neueste zuerst)."""
+    where = PROPOSAL_STATE[state]
+    cursor = conn.cursor(row_factory=dict_row)
+    count = f"SELECT count(*) AS n FROM tag_proposals p WHERE {where}"
+    total = cursor.execute(count).fetchone()["n"]
+    rows = cursor.execute(
+        f"{PROPOSALS} WHERE {where} ORDER BY {PROPOSAL_ORDER[state]}"
+        " LIMIT %(limit)s OFFSET %(offset)s",
+        {"limit": limit, "offset": offset},
+    ).fetchall()
+    return total, _with_affairs(conn, rows)
+
+
+def proposal(conn: psycopg.Connection, proposal_id: int) -> dict | None:
+    sql = f"{PROPOSALS} WHERE p.id = %(id)s"
+    rows = conn.cursor(row_factory=dict_row).execute(sql, {"id": proposal_id}).fetchall()
+    return _with_affairs(conn, rows)[0] if rows else None
+
+
+def _with_affairs(conn: psycopg.Connection, rows: list[dict]) -> list[dict]:
+    """Ersetzt affair_ids durch die Köpfe der Geschäfte, mit einer Abfrage für alle Zeilen."""
+    ids = [affair_id for row in rows for affair_id in row["affair_ids"]]
+    heads = {head["affair_id"]: head for head in affair_heads(conn, ids)}
+    for row in rows:
+        row["affairs"] = [heads[i] for i in row.pop("affair_ids") if i in heads]
+    return rows
+
+
+def hits(conn: psycopg.Connection, ids: list[int]) -> list[dict]:
+    """Köpfe dieser Geschäfte mit ihren aktiven Themen, in der Reihenfolge von ids."""
+    sql = f"""SELECT {AFFAIR_HEAD}, {hit_topics("a.id")} AS topics
+              FROM affairs a LEFT JOIN bodies b ON b.body_key = a.body_key WHERE a.id = ANY(%s)"""
     rows = {row["affair_id"]: row for row in conn.cursor(row_factory=dict_row).execute(sql, (ids,))}
     return [rows[affair_id] for affair_id in ids if affair_id in rows]

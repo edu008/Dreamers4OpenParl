@@ -14,6 +14,12 @@ AFFAIR = re.compile(r"Geschäft (\d+):")
 CHAPTER = re.compile(r"^(aps:\d+\.\d+) \|", re.MULTILINE)
 TOPIC = re.compile(r"^(aps:\d+\.\d+\.\d+|adhoc:[a-z0-9.\-]+) \|", re.MULTILINE)
 TEXT = re.compile(r"<<<\n(.*?)\n>>>", re.DOTALL)
+SIMILAR = re.compile(r"Ähnlichste bestehende Themen.*?<<<\n(.*?)>>>", re.DOTALL)
+ANY_TAG = re.compile(r"^(aps:[\d.]+|adhoc:[a-z0-9.\-]+) \|", re.MULTILINE)
+CHILDREN = re.compile(r"Unterseiten.*?<<<\n(.*?)>>>", re.DOTALL)
+AFFAIRS = re.compile(r"Geschäfte \(ID.*?<<<\n(.*?)>>>", re.DOTALL)
+FIRST_ID = re.compile(r"^(\d+) \|", re.MULTILINE)
+RELEVANCE = (0.9, 0.5)  # Navigationssuche: erste Unterseite, dann die zweite, sonst nichts
 
 app = FastAPI(title="Mock-LLM")
 
@@ -39,6 +45,38 @@ def fake_completion(messages: list[dict]) -> str:
     """Antwort auf eine Anfrage: JSON nach PRD Anhang B oder "OK"."""
     system = next((m["content"] for m in messages if m["role"] == "system"), "")
     user = next((m["content"] for m in messages if m["role"] == "user"), "")
+    if "Vorschläge für neue Themen" in system:  # proposal_check_v1: erstes ähnliches Tag
+        block = SIMILAR.search(user)
+        first = ANY_TAG.search(block.group(1)) if block else None
+        related = first.group(1) if first else None
+        check = {
+            "recommendation": "child_of" if related else "new",
+            "related_tag": related,
+            "name_de": "Mock-Vorschlag",
+            "description_de": "Beschreibung (Mock).",
+            "reason": "Mock",
+        }
+        return json.dumps(check)
+    if "Themenbaum" in system:  # navigate_v1
+        block = CHILDREN.search(user)
+        kids = ANY_TAG.findall(block.group(1)) if block else []
+        scores = [
+            {"page_id": kid, "relevance": RELEVANCE[i] if i < len(RELEVANCE) else 0.0}
+            for i, kid in enumerate(kids)
+        ]
+        step: dict = {"scores": scores}
+        if '"filters"' in system:
+            step["filters"] = {"year_from": None, "year_to": None, "body_keys": [], "levels": []}
+        return json.dumps(step)
+    if "Grundlage sind nur die Geschäfte" in system:  # navigate_answer_v1
+        block = AFFAIRS.search(user)
+        first = FIRST_ID.search(block.group(1)) if block else None
+        if first is None:
+            return json.dumps({"selected_ids": [], "statements": []})
+        chosen = int(first.group(1))
+        text = f"Geschäft {chosen} passt zur Frage (Mock)."
+        statement = {"text": text, "affair_ids": [chosen], "page_ids": []}
+        return json.dumps({"selected_ids": [chosen], "statements": [statement]})
     if "Suchbegriffe" in system:  # adhoc_keywords_v1
         return json.dumps({"de": ["Velo", "Veloweg"], "fr": ["vélo"], "it": ["bicicletta"]})
     affair = AFFAIR.search(user)

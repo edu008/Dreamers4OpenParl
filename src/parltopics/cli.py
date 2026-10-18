@@ -26,10 +26,12 @@ db_app = typer.Typer(help="Datenbank und Migrationen.", no_args_is_help=True)
 registry_app = typer.Typer(help="Tag-Registry registry/tags.yaml.", no_args_is_help=True)
 llm_app = typer.Typer(help="LLM-Endpunkt (LLM_BASE_URL).", no_args_is_help=True)
 jobs_app = typer.Typer(help="Job-Queue der Klassifikation.", no_args_is_help=True)
+proposals_app = typer.Typer(help="Tag-Vorschläge des Modells (F7).", no_args_is_help=True)
 app.add_typer(db_app, name="db")
 app.add_typer(registry_app, name="registry")
 app.add_typer(llm_app, name="llm")
 app.add_typer(jobs_app, name="jobs")
+app.add_typer(proposals_app, name="proposals")
 
 
 def _planned(milestone: str, reference: str) -> None:
@@ -336,6 +338,23 @@ def _run_worker(settings: Settings, **options) -> None:
         typer.echo("Abgebrochen; laufende Jobs gehen nach dem Timeout zurück auf open.", err=True)
         raise typer.Exit(code=130) from None
     typer.echo("Fertig: " + (", ".join(f"{n} {s}" for s, n in sorted(counts.items())) or "-"))
+
+
+@proposals_app.command("group")
+def proposals_group(
+    model: Annotated[bool, typer.Option(help="Empfehlung von 70B; ohne: nur Bezeichnungen")] = True,
+) -> None:
+    """Rohvorschläge gruppieren und gegen die Registry prüfen; nach jedem Lauf (ARCHITEKTUR 2)."""
+    from parltopics.classify.proposals import group
+    from parltopics.db import connect
+
+    settings = get_settings()
+    with connect(settings.database_url, autocommit=True) as conn:
+        result = asyncio.run(group(conn, settings, use_model=model))
+    typer.echo(
+        f"{result.created} neue Vorschläge ({result.checked} mit Empfehlung von 70B),"
+        f" {result.attached} Rohvorschläge zu bestehenden"
+    )
 
 
 @jobs_app.command("summary")
