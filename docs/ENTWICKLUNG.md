@@ -62,6 +62,19 @@ uv run parltopics proposals group                        # Tag-Vorschläge grupp
 
 Ein Ad-hoc-Thema (PRD 7.4) legt `uv run parltopics adhoc "Velowege" --description-file velo.txt --body CHE` an: 70B schlägt Stichwörter in DE/FR/IT vor (oder `--keywords-file` mit `{"de": [], "fr": [], "it": []}`), das Kommando zeigt Kandidaten und Stichprobe und fragt vor dem Anlegen. Das Tag steht danach mit Status `proposed` in `registry/tags.yaml`, die Jobs `classify:adhoc:<name>` sind offen; `--wait` arbeitet sie gleich ab. Bewährt sich das Thema: `uv run parltopics registry activate adhoc:velowege`. Dasselbe geht über die API (`/v1/adhoc/keywords`, `/v1/adhoc/preview`, `/v1/adhoc`, `/v1/adhoc/{tag_id}/activate`). Weil beides `registry/tags.yaml` ändert, die Datei danach committen.
 
+### Qualität prüfen: Curia-Vista-Check
+
+Für APS gibt es keine Gold-Labels. Als grobe Kontrolle dienen die Curia-Vista-Sachbereiche, die die Parlamentsdienste jedem Bundesgeschäft zuordnen (Hack-Datensatz, PRD 13). Die Zuordnung der 28 Sachbereiche zu den APS-Kapiteln steht in `registry/aps_descriptions.yaml` (`close_match`, `broad_match`); Themen erben sie von ihrem Kapitel.
+
+```bash
+mkdir -p data/import/hackapertus
+curl -o data/import/hackapertus/che_affairs_keywords.csv https://files.openparldata.ch/hackapertus/che_affairs_keywords.csv
+uv run parltopics eval --curia data/import/hackapertus/che_affairs_keywords.csv            # alle aktiven Labels, CHE ab 2024
+uv run parltopics eval --curia data/import/hackapertus/che_affairs_keywords.csv --run 3    # nur ein Lauf
+```
+
+Gezählt werden nur APS-Labels. „Mindestens ein Treffer“ ist die Kennzahl aus PRD 13 (Ziel 75 %). Der Check ist grob: Er prüft nur das Kapitel, nicht das Thema, und Curia Vista ist selbst keine unabhängige Wahrheit. Für Vergleiche immer dieselben Geschäfte nehmen; bei unter 500 Geschäften schwanken die Zahlen um einige Prozentpunkte.
+
 Ohne LLM-Endpunkt hilft der Mock aus den Tests: `uv run uvicorn app:app --app-dir tests/mock_llm --port 8080` und in `.env` `LLM_BASE_URL=http://127.0.0.1:8080/v1`. Er wählt immer das erste angebotene Kapitel und Thema.
 
 ## Gemeinsame Datenbank über Tailscale

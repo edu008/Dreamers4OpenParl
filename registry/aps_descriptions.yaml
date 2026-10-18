@@ -5,7 +5,10 @@
 # `parltopics registry apply-descriptions` übernehmen diese Datei nach registry/tags.yaml:
 # `it` wird zum italienischen Namen (APS liefert nur DE und FR), `de` zur deutschen Definition
 # (bei Kapiteln bleibt „Umfasst: …“ angehängt),
-# `alt` zu den Synonymen (alt_labels). Gepflegt von Hand; Änderungen erhöhen registry_version.
+# `alt` zu den Synonymen (alt_labels), `close_match`/`broad_match` zum Mapping auf die 28
+# Curia-Vista-Sachbereiche (curia:<topic_id> aus che_topics_vocabulary.csv). Themen erben das
+# Mapping ihres Kapitels; eigene Einträge nur, wo ein Thema anders liegt. Gepflegt von Hand;
+# Änderungen erhöhen registry_version (das Mapping ändert den scheme_hash nicht, F27).
 
 # Bereiche (nur italienischer Name) -----------------------------------------------------------
 
@@ -29,69 +32,93 @@ aps:8:
 # Kapitel ------------------------------------------------------------------------------------
 
 aps:1.1:
+  close_match: [curia:4]
   it: "Questioni politiche fondamentali"
   de: Grundsätze des Staates und seines Gebiets — Selbstverständnis der Schweiz, Bundesverfassung als Ganzes, Gebiets- und Grenzfragen zwischen Kantonen und Gemeinden.
 aps:1.2:
+  close_match: [curia:4, curia:421, curia:1221]
   it: "Istituzioni"
   de: Aufbau und Arbeit der staatlichen Organe — Bundesrat, Verwaltung, Parlamente, Gerichte, Kantone und Gemeinden als Institutionen, Parteien, Verbände und Lobbyismus; auch Wahlen in Ämter und Kommissionen sowie Vereidigungen.
 aps:2.1:
+  close_match: [curia:4]
   it: "Democrazia diretta"
   de: Mitwirkung des Volkes — Abstimmungen, Referenden, Volksinitiativen, Stimm- und Wahlrecht, Abstimmungsverfahren, politische Kampagnen und deren Finanzierung.
 aps:2.2:
+  close_match: [curia:4]
   it: "Elezioni"
   de: Wahlen von Volksvertretungen und Regierungen auf Bund, Kantonen und Gemeinden — Wahlvorbereitung, Kandidaturen, Resultate.
 aps:3.1:
+  close_match: [curia:8, curia:10]
   it: "Politica europea ed estera"
   de: Beziehungen der Schweiz zum Ausland — EU, andere Staaten, UNO und internationale Organisationen, Neutralität, Aussenhandel, Entwicklungszusammenarbeit, humanitäre Hilfe, Auslandschweizer.
 aps:4.1:
+  close_match: [curia:28, curia:2811]
   it: "Gruppi sociali"
   de: Lage und Rechte gesellschaftlicher Gruppen — Bevölkerung, Migration, Asyl, Gleichstellung, Familien, Kinder und Jugend, ältere Menschen, LGBTQIA+, Menschen mit Behinderungen, Fahrende.
 aps:4.2:
+  close_match: [curia:32, curia:36]
   it: "Formazione e ricerca"
   de: Schulen aller Stufen, Berufsbildung, Hochschulen und Forschung.
 aps:4.3:
+  close_match: [curia:2831]
   it: "Cultura, lingue, chiese"
   de: Kultur und Kulturförderung, Sprachen und Sprachgebiete, Religionsgemeinschaften, Ortsbild- und Denkmalschutz, Urheberrecht.
 aps:4.4:
+  close_match: [curia:34]
   it: "Media"
   de: Presse, Radio, Fernsehen, Online-Medien, Medienförderung und Meinungsumfragen. Nicht gemeint sind Geschäfte, die nur in den Medien erwähnt werden.
 aps:5.1:
+  close_match: [curia:2841]
+  broad_match: [curia:28]
   it: "Sanità, assistenza sociale, sport"
   de: Gesundheitswesen (Spitäler, Ärzte, Pflege, Medikamente, Sucht, Prävention, Pandemien), Sozialhilfe und Sport.
 aps:5.2:
+  close_match: [curia:2836]
+  broad_match: [curia:2841, curia:28]
   it: "Assicurazioni sociali"
   de: Obligatorische und freiwillige Versicherungen gegen soziale Risiken — AHV, IV, Krankenkasse und Krankenkassenprämien, Unfall, Arbeitslosigkeit, Mutterschaft, Erwerbsersatz, Pensionskasse, Säule 3a, Ergänzungsleistungen.
 aps:6.1:
+  close_match: [curia:48, curia:34]
   it: "Trasporti e comunicazioni"
   de: Verkehr aller Art (Strasse, Schiene, öffentlicher Verkehr, Velo, Fussverkehr, Luft, Schiff), Post, Telekommunikation und Digitalisierung von Staat und Gesellschaft.
 aps:6.2:
+  close_match: [curia:66]
   it: "Energia"
   de: Energieversorgung und Energiepolitik — Strom, Stromnetz, Öl und Gas, Wasserkraft, Sonne, Wind, Biomasse, Geothermie, Kernkraft, Energieeffizienz.
 aps:6.3:
+  close_match: [curia:2846]
   it: "Pianificazione del territorio e abitazioni"
   de: Raumplanung, Zonen und Bauen, Wohnungsbau, Wohneigentum, Mieten und Bodenrecht.
 aps:6.4:
+  close_match: [curia:52]
   it: "Protezione dell'ambiente"
   de: Schutz der Umwelt — Natur und Landschaft, Biodiversität, Boden, Gewässer, Luft, Klima, Lärm, Abfall und Recycling, Naturgefahren.
 aps:7.1:
+  close_match: [curia:12, curia:1236, curia:1216, curia:1211, curia:1231, curia:1221]
   it: "Ordinamento giuridico"
   de: Recht und Justiz — Grundrechte, Strafrecht, Zivilrecht, Völkerrecht, Einbürgerung, Rechtshilfe, Datenschutz.
 aps:7.2:
+  close_match: [curia:9]
   it: "Politica di sicurezza"
   de: Sicherheit nach aussen und innen — Armee, Rüstung, Zivilschutz, Zivildienst, Polizei, öffentliche Sicherheit und Ordnung, Cybersicherheit, Landesversorgung.
 aps:8.1:
+  close_match: [curia:15]
   it: "Politica economica"
   de: Wirtschaftslage und Wirtschaftspolitik — Konjunktur, Regional- und Standortförderung, Unternehmensrecht, Wettbewerb, Konsumentenschutz, Tourismus, Wirtschaftsordnung.
 aps:8.2:
+  close_match: [curia:24, curia:2446]
   it: "Finanze pubbliche"
   de: Finanzen von Bund, Kantonen und Gemeinden — Budget/Voranschlag, Rechnung, Sparprogramme, Schulden, Steuern, Finanzausgleich.
 aps:8.3:
+  close_match: [curia:24, curia:15]
   it: "Moneta e credito"
   de: Geld- und Finanzmarkt — Geldpolitik, Nationalbank, Banken, Börsen, private Versicherungen, Finanzmarktaufsicht.
 aps:8.4:
+  close_match: [curia:55]
   it: "Agricoltura"
   de: Landwirtschaft und Ernährung sowie Tiere und Wald — Agrarpolitik, Lebensmittel, Pflanzen- und Tierproduktion, Tierschutz, Jagd und Fischerei, Wolf und Grossraubtiere, Forstwirtschaft, Gentechnik.
 aps:8.5:
+  close_match: [curia:44]
   it: "Lavoro"
   de: Arbeitswelt — Arbeitsrecht, Arbeitsmarkt, Löhne, Gesamtarbeitsverträge und Sozialpartner, Arbeitszeit, Schutz der Arbeitnehmenden.
 
@@ -234,6 +261,7 @@ aps:3.1.5:
   de: Gute Dienste, Vermittlung, Schutzmachtmandate, Friedensförderung.
   alt: {de: [Vermittlung, Friedensförderung, Schutzmachtmandat], fr: [bons offices, médiation], it: [buoni uffici, mediazione]}
 aps:3.1.6:
+  close_match: [curia:15]
   it: "Politica economica esterna"
   de: Aussenhandel, Freihandelsabkommen, Zölle, Exportkontrolle ziviler Güter, Investitionsschutz.
   alt: {de: [Freihandelsabkommen, Zoll, Zölle, Exporte, Handelsabkommen], fr: [libre-échange, douane, exportations], it: [libero scambio, dazi, esportazioni]}
@@ -730,6 +758,7 @@ aps:8.4.11:
   de: Gentechnik und neue Züchtungsverfahren in Landwirtschaft und Lebensmitteln.
   alt: {de: [Gentechnik, GVO, Genomeditierung, neue Züchtungsmethoden], fr: [génie génétique, OGM], it: [ingegneria genetica, OGM]}
 aps:8.4.12:
+  close_match: [curia:52]
   it: "Protezione dell'ambiente nell'agricoltura"
   de: Umweltwirkungen der Landwirtschaft — Nährstoffe, Pestizide, Biodiversitätsförderflächen, Biolandbau.
   alt: {de: [Biolandbau, Nährstoffe, Ammoniak], fr: [agriculture biologique, nutriments], it: [agricoltura biologica]}

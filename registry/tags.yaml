@@ -3,7 +3,7 @@
 # Jede inhaltliche Änderung erhöht registry_version. Neue Tags nur über Vorschläge und Review.
 # Tag-Seiten im ParlWiki werden aus der Datenbank erzeugt und sind keine zweite Registry.
 # Schreibt ein Werkzeug die Datei neu, gehen diese Kommentare verloren (ADR 0001).
-registry_version: 2026-10-18.6
+registry_version: 2026-10-18.7
 schemes:
   aps:
     label: Année Politique Suisse
@@ -44,6 +44,8 @@ tags:
       Questions territoriales; Question jurassienne.'
   broader:
   - aps:1
+  close_match:
+  - curia:4
 - tag_id: aps:1.1.1
   scheme: aps
   status: active
@@ -163,6 +165,10 @@ tags:
       Cantons; Villes, régions, communes; Système des partis; Partis; Associations.'
   broader:
   - aps:1
+  close_match:
+  - curia:4
+  - curia:421
+  - curia:1221
 - tag_id: aps:1.2.1
   scheme: aps
   status: active
@@ -529,6 +535,8 @@ tags:
       politiques; Financement de la politique.'
   broader:
   - aps:2
+  close_match:
+  - curia:4
 - tag_id: aps:2.1.1
   scheme: aps
   status: active
@@ -767,6 +775,8 @@ tags:
       Elections des parlements cantonaux; Elections communales.'
   broader:
   - aps:2
+  close_match:
+  - curia:4
 - tag_id: aps:2.2.1
   scheme: aps
   status: active
@@ -888,6 +898,9 @@ tags:
       Bons offices; Politique économique extérieure; Politique de développement; Suisses de l''étranger.'
   broader:
   - aps:3
+  close_match:
+  - curia:8
+  - curia:10
 - tag_id: aps:3.1.1
   scheme: aps
   status: active
@@ -1054,6 +1067,8 @@ tags:
     - libero scambio
     - dazi
     - esportazioni
+  close_match:
+  - curia:15
 - tag_id: aps:3.1.7
   scheme: aps
   status: active
@@ -1137,6 +1152,9 @@ tags:
       Gens du voyage.'
   broader:
   - aps:4
+  close_match:
+  - curia:28
+  - curia:2811
 - tag_id: aps:4.1.1
   scheme: aps
   status: active
@@ -1430,6 +1448,9 @@ tags:
       supérieur; Hautes écoles; Recherche.'
   broader:
   - aps:4
+  close_match:
+  - curia:32
+  - curia:36
 - tag_id: aps:4.2.1
   scheme: aps
   status: active
@@ -1593,6 +1614,8 @@ tags:
       des sites et du patrimoine; Droit d''auteur.'
   broader:
   - aps:4
+  close_match:
+  - curia:2831
 - tag_id: aps:4.3.1
   scheme: aps
   status: active
@@ -1747,6 +1770,8 @@ tags:
       généraux de la politique médiatique; Presse; Radio et télévision; Médias numériques; Sondages.'
   broader:
   - aps:4
+  close_match:
+  - curia:34
 - tag_id: aps:4.4.1
   scheme: aps
   status: active
@@ -1903,6 +1928,10 @@ tags:
       Epidémies et pandémies; Assistance sociale; Sport.'
   broader:
   - aps:5
+  close_match:
+  - curia:2841
+  broad_match:
+  - curia:28
 - tag_id: aps:5.1.1
   scheme: aps
   status: active
@@ -2217,6 +2246,11 @@ tags:
       complémentaires (PC).'
   broader:
   - aps:5
+  close_match:
+  - curia:2836
+  broad_match:
+  - curia:2841
+  - curia:28
 - tag_id: aps:5.2.1
   scheme: aps
   status: active
@@ -2537,6 +2571,9 @@ tags:
       Chemin de fer; Trafic aérien; Navigation; Poste; Télécommunication; Numérisation.'
   broader:
   - aps:6
+  close_match:
+  - curia:48
+  - curia:34
 - tag_id: aps:6.1.1
   scheme: aps
   status: active
@@ -2823,6 +2860,8 @@ tags:
       gaz; Force hydraulique; Energies renouvelables; Energie nucléaire.'
   broader:
   - aps:6
+  close_match:
+  - curia:66
 - tag_id: aps:6.2.1
   scheme: aps
   status: active
@@ -3020,6 +3059,8 @@ tags:
       Construction de logements et propriété; Logement et loyer; Droit foncier.'
   broader:
   - aps:6
+  close_match:
+  - curia:2846
 - tag_id: aps:6.3.1
   scheme: aps
   status: active
@@ -3164,6 +3205,8 @@ tags:
       naturelles.'
   broader:
   - aps:6
+  close_match:
+  - curia:52
 - tag_id: aps:6.4.1
   scheme: aps
   status: active
@@ -3449,6 +3492,13 @@ tags:
       Nationalité; Entraide judiciaire; Protection des données.'
   broader:
   - aps:7
+  close_match:
+  - curia:12
+  - curia:1236
+  - curia:1216
+  - curia:1211
+  - curia:1231
+  - curia:1221
 - tag_id: aps:7.1.1
   scheme: aps
   status: active
@@ -3660,6 +3710,8 @@ tags:
       publique; Police; Cybersécurité; Sécurité d''approvisionnement.'
   broader:
   - aps:7
+  close_match:
+  - curia:9
 - tag_id: aps:7.2.1
   scheme: aps
   status: active
@@ -3945,6 +3997,8 @@ tags:
       sociétés; Concurrence; Protection des consommateurs/trices; Tourisme; Ordre économique.'
   broader:
   - aps:8
+  close_match:
+  - curia:15
 - tag_id: aps:8.1.1
   scheme: aps
   status: active
@@ -4150,6 +4204,9 @@ tags:
       financière; Budgets des cantons et des communes.'
   broader:
   - aps:8
+  close_match:
+  - curia:24
+  - curia:2446
 - tag_id: aps:8.2.1
   scheme: aps
   status: active
@@ -4335,6 +4392,9 @@ tags:
       Assurances.'
   broader:
   - aps:8
+  close_match:
+  - curia:24
+  - curia:15
 - tag_id: aps:8.3.1
   scheme: aps
   status: active
@@ -4503,6 +4563,8 @@ tags:
       dans l''agriculture.'
   broader:
   - aps:8
+  close_match:
+  - curia:55
 - tag_id: aps:8.4.1
   scheme: aps
   status: active
@@ -4820,6 +4882,8 @@ tags:
     - nutriments
     it:
     - agricoltura biologica
+  close_match:
+  - curia:52
 - tag_id: aps:8.5
   scheme: aps
   status: active
@@ -4837,6 +4901,8 @@ tags:
       des travailleurs.'
   broader:
   - aps:8
+  close_match:
+  - curia:44
 - tag_id: aps:8.5.1
   scheme: aps
   status: active

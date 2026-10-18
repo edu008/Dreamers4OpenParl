@@ -454,6 +454,43 @@ def wiki(
 @app.command("eval")
 def evaluate(
     gold: Annotated[Path, typer.Option(help="Gold-Set-Verzeichnis")] = Path("data/gold"),
+    curia: Annotated[
+        Path | None,
+        typer.Option(help="che_affairs_keywords.csv: aktive APS-Labels gegen Curia Vista prüfen"),
+    ] = None,
+    since: Annotated[
+        datetime, typer.Option(formats=DATE, help="nur Bundesgeschäfte ab Datum")
+    ] = datetime(2024, 1, 1),
+    run: Annotated[list[int] | None, typer.Option(help="nur Labels dieser Läufe")] = None,
 ) -> None:
-    """Präzision, Recall, Baseline und Konfidenzbänder als Markdown-Bericht (F16)."""
-    _planned("M2", "F16")
+    """Präzision, Recall, Baseline und Konfidenzbänder als Markdown-Bericht (F16).
+
+    Mit --curia: grobe Kontrolle der APS-Labels gegen die Curia-Vista-Sachbereiche (PRD 13).
+    """
+    if curia is None:
+        _planned("M2", "F16")
+    from parltopics.db import connect
+    from parltopics.evaluation.curia import TARGET, load_curia, score, tag_areas
+    from parltopics.registry import load_registry
+
+    settings = get_settings()
+    registry = load_registry(settings.registry_path)
+    with connect(settings.database_url) as conn:
+        rows = conn.execute(
+            "SELECT l.affair_id, l.tag_id, l.confidence::float FROM affair_tags l"
+            " JOIN affairs a ON a.id = l.affair_id"
+            " WHERE l.status = 'active' AND a.body_key = 'CHE' AND a.begin_date >= %s"
+            " AND (%s::int[] IS NULL OR l.run_id = ANY(%s::int[]))",
+            (since.date(), run, run),
+        ).fetchall()
+    predictions: dict[int, list[tuple[str, float]]] = {}
+    for affair_id, tag_id, confidence in rows:
+        predictions.setdefault(affair_id, []).append((tag_id, confidence))
+    result = score(predictions, load_curia(curia), tag_areas(registry))
+    typer.echo(
+        f"Curia-Vista-Check, registry {registry.registry_version}, CHE ab {since.date()}:"
+        f" {result.affairs} Geschäfte, {result.labels} APS-Labels\n"
+        f"  mindestens ein Treffer  {result.any_hit:6.1%}   (Ziel PRD 13: {TARGET:.0%})\n"
+        f"  Top-1-Label trifft      {result.top1:6.1%}\n"
+        f"  Labels, die treffen     {result.precision:6.1%}"
+    )
