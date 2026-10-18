@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router"
+import { Link } from "react-router"
 
 import { ApiStatus } from "@/components/api-status"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -41,23 +41,6 @@ function Planned({
         </ul>
       </CardContent>
     </Card>
-  )
-}
-
-export function AffairPage() {
-  const { affairId = "" } = useParams()
-  return (
-    <Planned
-      title={`Geschäft ${affairId}`}
-      description="Geschäftsseiten gibt es nur in der Web-App, nicht im Markdown-Export."
-      milestone="M3"
-      items={[
-        "Titel, Texte und Links zu OpenParlData",
-        "Labels mit Konfidenz, Begründung und Stufe (8B oder 70B)",
-        "Kurzzusammenfassung aus der Klassifikation",
-        "Review: bestätigen, ändern, ablehnen, ergänzen",
-      ]}
-    />
   )
 }
 
