@@ -26,20 +26,27 @@ LAYOUT = {
     "affair_inputs": (1, 1, "Geschäft"),
     "search_documents": (2, 1, "Geschäft"),
     "affair_tags": (0, 2, "Labels und Review"),
-    "reviews": (1, 2, "Labels und Review"),
-    "tag_proposals": (2, 2, "Vorschläge"),
-    "tag_proposal_raw": (3, 2, "Vorschläge"),
-    "tag_proposal_affairs": (4, 2, "Vorschläge"),
+    "affair_summaries": (1, 2, "Labels und Review"),
+    "reviews": (2, 2, "Labels und Review"),
+    "tag_proposals": (3, 2, "Vorschläge"),
+    "tag_proposal_raw": (4, 2, "Vorschläge"),
+    "tag_proposal_affairs": (5, 2, "Vorschläge"),
     "tags": (0, 3, "Registry"),
-    "registry_syncs": (1, 3, "Registry"),
-    "agent_runs": (2, 3, "Agent"),
-    "bodies": (0, 4, "Quelldaten"),
-    "affair_texts": (1, 4, "Quelldaten"),
-    "affair_docs": (2, 4, "Quelldaten"),
+    "tag_labels": (1, 3, "Registry"),
+    "tag_relations": (2, 3, "Registry"),
+    "tag_mappings": (3, 3, "Registry"),
+    "registry_syncs": (4, 3, "Registry"),
+    "wiki_pages": (0, 4, "Wiki"),
+    "wiki_page_events": (1, 4, "Wiki"),
+    "search_runs": (2, 4, "Suche und Agent"),
+    "agent_runs": (3, 4, "Suche und Agent"),
+    "bodies": (0, 5, "Quelldaten"),
+    "affair_texts": (1, 5, "Quelldaten"),
+    "affair_docs": (2, 5, "Quelldaten"),
 }
 
-# Gezeichnete Beziehungen (Kind-Tabelle, Fremdschlüssel). run_id-Verweise und die Selbstverweise
-# von tags bleiben ohne Linie, damit das Diagramm lesbar bleibt (siehe Karte "Lesehilfe").
+# Gezeichnete Beziehungen (Kind-Tabelle, Fremdschlüssel). run_id-Verweise und Selbstverweise
+# bleiben ohne Linie, damit das Diagramm lesbar bleibt (siehe Karte "Lesehilfe").
 DRAWN = [
     ("classification_jobs", "affair_id"),
     ("classification_jobs", "run_id"),
@@ -47,6 +54,7 @@ DRAWN = [
     ("search_documents", "affair_id"),
     ("affair_tags", "affair_id"),
     ("affair_tags", "tag_id"),
+    ("affair_summaries", "affair_id"),
     ("reviews", "affair_tag_id"),
     ("reviews", "affair_id"),
     ("reviews", "new_tag_id"),
@@ -55,6 +63,11 @@ DRAWN = [
     ("tag_proposal_raw", "affair_id"),
     ("tag_proposal_affairs", "proposal_id"),
     ("tag_proposal_affairs", "affair_id"),
+    ("tag_labels", "tag_id"),
+    ("tag_relations", "tag_id"),
+    ("tag_mappings", "tag_id"),
+    ("wiki_pages", "tag_id"),
+    ("search_runs", "agent_run_id"),
 ]
 
 CARDS = [
@@ -65,19 +78,26 @@ CARDS = [
             "Erzeugt aus migrations/ mit scripts/erd_from_sql.py; verbindlich sind die Migrationen",
             "Quelltabellen haben keine Fremdschlüssel: affair_texts.affair_id und "
             "affair_docs.parent_id verweisen fachlich auf affairs",
-            "run_id in affair_tags, tag_proposals und tag_proposal_raw verweist auf "
-            "classification_runs; die Linien sind weggelassen",
-            "tags.parent_id und tags.merged_into verweisen auf tags selbst",
+            "run_id in affair_tags, affair_summaries, tag_proposals und tag_proposal_raw verweist "
+            "auf classification_runs; die Linien sind weggelassen",
+            "Ohne Linie: tags.parent_id, tags.merged_into und tag_relations.target_id verweisen "
+            "auf tags, wiki_pages.parent_id und redirect_to auf wiki_pages",
+            "wiki_page_events.page_id verweist fachlich auf wiki_pages (Protokoll wie job_events)",
         ],
     },
     {
         "dot": "amber",
         "title": "Regeln",
         "items": [
-            "Pro Geschäft, Tag, input_hash und prompt_version höchstens ein aktives Label "
-            "(partieller Unique-Index)",
-            "Labels werden nie gelöscht, nur auf superseded oder rejected gesetzt",
-            "Ein Job im Status pending trägt immer worker_id und locked_at",
+            "Pro Geschäft und Tag höchstens ein aktives Label (Migration 0002); "
+            "pro Geschäft und Sprache höchstens eine aktive Kurzzusammenfassung",
+            "Labels und Kurzzusammenfassungen werden nie gelöscht, nur auf superseded oder "
+            "rejected gesetzt",
+            "Ein Job oder eine Seite im Status pending trägt immer worker_id und locked_at",
+            "Genau eine Seite heart ohne Tag und ohne Eltern; jede andere Seite gehört zu "
+            "genau einem Tag",
+            "Pro Tag-Paar und Richtung nur broader oder related",
+            "Eine Suche ohne Treffer speichert keine Antwort",
         ],
     },
     {

@@ -147,10 +147,31 @@
       ]
     },
     {
+      "id": "affair_summaries",
+      "label": "affair_summaries",
+      "tag": "Labels und Review",
+      "row": 1,
+      "col": 2,
+      "attributes": [
+        {"name": "id", "type": "bigserial", "key": "pk"},
+        {"name": "affair_id", "type": "bigint", "key": "fk", "references": "affairs.id"},
+        {"name": "language", "type": "text"},
+        {"name": "summary", "type": "text"},
+        {"name": "task", "type": "text"},
+        {"name": "stage", "type": "text"},
+        {"name": "model_version", "type": "text"},
+        {"name": "prompt_version", "type": "text"},
+        {"name": "input_hash", "type": "text"},
+        {"name": "run_id", "type": "integer", "key": "fk", "references": "classification_runs.id"},
+        {"name": "status", "type": "text"},
+        {"name": "created_at", "type": "timestamptz"}
+      ]
+    },
+    {
       "id": "reviews",
       "label": "reviews",
       "tag": "Labels und Review",
-      "row": 1,
+      "row": 2,
       "col": 2,
       "attributes": [
         {"name": "id", "type": "bigserial", "key": "pk"},
@@ -167,7 +188,7 @@
       "id": "tag_proposals",
       "label": "tag_proposals",
       "tag": "Vorschläge",
-      "row": 2,
+      "row": 3,
       "col": 2,
       "attributes": [
         {"name": "id", "type": "bigserial", "key": "pk"},
@@ -190,7 +211,7 @@
       "id": "tag_proposal_raw",
       "label": "tag_proposal_raw",
       "tag": "Vorschläge",
-      "row": 3,
+      "row": 4,
       "col": 2,
       "attributes": [
         {"name": "id", "type": "bigserial", "key": "pk"},
@@ -208,7 +229,7 @@
       "id": "tag_proposal_affairs",
       "label": "tag_proposal_affairs",
       "tag": "Vorschläge",
-      "row": 4,
+      "row": 5,
       "col": 2,
       "attributes": [
         {"name": "proposal_id", "type": "bigint", "key": ["pk", "fk"], "references": "tag_proposals.id"},
@@ -244,10 +265,48 @@
       ]
     },
     {
+      "id": "tag_labels",
+      "label": "tag_labels",
+      "tag": "Registry",
+      "row": 1,
+      "col": 3,
+      "attributes": [
+        {"name": "id", "type": "bigserial", "key": "pk"},
+        {"name": "tag_id", "type": "text", "key": "fk", "references": "tags.tag_id"},
+        {"name": "kind", "type": "text"},
+        {"name": "language", "type": "text"},
+        {"name": "label", "type": "text"}
+      ]
+    },
+    {
+      "id": "tag_relations",
+      "label": "tag_relations",
+      "tag": "Registry",
+      "row": 2,
+      "col": 3,
+      "attributes": [
+        {"name": "tag_id", "type": "text", "key": ["pk", "fk"], "references": "tags.tag_id"},
+        {"name": "target_id", "type": "text", "key": ["pk", "fk"], "references": "tags.tag_id"},
+        {"name": "relation", "type": "text"}
+      ]
+    },
+    {
+      "id": "tag_mappings",
+      "label": "tag_mappings",
+      "tag": "Registry",
+      "row": 3,
+      "col": 3,
+      "attributes": [
+        {"name": "tag_id", "type": "text", "key": ["pk", "fk"], "references": "tags.tag_id"},
+        {"name": "target", "type": "text", "key": "pk"},
+        {"name": "match_type", "type": "text"}
+      ]
+    },
+    {
       "id": "registry_syncs",
       "label": "registry_syncs",
       "tag": "Registry",
-      "row": 1,
+      "row": 4,
       "col": 3,
       "attributes": [
         {"name": "id", "type": "bigserial", "key": "pk"},
@@ -258,11 +317,100 @@
       ]
     },
     {
+      "id": "wiki_pages",
+      "label": "wiki_pages",
+      "tag": "Wiki",
+      "row": 0,
+      "col": 4,
+      "width": 281,
+      "attributes": [
+        {"name": "page_id", "type": "text", "key": "pk"},
+        {"name": "kind", "type": "text"},
+        {"name": "tag_id", "type": "text", "key": ["uk", "fk"], "references": "tags.tag_id"},
+        {"name": "parent_id", "type": "text", "key": "fk", "references": "wiki_pages.page_id"},
+        {"name": "linked_from", "type": "text[]"},
+        {"name": "redirect_to", "type": "text", "key": "fk", "references": "wiki_pages.page_id"},
+        {"name": "path", "type": "text", "key": "uk"},
+        {"name": "title", "type": "text"},
+        {"name": "language", "type": "text"},
+        {"name": "status", "type": "text"},
+        {"name": "pending_changes", "type": "integer"},
+        {"name": "cited_label_removed", "type": "boolean"},
+        {"name": "n_affairs", "type": "integer"},
+        {"name": "stats", "type": "jsonb"},
+        {"name": "summary_short", "type": "text"},
+        {"name": "summary_long", "type": "text"},
+        {"name": "statements", "type": "jsonb"},
+        {"name": "cited_affair_ids", "type": "bigint[]"},
+        {"name": "cited_page_ids", "type": "text[]"},
+        {"name": "summary_hash", "type": "text"},
+        {"name": "input_hash", "type": "text"},
+        {"name": "window_start", "type": "date"},
+        {"name": "window_end", "type": "date"},
+        {"name": "model_version", "type": "text"},
+        {"name": "prompt_version", "type": "text"},
+        {"name": "registry_version", "type": "text"},
+        {"name": "review_status", "type": "text"},
+        {"name": "reviewed_by", "type": "text"},
+        {"name": "reviewed_at", "type": "timestamptz"},
+        {"name": "worker_id", "type": "text"},
+        {"name": "locked_at", "type": "timestamptz"},
+        {"name": "attempts", "type": "integer"},
+        {"name": "last_error", "type": "text"},
+        {"name": "built_at", "type": "timestamptz"},
+        {"name": "updated_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "wiki_page_events",
+      "label": "wiki_page_events",
+      "tag": "Wiki",
+      "row": 1,
+      "col": 4,
+      "attributes": [
+        {"name": "id", "type": "bigserial", "key": "pk"},
+        {"name": "page_id", "type": "text"},
+        {"name": "from_status", "type": "text"},
+        {"name": "to_status", "type": "text"},
+        {"name": "reason", "type": "text"},
+        {"name": "summary_changed", "type": "boolean"},
+        {"name": "run_key", "type": "text"},
+        {"name": "worker_id", "type": "text"},
+        {"name": "created_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "search_runs",
+      "label": "search_runs",
+      "tag": "Suche und Agent",
+      "row": 2,
+      "col": 4,
+      "attributes": [
+        {"name": "id", "type": "bigserial", "key": "pk"},
+        {"name": "query", "type": "text"},
+        {"name": "language", "type": "text"},
+        {"name": "filters", "type": "jsonb"},
+        {"name": "path", "type": "text[]"},
+        {"name": "visits", "type": "jsonb"},
+        {"name": "steps", "type": "integer"},
+        {"name": "fallback_used", "type": "boolean"},
+        {"name": "affair_ids", "type": "bigint[]"},
+        {"name": "answer", "type": "text"},
+        {"name": "statements", "type": "jsonb"},
+        {"name": "model_versions", "type": "jsonb"},
+        {"name": "prompt_versions", "type": "jsonb"},
+        {"name": "agent_run_id", "type": "bigint", "key": "fk", "references": "agent_runs.id"},
+        {"name": "duration_ms", "type": "integer"},
+        {"name": "status", "type": "text"},
+        {"name": "created_at", "type": "timestamptz"}
+      ]
+    },
+    {
       "id": "agent_runs",
       "label": "agent_runs",
-      "tag": "Agent",
-      "row": 2,
-      "col": 3,
+      "tag": "Suche und Agent",
+      "row": 3,
+      "col": 4,
       "attributes": [
         {"name": "id", "type": "bigserial", "key": "pk"},
         {"name": "kind", "type": "text"},
@@ -282,7 +430,7 @@
       "label": "bodies",
       "tag": "Quelldaten",
       "row": 0,
-      "col": 4,
+      "col": 5,
       "attributes": [
         {"name": "id", "type": "bigint", "key": "pk"},
         {"name": "body_key", "type": "text", "key": "uk"},
@@ -298,7 +446,7 @@
       "label": "affair_texts",
       "tag": "Quelldaten",
       "row": 1,
-      "col": 4,
+      "col": 5,
       "attributes": [
         {"name": "id", "type": "bigint", "key": "pk"},
         {"name": "affair_id", "type": "bigint"},
@@ -315,7 +463,7 @@
       "label": "affair_docs",
       "tag": "Quelldaten",
       "row": 2,
-      "col": 4,
+      "col": 5,
       "attributes": [
         {"name": "id", "type": "bigint", "key": "pk"},
         {"name": "parent_type", "type": "text"},
@@ -371,6 +519,15 @@
       "id": "affair_tags_tag_id",
       "from": "affair_tags",
       "to": "tags",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "identifying": false
+    },
+    {
+      "id": "affair_summaries_affair_id",
+      "from": "affair_summaries",
+      "to": "affairs",
       "fromCardinality": "many",
       "fromOptional": true,
       "toCardinality": "one",
@@ -449,6 +606,37 @@
       "fromCardinality": "many",
       "fromOptional": true,
       "toCardinality": "one"
+    },
+    {
+      "id": "tag_labels_tag_id",
+      "from": "tag_labels",
+      "to": "tags",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "identifying": false
+    },
+    {"id": "tag_relations_tag_id", "from": "tag_relations", "to": "tags", "fromCardinality": "many", "fromOptional": true, "toCardinality": "one"},
+    {"id": "tag_mappings_tag_id", "from": "tag_mappings", "to": "tags", "fromCardinality": "many", "fromOptional": true, "toCardinality": "one"},
+    {
+      "id": "wiki_pages_tag_id",
+      "from": "wiki_pages",
+      "to": "tags",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "toOptional": true,
+      "identifying": false
+    },
+    {
+      "id": "search_runs_agent_run_id",
+      "from": "search_runs",
+      "to": "agent_runs",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "toOptional": true,
+      "identifying": false
     }
   ],
   "cards": [
@@ -458,17 +646,21 @@
       "items": [
         "Erzeugt aus migrations/ mit scripts/erd_from_sql.py; verbindlich sind die Migrationen",
         "Quelltabellen haben keine Fremdschlüssel: affair_texts.affair_id und affair_docs.parent_id verweisen fachlich auf affairs",
-        "run_id in affair_tags, tag_proposals und tag_proposal_raw verweist auf classification_runs; die Linien sind weggelassen",
-        "tags.parent_id und tags.merged_into verweisen auf tags selbst"
+        "run_id in affair_tags, affair_summaries, tag_proposals und tag_proposal_raw verweist auf classification_runs; die Linien sind weggelassen",
+        "Ohne Linie: tags.parent_id, tags.merged_into und tag_relations.target_id verweisen auf tags, wiki_pages.parent_id und redirect_to auf wiki_pages",
+        "wiki_page_events.page_id verweist fachlich auf wiki_pages (Protokoll wie job_events)"
       ]
     },
     {
       "dot": "amber",
       "title": "Regeln",
       "items": [
-        "Pro Geschäft, Tag, input_hash und prompt_version höchstens ein aktives Label (partieller Unique-Index)",
-        "Labels werden nie gelöscht, nur auf superseded oder rejected gesetzt",
-        "Ein Job im Status pending trägt immer worker_id und locked_at"
+        "Pro Geschäft und Tag höchstens ein aktives Label (Migration 0002); pro Geschäft und Sprache höchstens eine aktive Kurzzusammenfassung",
+        "Labels und Kurzzusammenfassungen werden nie gelöscht, nur auf superseded oder rejected gesetzt",
+        "Ein Job oder eine Seite im Status pending trägt immer worker_id und locked_at",
+        "Genau eine Seite heart ohne Tag und ohne Eltern; jede andere Seite gehört zu genau einem Tag",
+        "Pro Tag-Paar und Richtung nur broader oder related",
+        "Eine Suche ohne Treffer speichert keine Antwort"
       ]
     },
     {

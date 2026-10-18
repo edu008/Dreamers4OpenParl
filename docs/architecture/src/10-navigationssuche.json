@@ -1,0 +1,256 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "ParlTopics – Navigationssuche durch den Seitenbaum",
+    "output": "docs/architecture/10-navigationssuche.html",
+    "quality_profile": "showcase",
+    "legend": {
+      "entries": {
+        "frontend": {
+          "label": "Oberfläche"
+        },
+        "backend": {
+          "label": "Code (Schleife)"
+        },
+        "external": {
+          "label": "Apertus"
+        },
+        "database": {
+          "label": "Speicher"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "nutzer",
+      "label": "Web-App"
+    },
+    {
+      "id": "code",
+      "label": "Code steuert die Schleife"
+    },
+    {
+      "id": "modell",
+      "label": "Apertus"
+    },
+    {
+      "id": "daten",
+      "label": "Seitenbaum und Geschäfte"
+    },
+    {
+      "id": "fallback",
+      "label": "Fallback",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "abstieg",
+      "label": "Abstieg durch den Baum",
+      "fromCol": 0,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "antwort",
+      "label": "Antwort",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "frage",
+    "start",
+    "bewerten",
+    "absteigen",
+    "waehlen",
+    "antwort"
+  ],
+  "nodes": [
+    {
+      "id": "frage",
+      "lane": "nutzer",
+      "col": 0,
+      "type": "frontend",
+      "label": "Frage",
+      "sublabel": "POST /v1/search/navigate"
+    },
+    {
+      "id": "start",
+      "lane": "code",
+      "col": 0,
+      "type": "backend",
+      "label": "Start bei Heart",
+      "sublabel": "bis 8 Schritte"
+    },
+    {
+      "id": "bewerten",
+      "lane": "modell",
+      "col": 1,
+      "type": "external",
+      "label": "Kinder vergleichen",
+      "sublabel": "8B, alle in einem Prompt"
+    },
+    {
+      "id": "baum",
+      "lane": "daten",
+      "col": 1,
+      "type": "database",
+      "label": "Seitenbaum",
+      "sublabel": "Kurzzusammenfassungen"
+    },
+    {
+      "id": "absteigen",
+      "lane": "code",
+      "col": 2,
+      "type": "backend",
+      "label": "Besten Ast wählen",
+      "sublabel": "ab 0.3, höchstens 2"
+    },
+    {
+      "id": "waehlen",
+      "lane": "modell",
+      "col": 3,
+      "type": "external",
+      "label": "Geschäfte wählen",
+      "sublabel": "70B, mit Belegen"
+    },
+    {
+      "id": "volltext",
+      "lane": "fallback",
+      "col": 2,
+      "type": "database",
+      "label": "Volltextsuche",
+      "sublabel": "gleiche Filter"
+    },
+    {
+      "id": "antwort",
+      "lane": "nutzer",
+      "col": 5,
+      "type": "frontend",
+      "label": "Antwort mit Suchweg",
+      "sublabel": "oder keine Antwort"
+    },
+    {
+      "id": "protokoll",
+      "lane": "daten",
+      "col": 5,
+      "type": "database",
+      "label": "search_runs",
+      "sublabel": "Suchweg, Schritte, Status"
+    }
+  ],
+  "edges": [
+    {
+      "id": "frage-start",
+      "from": "frage",
+      "to": "start",
+      "label": "Frage",
+      "role": "main"
+    },
+    {
+      "id": "start-bewerten",
+      "from": "start",
+      "to": "bewerten",
+      "label": "Kinder, Filter",
+      "role": "main"
+    },
+    {
+      "id": "baum-bewerten",
+      "from": "baum",
+      "to": "bewerten",
+      "label": "lesen",
+      "role": "branch"
+    },
+    {
+      "id": "bewerten-absteigen",
+      "from": "bewerten",
+      "to": "absteigen",
+      "label": "Relevanz je Kind",
+      "role": "main"
+    },
+    {
+      "id": "absteigen-bewerten",
+      "from": "absteigen",
+      "to": "bewerten",
+      "label": "nächste Stufe",
+      "role": "return",
+      "variant": "dashed"
+    },
+    {
+      "id": "absteigen-waehlen",
+      "from": "absteigen",
+      "to": "waehlen",
+      "label": "Tag-Seite: bis 20 Geschäfte",
+      "role": "main"
+    },
+    {
+      "id": "waehlen-absteigen",
+      "from": "waehlen",
+      "to": "absteigen",
+      "label": "nichts gewählt: Rückweg",
+      "role": "return",
+      "variant": "dashed"
+    },
+    {
+      "id": "absteigen-volltext",
+      "from": "absteigen",
+      "to": "volltext",
+      "label": "Baum erschöpft oder 8 Schritte",
+      "role": "error"
+    },
+    {
+      "id": "volltext-antwort",
+      "from": "volltext",
+      "to": "antwort",
+      "label": "70B wählt",
+      "role": "branch",
+      "route": "outside-right"
+    },
+    {
+      "id": "waehlen-antwort",
+      "from": "waehlen",
+      "to": "antwort",
+      "label": "Treffer",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "antwort-protokoll",
+      "from": "antwort",
+      "to": "protokoll",
+      "label": "protokolliert",
+      "role": "async"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Vergleich statt Einzelbewertung",
+      "items": [
+        "An jedem Knoten bewertet 8B alle Kinder in einem Prompt",
+        "Der erste Schritt liest auch Jahr, Parlament, Ebene und Typ als Filter"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Grenzen und Rückweg",
+      "items": [
+        "Höchstens 8 Modellaufrufe samt Fallback, höchstens 2 Äste je Knoten, Mindestrelevanz 0.3",
+        "Liefert ein Ast nichts, geht die Suche zum nächstbesten Geschwister zurück",
+        "Findet der Baum nichts, greift die Volltextsuche"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Belegte Antwort",
+      "items": [
+        "Jede Aussage nennt Geschäfts-IDs, der Code prüft sie",
+        "Die Antwort zeigt den Suchweg; ohne Treffer gibt es keine Antwort",
+        "Der Agent nutzt dieselbe Suche als Werkzeug navigate_tree"
+      ]
+    }
+  ]
+}

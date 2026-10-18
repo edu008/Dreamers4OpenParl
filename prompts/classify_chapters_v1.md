@@ -18,9 +18,9 @@ Regeln:
 
 {"affair_id": <Zahl>, "language": "de|fr|it|rm|other", "chapters": [{"chapter_id": "<ID>", "confidence": <0..1>}]}
 
-Kapitel (ID | Name DE | Name FR | Beschreibung):
+Kapitel (ID | Name DE | Name FR | Name IT | Beschreibung):
 {% for chapter in chapters -%}
-{{ chapter.tag_id }} | {{ chapter.names.de }} | {{ chapter.names.fr or "" }} | {{ chapter.descriptions.de }}
+{{ chapter.tag_id }} | {{ chapter.pref_label.de }} | {{ chapter.pref_label.fr or "" }} | {{ chapter.pref_label.it or "" }} | {{ chapter.definition.de }}
 {% endfor %}
 
 ## user

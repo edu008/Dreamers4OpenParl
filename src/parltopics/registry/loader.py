@@ -1,4 +1,4 @@
-"""Laden von registry/tags.yaml und Berechnung der Hashes (PRD 7.2, ADR 0004)."""
+"""Laden von registry/tags.yaml und Berechnung der Hashes (PRD 7.2, ADR 0004, ADR 0007)."""
 
 import hashlib
 import json
@@ -30,17 +30,23 @@ def load_registry(path: Path) -> Registry:
         raise RegistryError(f"{path}: {error}") from error
 
 
-def canonical_tag(tag: Tag) -> dict[str, Any]:
-    """Die Felder, die eine Klassifikation beeinflussen. Metadaten zählen nicht.
+PROMPT_LANGUAGES = ("de", "fr", "it")
 
-    Die Reihenfolge der Aliasse zählt nicht; Prompts geben sie ebenfalls sortiert aus.
+
+def canonical_tag(tag: Tag) -> dict[str, Any]:
+    """Was die Klassifikations-Prompts von einem Tag zeigen (classify_chapters, classify_topics).
+
+    Nur diese Felder zählen: tag_id, pref_label DE/FR/IT, definition DE und alt_labels.
+    broader, hidden_labels, related, die Curia-Matches und Definitionen in anderen Sprachen stehen
+    in keinem Prompt und öffnen deshalb keine Jobs. Die Reihenfolge der alt_labels zählt nicht.
     """
+    alt_labels = {lang: sorted(labels) for lang, labels in tag.alt_labels.model_dump().items()}
+    labels = tag.pref_label.model_dump(exclude_none=True)
     return {
         "tag_id": tag.tag_id,
-        "parent": tag.parent,
-        "names": tag.names.model_dump(exclude_none=True),
-        "descriptions": tag.descriptions.model_dump(exclude_none=True),
-        "aliases": sorted(tag.aliases),
+        "pref_label": {lang: labels[lang] for lang in PROMPT_LANGUAGES if lang in labels},
+        "alt_labels": {lang: values for lang, values in alt_labels.items() if values},
+        "definition_de": tag.definition.de,
     }
 
 

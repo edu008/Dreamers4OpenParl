@@ -10,6 +10,7 @@ def stage2(**overrides) -> dict:
     data = {
         "affair_id": 70435,
         "language": "de",
+        "summary_de": "Die Motion verlangt einen Bericht zur digitalen Verwaltung.",
         "tags": [{"tag_id": "aps:6.1.9", "confidence": 0.86, "evidence": "Der Bundesrat wird …"}],
         "proposed_tags": [],
     }
@@ -114,3 +115,18 @@ def test_stage2_rejects_invalid_values(overrides):
 def test_stage2_rejects_wrong_affair():
     with pytest.raises(OutputError):
         parse_stage2(stage2(), affair_id=1, offered=OFFERED_TAGS)
+
+
+def test_stage2_summary_never_costs_the_tags():
+    def parse(data):
+        output, _ = parse_stage2(data, affair_id=70435, offered=OFFERED_TAGS)
+        return output
+
+    missing = stage2()
+    del missing["summary_de"]
+    assert parse(missing).summary_de is None
+    assert parse(stage2(summary_de="  ")).summary_de is None
+    long = parse(stage2(summary_de="Wort " * 100))
+    assert len(long.summary_de) <= 300
+    assert long.summary_de.endswith("…")
+    assert [tag.tag_id for tag in long.tags] == ["aps:6.1.9"]

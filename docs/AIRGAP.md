@@ -10,12 +10,13 @@ Diagramm: [08-airgap-deployment](architecture/08-airgap-deployment.html). Anford
 |---|---|---|---|
 | Python-Pakete | PyPI, gepinnt in `uv.lock` | Build | `wheels/` mit `requirements.txt` |
 | Basis-Images | Docker Hub: `python:3.12-slim`, `pgvector/pgvector:pg16` | Build | `images/*.tar` |
-| App-Image | gebaut aus `wheels/` | Build | `images/parltopics-app.tar` |
+| Web-App | npm-Registry, gepinnt in `web/package-lock.json`, Node 22 | Build (`make web-build`) | `web/dist/`, auch im App-Image |
+| App-Image | gebaut aus `wheels/` und `web/dist/` | Build | `images/parltopics-app.tar` |
 | Parlamentsdaten | `files.openparldata.ch` | Datendownload | separat, `data/import/` |
 | Diagramme | Archify liegt im Repo, Node.js 18+ | nur Dokumentation | fertige HTML-Dateien |
 | LLM | Keera (Hack) oder interner Endpunkt (Air-Gap) | Laufzeit | nein |
 
-Zur Laufzeit lädt die Anwendung nichts nach: keine Pakete, keine Modelle, keine Schriften, keine Skripte von CDNs, keine Telemetrie. Die Spracherkennung (`lingua-language-detector`) bringt ihre Modelle im Wheel mit. Die Web-App liefert CSS und JavaScript selbst aus.
+Zur Laufzeit lädt die Anwendung nichts nach: keine Pakete, keine Modelle, keine Schriften, keine Skripte von CDNs, keine Telemetrie. Die Spracherkennung (`lingua-language-detector`) bringt ihre Modelle im Wheel mit. Die Web-App ist ein statischer Build (React, Vite, shadcn/ui) und liegt im App-Image; FastAPI liefert HTML, CSS und JavaScript selbst aus. Sie nutzt Systemschriften und lädt nichts von einem CDN. `scripts/check-web-dist.mjs` prüft den Build auf externe URLs: erlaubt sind nur Hosts, die nie geladen werden, etwa XML-Namensräume und Doku-Links in Fehlermeldungen. Ein Neubau der Web-App im Air-Gap ist nicht vorgesehen, weil er die npm-Registry bräuchte; das Bundle enthält den fertigen Build.
 
 ## 2. Ablauf
 
@@ -28,10 +29,11 @@ make bundle
 Das ruft [`deploy/airgap/build-bundle.sh`](../deploy/airgap/build-bundle.sh) auf:
 
 1. `build-wheels.sh` exportiert die gepinnten Abhängigkeiten aus `uv.lock` und lädt die Wheels in einem `python:3.12-slim`-Container. So passen Plattform und Python-Version genau zum Image. Dazu kommt das Wheel des Projekts selbst.
-2. `docker build` baut das App-Image ausschliesslich aus diesen Wheels (`pip install --no-index`). Ein Build, der etwas nachladen müsste, schlägt fehl.
-3. Die Images `parltopics-app`, `pgvector/pgvector:pg16` und `python:3.12-slim` werden mit `docker save` exportiert. Das Basis-Image ist dabei, damit das App-Image auch offline neu gebaut werden kann.
-4. Compose-Dateien, Dockerfile, `migrations/`, `prompts/`, `registry/tags.yaml`, `.env.example` und `load-bundle.sh` kommen dazu.
-5. `SHA256SUMS` hält die Prüfsummen aller Dateien fest.
+2. `npm ci` und `npm run build` bauen die Web-App nach `web/dist`, danach prüft `check-web-dist.mjs` den Build auf externe URLs.
+3. `docker build` baut das App-Image ausschliesslich aus diesen Wheels (`pip install --no-index`) und `web/dist`. Ein Build, der etwas nachladen müsste, schlägt fehl.
+4. Die Images `parltopics-app`, `pgvector/pgvector:pg16` und `python:3.12-slim` werden mit `docker save` exportiert. Das Basis-Image ist dabei, damit das App-Image auch offline neu gebaut werden kann.
+5. Compose-Dateien, Dockerfile, `migrations/`, `prompts/`, `registry/tags.yaml`, `web/dist/`, `.env.example` und `load-bundle.sh` kommen dazu.
+6. `SHA256SUMS` hält die Prüfsummen aller Dateien fest.
 
 Ergebnis: `dist/parltopics-bundle-<version>.tar`, die Version stammt aus `git describe`. In der CI gemessen: rund 1,4 GB, davon 183 MB Wheels (43 Dateien), der Rest sind die drei Images.
 
@@ -75,7 +77,7 @@ Die Registry liegt im Basisverzeichnis und ist als Bind-Mount eingebunden. `load
 
 | Betrieb | `LLM_BASE_URL` | Bemerkung |
 |---|---|---|
-| Hack | Keera, OpenAI-kompatibel | einzige Verbindung nach aussen |
+| Hack | Keera, OpenAI-kompatibel: `https://gateway.keera.ch/api/v1` | einzige Verbindung nach aussen; die URL steht in `.env.example` |
 | Air-Gap | interner Endpunkt, z. B. vLLM | keine Verbindung nach aussen |
 | Tests | Mock im internen Docker-Netz | siehe Abschnitt 4 |
 
@@ -88,18 +90,20 @@ Für den internen Endpunkt liegt eine Vorlage in [`deploy/docker-compose.llm.yml
 | Allowlist | Unit-Test: der Client verweigert jeden Host ausser dem aus `LLM_BASE_URL` | `tests/unit/test_llm_client.py` |
 | Image ohne PyPI | Dockerfile installiert mit `--no-index` aus `wheels/` | `deploy/Dockerfile` |
 | Betrieb ohne Internet | Offline-Test im internen Docker-Netz | `make offline-test`, CI-Job `offline` |
+| Web-App ohne externe URLs | Prüfung des Builds | `scripts/check-web-dist.mjs`, `make web-build`, CI-Job `web` |
 
 Der Offline-Test ([`deploy/airgap/offline-test.sh`](../deploy/airgap/offline-test.sh)) startet `db`, `api` und einen Mock-LLM in einem Docker-Netz mit `internal: true`. Darin gibt es keine Route nach aussen, die Container erreichen sich aber gegenseitig. Der Test prüft:
 
 1. `parltopics db migrate` legt das Schema an.
 2. `parltopics registry validate` liest `registry/tags.yaml`.
 3. `parltopics llm check` erreicht den Mock-LLM.
-4. Die Web-App antwortet auf `/healthz`.
+4. Die Web-App antwortet: `/healthz`, die SPA aus `web/dist` mit ihren Assets, der SPA-Fallback für `/tags/aps:6.1.9` und der Seitenbaum unter `/v1/pages`. `index.html` lädt nichts von aussen.
 5. Ein Aufruf ins Internet aus dem App-Container scheitert.
 
 ## 5. Checkliste
 
-- [ ] Keine `<script src="http…">`, `<link href="http…">` oder Web-Fonts in Templates.
+- [ ] Keine `<script src="http…">`, `<link href="http…">` oder Web-Fonts in der Web-App; `make web-build` meldet jeden neuen Host.
+- [ ] Neue npm-Abhängigkeit: nur zur Build-Zeit nötig, Lizenz geprüft, `npm audit --omit=dev` ohne Befund.
 - [ ] Neue Python-Abhängigkeit: Wheel für `linux/amd64`, Python 3.12 vorhanden? `make wheels` zeigt es.
 - [ ] Keine Bibliothek, die zur Laufzeit Modelle oder Daten herunterlädt.
 - [ ] Neue externe Hosts nur über `LLM_BASE_URL`; sonst ist es ein Fehler.

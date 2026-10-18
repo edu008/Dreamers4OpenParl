@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "diagram_type": "tree",
+  "meta": {
+    "title": "ParlTopics – Seitenbaum des ParlWiki",
+    "subtitle": "Von Heart über Bereiche und Kapitel zu den Tag-Seiten (PRD 7.9)",
+    "output": "docs/architecture/09-wiki-hierarchie.html",
+    "quality_profile": "showcase"
+  },
+  "layout": {
+    "direction": "right"
+  },
+  "nodes": [
+    {
+      "id": "heart",
+      "label": "Heart",
+      "sublabel": "HEART.md · Gesamtüberblick"
+    },
+    {
+      "id": "bereich",
+      "label": "Infrastruktur und Umwelt",
+      "sublabel": "Bereich aps:6",
+      "parent": "heart"
+    },
+    {
+      "id": "bereiche",
+      "label": "weitere Bereiche",
+      "sublabel": "8 Bereiche im APS-Schema",
+      "parent": "heart"
+    },
+    {
+      "id": "querschnitt",
+      "label": "Digitalisierung (breit)",
+      "sublabel": "Querschnitt, Ad-hoc-Tag unter Heart",
+      "parent": "heart"
+    },
+    {
+      "id": "kapitel",
+      "label": "Verkehr und Kommunikation",
+      "sublabel": "Kapitel aps:6.1",
+      "parent": "bereich"
+    },
+    {
+      "id": "kapitel_weitere",
+      "label": "weitere Kapitel",
+      "sublabel": "22 Kapitel im APS-Schema",
+      "parent": "bereich"
+    },
+    {
+      "id": "tag",
+      "label": "Digitalisierung",
+      "sublabel": "Tag-Seite aps:6.1.9",
+      "parent": "kapitel"
+    },
+    {
+      "id": "tags_weitere",
+      "label": "weitere Tag-Seiten",
+      "sublabel": "165 Themen im APS-Schema",
+      "parent": "kapitel"
+    },
+    {
+      "id": "geschaefte",
+      "label": "Geschäfte",
+      "sublabel": "Geschäftsseiten nur in der Web-App",
+      "parent": "tag"
+    },
+    {
+      "id": "jahre",
+      "label": "Jahreslisten",
+      "sublabel": "über 1'000 Geschäften, z. B. 2025.md",
+      "parent": "tag"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Von unten nach oben",
+      "items": [
+        "Tag-Seite aus den Kurzzusammenfassungen ihrer Geschäfte (8B)",
+        "Kapitel, Bereich und Heart aus den Zusammenfassungen der Kinder plus Stichproben (70B)",
+        "Jede Aussage nennt Geschäfte oder Unterseiten"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Querschnitt und Dateinamen",
+      "items": [
+        "Alle Ad-hoc-Tags hängen unter Heart und werden von ihren broader-Seiten verlinkt",
+        "Kapitel verlinken Querschnittsthemen, zählen sie aber nicht mit",
+        "Dateinamen mit Tag-ID und festem slug, z. B. tags/aps-6.1.9-digitalisierung.md"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Seitenstatus",
+      "items": [
+        "open, pending, done, dazu failed, wie bei den Jobs",
+        "Tag-Seite ab 5 Änderungen, Eltern-Seite ab 1 geänderten Unterseite, sonst wöchentlich",
+        "Ändert sich eine Zusammenfassung, erhält die Eltern-Seite eine Änderung, bis Heart"
+      ]
+    }
+  ]
+}

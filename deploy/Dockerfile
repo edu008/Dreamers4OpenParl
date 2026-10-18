@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1
 # App-Image für ParlTopics (Dienste api und worker).
 #
-# Gebaut wird ausschliesslich aus deploy/airgap/wheels (make wheels). Der Build braucht deshalb
-# keinen Zugriff auf PyPI und lässt sich auch im Air-Gap neu bauen, wenn das Basis-Image geladen ist.
+# Gebaut wird ausschliesslich aus deploy/airgap/wheels (make wheels) und dem fertigen Build der
+# Web-App in web/dist (make web-build). Der Build braucht deshalb weder PyPI noch npm und lässt sich
+# auch im Air-Gap neu bauen, wenn das Basis-Image geladen ist.
 ARG PYTHON_IMAGE=python:3.12-slim
 FROM ${PYTHON_IMAGE}
 
@@ -21,6 +22,7 @@ RUN pip install --no-cache-dir --no-index --find-links=/tmp/wheels -r /tmp/wheel
 COPY migrations/ migrations/
 COPY prompts/ prompts/
 COPY registry/ registry/
+COPY web/dist/ web/dist/
 
 RUN useradd --create-home --uid 10001 parltopics && chown -R parltopics /app/registry
 USER parltopics

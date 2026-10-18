@@ -1,8 +1,14 @@
-"""APS-Schema aus aps_topics.xlsx in die Registry übernehmen (PRD F4, Anhang A)."""
+"""APS-Schema aus aps_topics.xlsx in die Registry übernehmen (PRD F4, F27, Anhang A).
+
+Felder nach SKOS (ADR 0007): `pref_label` und `definition` je Sprache, `broader` mit dem
+Eltern-Code und ein fester `slug` als Teil des Dateinamens der Tag-Seite (PRD 7.9).
+"""
 
 from __future__ import annotations
 
 import datetime as dt
+import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -12,10 +18,12 @@ from openpyxl import load_workbook
 from parltopics.registry.loader import RegistryError
 
 HEADER = (
-    "# ParlTopics Tag-Registry: einzige Quelle aller Tags (PRD 7.2, Anhang A, ADR 0001).\n"
+    "# ParlTopics Tag-Registry: einzige Quelle aller Tags, ausgerichtet an SKOS"
+    " (PRD 7.2, Anhang A, ADR 0007).\n"
     "# APS-Einträge erzeugt `parltopics registry import-aps <aps_topics.xlsx>`.\n"
-    "# Jede inhaltliche Änderung erhöht registry_version.\n"
-    "# Neue Tags nur über Vorschläge und Review.\n"
+    "# Jede inhaltliche Änderung erhöht registry_version."
+    " Neue Tags nur über Vorschläge und Review.\n"
+    "# Tag-Seiten im ParlWiki werden aus der Datenbank erzeugt und sind keine zweite Registry.\n"
     "# Schreibt ein Werkzeug die Datei neu, gehen diese Kommentare verloren (ADR 0001).\n"
 )
 
@@ -24,6 +32,55 @@ SHEETS = {
     "Chapters": ("code", "chapter_de", "chapter_fr"),
     "Topics": ("code", "topic_de", "topic_fr"),
 }
+
+# Füllwörter fallen aus dem slug: „Verkehr und Kommunikation“ → verkehr-kommunikation.
+STOPWORDS = frozenset(
+    [
+        "am",
+        "an",
+        "auf",
+        "aus",
+        "bei",
+        "das",
+        "dem",
+        "den",
+        "der",
+        "des",
+        "die",
+        "fuer",
+        "im",
+        "in",
+        "mit",
+        "oder",
+        "sowie",
+        "ueber",
+        "und",
+        "vom",
+        "von",
+        "zum",
+        "zur",
+    ]
+)
+SLUG_MAX = 48
+
+
+def aps_slug(name: str) -> str:
+    """Fester, lesbarer Teil des Dateinamens aus dem deutschen Namen.
+
+    Er muss nicht eindeutig sein, weil der Dateiname auch die Tag-ID enthält.
+    """
+    text = name.lower()
+    for umlaut, ascii_text in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        text = text.replace(umlaut, ascii_text)
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    words = [word for word in re.split(r"[^a-z0-9]+", text) if word and word not in STOPWORDS]
+    slug = ""
+    for word in words:
+        candidate = f"{slug}-{word}" if slug else word
+        if slug and len(candidate) > SLUG_MAX:
+            break
+        slug = candidate
+    return slug or "thema"
 
 
 def _rows(path: Path) -> dict[str, list[dict[str, str]]]:
@@ -54,7 +111,7 @@ def _parent(code: str) -> str | None:
 
 
 def _description(path: list[tuple[str, str | None]], lang: str) -> str | None:
-    """Beschreibung aus dem APS-Pfad. APS selbst liefert keine Beschreibungstexte."""
+    """Definition aus dem APS-Pfad. APS selbst liefert keine Beschreibungstexte."""
     names = [name for name, _ in path] if lang == "de" else [fr for _, fr in path]
     if any(name is None for name in names):
         return None
@@ -69,28 +126,31 @@ def _children_note(names: list[str], lang: str) -> str:
     return f" Umfasst: {joined}." if lang == "de" else f" Comprend : {joined}."
 
 
+def aps_entry(code: str, de: str, fr: str, path: list[tuple[str, str | None]]) -> dict[str, Any]:
+    """Ein APS-Eintrag im SKOS-Format, ohne die Liste der Unterthemen."""
+    tag: dict[str, Any] = {
+        "tag_id": f"aps:{code}",
+        "scheme": "aps",
+        "status": "active",
+        "slug": aps_slug(de),
+        "pref_label": {"de": de, **({"fr": fr} if fr else {})},
+    }
+    definition = {"de": _description(path, "de")}
+    if all(fr_name for _, fr_name in path):
+        definition["fr"] = _description(path, "fr")
+    tag["definition"] = definition
+    parent = _parent(code)
+    if parent:
+        tag["broader"] = [parent]
+    return tag
+
+
 def build_aps_tags(xlsx: Path) -> list[dict[str, Any]]:
     """Alle APS-Einträge (Bereich, Kapitel, Thema) als Registry-Dicts, sortiert nach Code."""
     sheets = _rows(xlsx)
     domains = {r["code"]: (r["domain_de"], r["domain_fr"]) for r in sheets["Domains"]}
     chapters = {r["code"]: (r["chapter_de"], r["chapter_fr"]) for r in sheets["Chapters"]}
     topics = {r["code"]: (r["topic_de"], r["topic_fr"]) for r in sheets["Topics"]}
-
-    def entry(code: str, de: str, fr: str, path: list[tuple[str, str | None]]) -> dict[str, Any]:
-        tag: dict[str, Any] = {
-            "tag_id": f"aps:{code}",
-            "scheme": "aps",
-            "status": "active",
-        }
-        parent = _parent(code)
-        if parent:
-            tag["parent"] = parent
-        tag["names"] = {"de": de, **({"fr": fr} if fr else {})}
-        descriptions = {"de": _description(path, "de")}
-        if all(fr_name for _, fr_name in path):
-            descriptions["fr"] = _description(path, "fr")
-        tag["descriptions"] = descriptions
-        return tag
 
     def sort_key(code: str) -> list[int]:
         return [int(part) for part in code.split(".")]
@@ -104,15 +164,20 @@ def build_aps_tags(xlsx: Path) -> list[dict[str, Any]]:
         if len(parts) > 2:
             path.append(topics[code])
         names = {1: domains, 2: chapters, 3: topics}[len(parts)][code]
-        tag = entry(code, names[0], names[1], path)
+        tag = aps_entry(code, names[0], names[1], path)
         if len(parts) < 3:
             children = {1: chapters, 2: topics}[len(parts)]
             kids = [v for c, v in children.items() if c.startswith(f"{code}.")]
             for index, lang in enumerate(("de", "fr")):
-                if lang in tag["descriptions"]:
-                    tag["descriptions"][lang] += _children_note([k[index] for k in kids], lang)
+                if lang in tag["definition"]:
+                    tag["definition"][lang] += _children_note([k[index] for k in kids], lang)
         result.append(tag)
     return result
+
+
+def write_registry(data: dict[str, Any], registry_path: Path) -> None:
+    body = yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100)
+    registry_path.write_text(HEADER + body, encoding="utf-8", newline="\n")
 
 
 def import_aps(xlsx: Path, registry_path: Path) -> tuple[int, str]:
@@ -133,6 +198,5 @@ def import_aps(xlsx: Path, registry_path: Path) -> tuple[int, str]:
     current_day, _, counter = data["registry_version"].partition(".")
     data["registry_version"] = f"{today}.{int(counter) + 1 if current_day == today else 1}"
     data["tags"] = [*aps_tags, *others]
-    body = yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100)
-    registry_path.write_text(HEADER + body, encoding="utf-8", newline="\n")
+    write_registry(data, registry_path)
     return len(aps_tags), data["registry_version"]

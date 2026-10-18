@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Baut das Air-Gap-Bundle (PRD F22, AIRGAP.md 2.1): Images, Wheels, Compose-Dateien, Migrationen,
-# Prompts, Start-Registry und Prüfsummen. Läuft auf einem Rechner mit Internet.
+# Baut das Air-Gap-Bundle (PRD F22, AIRGAP.md 2.1): Images, Wheels, Build der Web-App,
+# Compose-Dateien, Migrationen, Prompts, Start-Registry und Prüfsummen. Läuft auf einem Rechner mit
+# Internet; Node 22 und die npm-Registry braucht nur der Build der Web-App.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -11,6 +12,8 @@ NAME="parltopics-bundle-$VERSION"
 STAGE="dist/$NAME"
 
 deploy/airgap/build-wheels.sh
+(cd web && npm ci && npm run build)
+node scripts/check-web-dist.mjs web/dist
 docker pull "$PYTHON_IMAGE"
 docker pull "$DB_IMAGE"
 docker build -f deploy/Dockerfile --build-arg PYTHON_IMAGE="$PYTHON_IMAGE" \
@@ -22,6 +25,8 @@ docker save -o "$STAGE/images/parltopics-app.tar" "parltopics-app:$VERSION"
 docker save -o "$STAGE/images/pgvector.tar" "$DB_IMAGE"
 docker save -o "$STAGE/images/python-base.tar" "$PYTHON_IMAGE"
 cp -r deploy migrations prompts registry "$STAGE/"
+mkdir -p "$STAGE/web"
+cp -r web/dist "$STAGE/web/dist"
 cp .env.example "$STAGE/.env.example"
 cp .dockerignore "$STAGE/.dockerignore"
 printf '%s\n' "$VERSION" > "$STAGE/VERSION"

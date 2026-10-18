@@ -3,7 +3,7 @@
 ParlTopics labelt alle Geschäfte aus OpenParlData mit Themen (festes APS-Schema plus Ad-hoc-Themen) mit Apertus v1.5. Projekt für Hack Apertus Liebefeld, Challenge 2.
 
 - Auftrag (Vorgabe, gilt vor dem PRD): `docs/CHALLENGE.md`
-- Was gebaut wird: `docs/PRD.md` (Version 0.3, Hack = Phase 1)
+- Was gebaut wird: `docs/PRD.md` (Version 0.4, Hack = Phase 1)
 - Wie es gebaut ist: `docs/ARCHITEKTUR.md`, Diagramme in `docs/architecture/`
 - Betrieb ohne Internet: `docs/AIRGAP.md`
 - Entscheide: `docs/adr/`, Setup und Arbeitsweise: `docs/ENTWICKLUNG.md`
@@ -23,7 +23,9 @@ make test                  # Unit-Tests
 make lint / make format    # ruff
 make db && make migrate    # PostgreSQL im Container, Schema anlegen
 make test-integration      # Tests gegen die Datenbank
-make api                   # Web-App auf http://127.0.0.1:8000
+make api                   # API auf http://127.0.0.1:8000, liefert web/dist aus
+make web-dev               # Vite auf http://127.0.0.1:5173 (Web-App mit Hot Reload)
+make web-check             # Web-App: Lint, Typprüfung, Build, Prüfung auf externe URLs
 make diagrams              # Diagramme mit Archify bauen; make diagrams-check prüft sie
 make offline-test          # Image aus Wheels, Test im Docker-Netz ohne Internet
 uv run parltopics --help   # CLI; nicht umgesetzte Kommandos enden mit Exit-Code 3 und nennen den Meilenstein
@@ -31,7 +33,8 @@ uv run parltopics --help   # CLI; nicht umgesetzte Kommandos enden mit Exit-Code
 
 ## Struktur
 
-- `src/parltopics/`: Paket. `llm/` (Client mit Allowlist), `registry/`, `classify/` (Worker), `agent/` (Tool-Calling), `api/`, `db.py`, `cli.py`
+- `src/parltopics/`: Paket. `llm/` (Client mit Allowlist), `registry/` (SKOS), `classify/` (Worker), `agent/` (Tool-Calling), `wiki/` (Seitenbaum, Zusammenfassungen), `search/` (Navigationssuche), `api/`, `db.py`, `cli.py`
+- `web/`: Web-App (React, Vite, TypeScript, Tailwind CSS, shadcn/ui), Build nach `web/dist`
 - `registry/tags.yaml`: einzige Quelle der Tags
 - `prompts/`: versionierte Prompts
 - `migrations/`: nummerierte SQL-Migrationen
@@ -49,7 +52,8 @@ uv run parltopics --help   # CLI; nicht umgesetzte Kommandos enden mit Exit-Code
 - Doku auf Deutsch in Schweizer Schreibweise (ss statt ß), Bezeichner im Code auf Englisch.
 - Das Template-Layout bleibt: `README.md`, `technical_report.md`, `LICENSE` und `src/` nicht verschieben.
 - Worker sind deterministisch, ein Geschäft pro Modellaufruf. Der Agent nutzt Tool-Calling und liest nur.
-- Bestehende Migrationen nie ändern, neue Datei anlegen. Geänderte Prompts bekommen eine neue Datei mit höherer Version.
+- Bestehende Migrationen nie ändern, neue Datei anlegen. Geänderte Prompts bekommen ab dem ersten Lauf (M1) eine neue Datei mit höherer Version; bis dahin sind die v1-Dateien Entwürfe (`prompts/README.md`).
 - Ändern sich Komponenten oder Abläufe: Quelle in `docs/architecture/src/` anpassen und `make diagrams` ausführen (Skill `archify`).
-- Die Web-App lädt nichts von aussen: keine externen Skripte, Schriften oder Stylesheets.
+- Die Web-App lädt nichts von aussen: keine externen Skripte, Schriften oder Stylesheets. shadcn-Komponenten über die CLI hinzufügen (`npx shadcn add`), Systemschriften.
+- Tag-Seiten im ParlWiki werden aus der Datenbank erzeugt; Tag-Definitionen stehen nur in `registry/tags.yaml`.
 - Commit-Nachrichten auf Englisch im Imperativ.

@@ -1,6 +1,6 @@
 # ADR 0001: Tag-Registry als YAML-Liste statt Markdown
 
-- Status: angenommen
+- Status: angenommen; die Felder folgen seit [ADR 0007](0007-registry-skos.md) SKOS
 - Datum: 18.10.2026
 - Bezug: PRD 7.2, Anhang A, F4
 

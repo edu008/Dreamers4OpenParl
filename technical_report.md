@@ -35,19 +35,19 @@ List any external dependencies, and separate build time from runtime.
 
 **ParlTopics targets b) Air-gapped**, which also covers a) and c). At runtime the application talks to one
 host only, the OpenAI-compatible Apertus endpoint in `LLM_BASE_URL`; the HTTP client refuses every other
-host. During the hack this endpoint is Keera; in air-gapped operation it is an Apertus server inside the
+host. During the hack this endpoint is Keera (`https://gateway.keera.ch/api/v1`); in air-gapped operation it is an Apertus server inside the
 same network (template: `deploy/docker-compose.llm.yml`). Code and images are identical in both cases.
 
 | Phase | Where | External dependencies |
 | --- | --- | --- |
-| Build | machine with internet | PyPI (wheels pinned in `uv.lock`), Docker Hub (`python:3.12-slim`, `pgvector/pgvector:pg16`) |
+| Build | machine with internet | PyPI (wheels pinned in `uv.lock`), npm registry (web app, pinned in `web/package-lock.json`, Node 22), Docker Hub (`python:3.12-slim`, `pgvector/pgvector:pg16`) |
 | Data download | machine with internet | `files.openparldata.ch` |
 | Transfer | removable media | bundle with images, wheels and checksums; data bundle |
 | Runtime | server without internet | only `LLM_BASE_URL` |
 
-The app image is built only from bundled wheels (`pip install --no-index`). A CI job runs the services in a
-Docker network without a route to the internet and checks migration, registry, LLM call (mock), health
-endpoint and that outbound internet access fails. See [docs/AIRGAP.md](docs/AIRGAP.md) and the
+The app image is built only from bundled wheels (`pip install --no-index`) and the prebuilt web app
+(`web/dist`). A CI job runs the services in a Docker network without a route to the internet and checks
+migration, registry, LLM call (mock), health endpoint, the web app and that outbound internet access fails. See [docs/AIRGAP.md](docs/AIRGAP.md) and the
 [air-gap diagram](docs/architecture/08-airgap-deployment.html).
 
 ## 3. Use of Apertus

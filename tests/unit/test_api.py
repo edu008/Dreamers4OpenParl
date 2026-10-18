@@ -1,26 +1,102 @@
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
 
 from parltopics import __version__
-from parltopics.api.app import app
+from parltopics.api.app import create_app
+from parltopics.config import Settings
 
-client = TestClient(app)
+FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tags_example.yaml"
 
 
-def test_healthz():
-    response = client.get("/healthz")
+def client_for(dist: Path, registry: Path = FIXTURE) -> TestClient:
+    return TestClient(create_app(Settings(web_dist_dir=dist, registry_path=registry)))
+
+
+@pytest.fixture
+def built(tmp_path) -> Path:
+    """Ein minimaler Build wie aus `vite build`."""
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<!doctype html><div id=root></div>", encoding="utf-8")
+    (dist / "assets" / "index-abc123.js").write_text("console.log(1)", encoding="utf-8")
+    (dist / "favicon.svg").write_text("<svg/>", encoding="utf-8")
+    (tmp_path / "secret.txt").write_text("geheim", encoding="utf-8")
+    return dist
+
+
+def test_healthz(tmp_path):
+    response = client_for(tmp_path).get("/healthz")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "version": __version__}
 
 
-def test_pages_load_no_external_assets():
-    html = client.get("/").text
-    css = client.get("/static/style.css").text
-    assert "ParlTopics" in html
-    for text in (html, css):
-        assert "http://" not in text
-        assert "https://" not in text
-
-
-def test_openapi_without_cdn_docs():
+def test_openapi_without_cdn_docs(built):
+    client = client_for(built)
     assert client.get("/v1/openapi.json").status_code == 200
-    assert client.get("/docs").status_code == 404
+    for path in ("/docs", "/redoc"):
+        text = client.get(path).text.lower()
+        assert "swagger" not in text
+        assert "redoc" not in text
+        assert "cdn" not in text
+
+
+def test_without_build_a_hint_page_without_external_urls(tmp_path):
+    response = client_for(tmp_path / "fehlt").get("/")
+    assert response.status_code == 200
+    assert "make web-build" in response.text
+    assert "http://" not in response.text
+    assert "https://" not in response.text
+
+
+def test_spa_routes_return_index_and_files_are_served(built):
+    client = client_for(built)
+    for route in ("/", "/tags/aps:6.1.9", "/suche", "/geschaefte/70435"):
+        response = client.get(route)
+        assert response.status_code == 200, route
+        assert 'id="root"' in response.text or "id=root" in response.text
+        assert response.headers["cache-control"] == "no-cache"
+    asset = client.get("/assets/index-abc123.js")
+    assert asset.text == "console.log(1)"
+    assert "immutable" in asset.headers["cache-control"]
+    assert client.get("/favicon.svg").text == "<svg/>"
+    assert client.head("/").status_code == 200
+
+
+def test_missing_assets_and_api_paths_are_404_not_index(built):
+    client = client_for(built)
+    assert client.get("/assets/fehlt.js").status_code == 404
+    response = client.get("/v1/gibt-es-nicht")
+    assert response.status_code == 404
+    assert response.headers["content-type"].startswith("application/json")
+
+
+@pytest.mark.parametrize("path", ["/../secret.txt", "/..%2fsecret.txt", "/%2e%2e/secret.txt"])
+def test_no_files_outside_dist(built, path):
+    response = client_for(built).get(path)
+    assert "geheim" not in response.text
+
+
+def test_page_tree_from_registry(tmp_path):
+    response = client_for(tmp_path).get("/v1/pages")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["registry_version"]
+    pages = {page["page_id"]: page for page in data["pages"]}
+    assert data["pages"][0]["page_id"] == "heart"
+    assert pages["aps:6.1.9"]["path"] == "tags/aps-6.1.9-digitalisierung.md"
+    assert pages["aps:6.1.9"]["parent_id"] == "aps:6.1"
+    assert pages["adhoc:digitalisierung-breit"]["linked_from"] == ["aps:2.4", "aps:6.1"]
+
+
+def test_page_tree_reports_a_broken_registry(tmp_path):
+    broken = tmp_path / "tags.yaml"
+    broken.write_text("registry_version: [", encoding="utf-8")
+    response = client_for(tmp_path, registry=broken).get("/v1/pages")
+    assert response.status_code == 503
+    assert "Seitenbaum nicht verfügbar" in response.json()["detail"]
+
+
+def test_invalid_path_is_404_not_500(built):
+    assert client_for(built).get("/%00").status_code == 404

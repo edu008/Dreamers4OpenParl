@@ -1,49 +1,78 @@
-# Testdaten mit fiktiven Codes, nur für die Tests der Registry-Logik.
+# Testdaten mit fiktiven Codes, nur für die Tests von Registry und Seitenbaum.
 registry_version: "2026-10-18.3"
 schemes:
   aps: {label: "Année Politique Suisse", source: "Testdaten", fixed: true}
   adhoc: {label: "Ad-hoc-Themen", source: "Testdaten", fixed: false}
 tags:
+  - tag_id: "aps:2"
+    scheme: aps
+    status: active
+    slug: "wirtschaft"
+    pref_label: {de: "Wirtschaft"}
+    definition: {de: "Bereich (Testdaten)"}
+  - tag_id: "aps:2.4"
+    scheme: aps
+    status: active
+    slug: "arbeit"
+    broader: ["aps:2"]
+    pref_label: {de: "Arbeit"}
+    definition: {de: "Kapitel (Testdaten)"}
+  - tag_id: "aps:2.4.1"
+    scheme: aps
+    status: active
+    slug: "arbeitsmarkt"
+    broader: ["aps:2.4"]
+    pref_label: {de: "Arbeitsmarkt"}
+    definition: {de: "Thema (Testdaten)"}
   - tag_id: "aps:6"
     scheme: aps
     status: active
-    names: {de: "Infrastruktur", fr: "Infrastructure"}
-    descriptions: {de: "Bereich (Testdaten)"}
+    slug: "infrastruktur-umwelt"
+    pref_label: {de: "Infrastruktur und Umwelt", fr: "Infrastructure et environnement"}
+    definition: {de: "Bereich (Testdaten)"}
   - tag_id: "aps:6.1"
     scheme: aps
     status: active
-    parent: "aps:6"
-    names: {de: "Verkehr und Kommunikation"}
-    descriptions: {de: "Kapitel (Testdaten)"}
+    slug: "verkehr-kommunikation"
+    broader: ["aps:6"]
+    pref_label: {de: "Verkehr und Kommunikation"}
+    definition: {de: "Kapitel (Testdaten)"}
+    close_match: ["curia:48"]
   - tag_id: "aps:6.1.9"
     scheme: aps
     status: active
-    parent: "aps:6.1"
-    names: {de: "Digitalisierung", fr: "Numérisation", it: "Digitalizzazione"}
-    descriptions: {de: "Geschäfte zur Digitalisierung (Testdaten)"}
-    aliases: ["E-Government", "Digitale Transformation"]
+    slug: "digitalisierung"
+    broader: ["aps:6.1"]
+    pref_label: {de: "Digitalisierung", fr: "Numérisation", it: "Digitalizzazione"}
+    alt_labels: {de: ["E-Government", "Digitale Transformation"]}
+    hidden_labels: ["Digitalisirung"]
+    definition: {de: "Geschäfte zur Digitalisierung (Testdaten)"}
+    related: ["adhoc:digitalisierung-breit"]
     unreviewed_translations: [it]
   - tag_id: "aps:6.1.10"
     scheme: aps
     status: retired
-    parent: "aps:6.1"
-    names: {de: "Zurückgezogen"}
-    descriptions: {de: "Nicht mehr aktiv (Testdaten)"}
+    slug: "zurueckgezogen"
+    broader: ["aps:6.1"]
+    pref_label: {de: "Zurückgezogen"}
+    definition: {de: "Nicht mehr aktiv (Testdaten)"}
   - tag_id: "adhoc:digitalisierung-breit"
     scheme: adhoc
     status: active
-    names: {de: "Digitalisierung (breit)"}
-    descriptions: {de: "Breite Definition (Testdaten)"}
+    broader: ["aps:6.1", "aps:2.4"]
+    pref_label: {de: "Digitalisierung (breit)"}
+    definition: {de: "Breite Definition (Testdaten)"}
     created: {at: "2026-10-18", by: "team"}
   - tag_id: "adhoc:ki-verwaltung"
     scheme: adhoc
     status: proposed
-    names: {de: "KI in der Verwaltung"}
-    descriptions: {de: "Vorschlag (Testdaten)"}
+    broader: ["aps:6.1.9"]
+    pref_label: {de: "KI in der Verwaltung"}
+    definition: {de: "Vorschlag (Testdaten)"}
     proposal: {by: "apertus-70b", run: "2026-10-18-07", recommendation: child_of, related_tag: "aps:6.1.9"}
   - tag_id: "adhoc:e-government"
     scheme: adhoc
     status: merged
     merged_into: "adhoc:digitalisierung-breit"
-    names: {de: "E-Government"}
-    descriptions: {de: "Zusammengelegt (Testdaten)"}
+    pref_label: {de: "E-Government"}
+    definition: {de: "Zusammengelegt (Testdaten)"}
