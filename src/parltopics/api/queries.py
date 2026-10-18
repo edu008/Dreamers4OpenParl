@@ -45,6 +45,7 @@ WHERE d.document @@ {TSQUERY}
   AND (%(level)s::text IS NULL OR b.level = %(level)s::text)
   AND (%(date_from)s::date IS NULL OR a.begin_date >= %(date_from)s::date)
   AND (%(date_to)s::date IS NULL OR a.begin_date <= %(date_to)s::date)
+  AND (%(language)s::text IS NULL OR d.language = %(language)s::text)
   AND (%(topic)s::text IS NULL OR EXISTS (
       SELECT 1 FROM affair_tags l
       WHERE l.affair_id = a.id AND l.tag_id = %(topic)s::text AND l.status = 'active'))
@@ -72,10 +73,91 @@ SELECT page.*,
 FROM page JOIN affair_inputs i ON i.affair_id = page.affair_id
 ORDER BY page.rank DESC, page.begin_date DESC NULLS LAST, page.affair_id DESC
 """
+# Evaluation aus den Entscheiden der Menschen. Nur Labels des Modells zählen; die Stichprobe
+# (jedes 50. Geschäft) ist unabhängig von der Konfidenz ausgewählt, die übrige Warteschlange nicht.
+BANDS = 5
+REVIEWED_MODEL_LABELS = """
+FROM affair_tags
+WHERE stage <> 'human' AND review_status IS NOT NULL AND status IN ('active', 'rejected')
+"""
+CALIBRATION = f"""
+SELECT least(floor(confidence * {BANDS}), {BANDS - 1})::int AS band, count(*) AS reviewed,
+       count(*) FILTER (WHERE review_status = 'confirmed') AS confirmed,
+       count(*) FILTER (WHERE mod(affair_id, {SAMPLE_EVERY}) = 0) AS sample_reviewed,
+       count(*) FILTER (WHERE mod(affair_id, {SAMPLE_EVERY}) = 0
+                          AND review_status = 'confirmed') AS sample_confirmed
+{REVIEWED_MODEL_LABELS}
+GROUP BY 1
+"""
+# Gold-Set: der aktuelle Entscheid je Geschäft und Thema, auch von Hand gesetzte Labels.
+GOLD = f"""
+SELECT l.affair_id, l.tag_id,
+       CASE WHEN l.stage = 'human' THEN 'added' ELSE l.review_status END AS decision,
+       l.review_status = 'confirmed' AS belongs,
+       CASE WHEN l.stage = 'human' THEN NULL ELSE l.confidence END AS confidence,
+       l.stage, l.model_version, l.prompt_version, l.registry_version, l.input_hash,
+       l.reviewed_by, l.reviewed_at, mod(l.affair_id, {SAMPLE_EVERY}) = 0 AS sample
+FROM affair_tags l
+WHERE l.review_status IS NOT NULL AND l.status IN ('active', 'rejected')
+ORDER BY l.reviewed_at, l.id
+"""
+# Graph (F20), Themen untereinander: Kantengewicht = gemeinsame Geschäfte. Ohne Bereich ein
+# Knoten je APS-Bereich (der Teil der ID vor dem ersten Punkt), mit Bereich seine Themen.
+GRAPH_LABELLED = """
+SELECT DISTINCT affair_id,
+       CASE WHEN %(area)s::text IS NULL THEN split_part(tag_id, '.', 1) ELSE tag_id END AS node
+FROM affair_tags
+WHERE status = 'active' AND scheme = 'aps'
+  AND (%(area)s::text IS NULL OR tag_id LIKE %(area)s::text || '.%%')
+"""
+GRAPH_NODES = f"""
+WITH labelled AS ({GRAPH_LABELLED})
+SELECT node, count(*) AS count FROM labelled GROUP BY node
+"""
+GRAPH_EDGES = f"""
+WITH labelled AS ({GRAPH_LABELLED})
+SELECT x.node AS a, y.node AS b, count(*) AS weight, count(*) OVER () AS qualifying
+FROM labelled x JOIN labelled y ON y.affair_id = x.affair_id AND x.node < y.node
+GROUP BY x.node, y.node
+HAVING count(*) >= %(min_weight)s
+ORDER BY weight DESC, a, b
+LIMIT %(limit)s
+"""
+CO_TOPICS = """
+SELECT o.tag_id, t.name_de, count(DISTINCT o.affair_id) AS shared
+FROM affair_tags l
+JOIN affair_tags o ON o.affair_id = l.affair_id AND o.tag_id <> l.tag_id AND o.status = 'active'
+JOIN tags t ON t.tag_id = o.tag_id
+WHERE l.tag_id = %(tag_id)s AND l.status = 'active'
+GROUP BY o.tag_id, t.name_de
+ORDER BY shared DESC, o.tag_id
+LIMIT %(limit)s
+"""
 RUNS = """
 SELECT id, task, kind, started_at, finished_at, n_total, n_done, n_failed, n_escalated,
-       prompt_version, registry_version
+       prompt_version, registry_version,
+       extract(epoch FROM coalesce(finished_at, now()) - started_at)::int AS duration_s,
+       round(n_done * 60.0
+             / nullif(extract(epoch FROM coalesce(finished_at, now()) - started_at), 0), 1)
+           AS per_minute
 FROM classification_runs ORDER BY id DESC LIMIT 10
+"""
+JOB_ERRORS = """
+SELECT task, left(split_part(coalesce(last_error, ''), chr(10), 1), 160) AS reason,
+       count(*) AS count
+FROM classification_jobs WHERE status = 'failed'
+GROUP BY 1, 2 ORDER BY count DESC, reason LIMIT 10
+"""
+STATS = """
+SELECT (SELECT count(*) FROM affairs) AS affairs,
+       (SELECT count(*) FROM affair_inputs) AS prepared,
+       (SELECT count(*) FROM search_documents) AS indexed,
+       (SELECT count(*) FROM classification_jobs
+        WHERE task = 'classify:aps' AND status = 'done') AS classified,
+       (SELECT count(DISTINCT affair_id) FROM affair_tags WHERE status = 'active') AS labelled,
+       (SELECT count(*) FROM affair_tags WHERE status = 'active') AS labels,
+       (SELECT count(*) FROM affair_tags
+        WHERE review_status IS NOT NULL AND status IN ('active', 'rejected')) AS reviewed
 """
 # Nur Parlamente mit klassifizierten Geschäften: Filter ohne leere Treffer.
 BODIES = """
@@ -148,6 +230,14 @@ def affair_topics(conn: psycopg.Connection, affair_id: int) -> dict | None:
 
 def runs(conn: psycopg.Connection) -> list[dict]:
     return conn.cursor(row_factory=dict_row).execute(RUNS).fetchall()
+
+
+def job_errors(conn: psycopg.Connection) -> list[dict]:
+    return conn.cursor(row_factory=dict_row).execute(JOB_ERRORS).fetchall()
+
+
+def stats(conn: psycopg.Connection) -> dict:
+    return conn.cursor(row_factory=dict_row).execute(STATS).fetchone()
 
 
 def bodies(conn: psycopg.Connection) -> list[dict]:
@@ -235,6 +325,7 @@ def search(
     topic: str | None,
     body_key: str | None,
     level: str | None,
+    language: str | None,
     date_from: date | None,
     date_to: date | None,
     limit: int,
@@ -250,6 +341,7 @@ def search(
         "topic": topic,
         "body_key": body_key,
         "level": level,
+        "language": language,
         "date_from": date_from,
         "date_to": date_to,
         "limit": limit,
@@ -264,3 +356,56 @@ def search(
         escaped = html.escape(row["headline"])
         row["headline"] = escaped.replace(MARK[0], "<mark>").replace(MARK[1], "</mark>")
     return total, rows
+
+
+def calibration(conn: psycopg.Connection) -> list[dict]:
+    """Je Konfidenzband: geprüft, bestätigt und Trefferquote, gesamt und nur in der Stichprobe."""
+    rows = {row["band"]: row for row in conn.cursor(row_factory=dict_row).execute(CALIBRATION)}
+    empty = {"reviewed": 0, "confirmed": 0, "sample_reviewed": 0, "sample_confirmed": 0}
+
+    def share(part: int, whole: int) -> float | None:
+        return part / whole if whole else None
+
+    bands = []
+    for band in range(BANDS):
+        row = rows.get(band, empty)
+        bands.append(
+            {
+                "low": band / BANDS,
+                "high": (band + 1) / BANDS,
+                "reviewed": row["reviewed"],
+                "confirmed": row["confirmed"],
+                "precision": share(row["confirmed"], row["reviewed"]),
+                "sample_reviewed": row["sample_reviewed"],
+                "sample_confirmed": row["sample_confirmed"],
+                "sample_precision": share(row["sample_confirmed"], row["sample_reviewed"]),
+            }
+        )
+    return bands
+
+
+def gold(conn: psycopg.Connection) -> list[dict]:
+    return conn.cursor(row_factory=dict_row).execute(GOLD).fetchall()
+
+
+def topic_graph(
+    conn: psycopg.Connection, *, area: str | None, min_weight: int, limit: int
+) -> tuple[list[dict], list[dict], int]:
+    """Knoten, die stärksten Kanten und die Zahl der Kanten, die wegen limit fehlen.
+
+    shortcut: rechnet bei jedem Aufruf über alle aktiven Labels; bei voller Klassifikation
+    (rund 650k Labels) das Ergebnis nach jedem Lauf zwischenspeichern.
+    """
+    params = {"area": area, "min_weight": min_weight, "limit": limit}
+    cursor = conn.cursor(row_factory=dict_row)
+    nodes = sorted(
+        cursor.execute(GRAPH_NODES, params).fetchall(), key=lambda n: sort_key(n["node"])
+    )
+    edges = cursor.execute(GRAPH_EDGES, params).fetchall()
+    return nodes, edges, (edges[0]["qualifying"] - len(edges)) if edges else 0
+
+
+def co_topics(conn: psycopg.Connection, tag_id: str, limit: int) -> list[dict]:
+    """Themen mit den meisten gemeinsamen Geschäften (aktive Labels)."""
+    params = {"tag_id": tag_id, "limit": limit}
+    return conn.cursor(row_factory=dict_row).execute(CO_TOPICS, params).fetchall()

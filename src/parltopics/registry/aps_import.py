@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from openpyxl import load_workbook
 
 from parltopics.registry.loader import RegistryError
 
@@ -84,6 +83,8 @@ def aps_slug(name: str) -> str:
 
 
 def _rows(path: Path) -> dict[str, list[dict[str, str]]]:
+    from openpyxl import load_workbook  # nur beim Import der Tabelle, nicht in der API
+
     workbook = load_workbook(path, read_only=True, data_only=True)
     result: dict[str, list[dict[str, str]]] = {}
     for sheet, columns in SHEETS.items():
@@ -175,6 +176,12 @@ def build_aps_tags(xlsx: Path) -> list[dict[str, Any]]:
     return result
 
 
+def next_version(current: str, today: dt.date) -> str:
+    """registry_version: am selben Tag zählt die Nummer hoch, sonst beginnt der Tag mit 1."""
+    day, _, counter = current.partition(".")
+    return f"{today.isoformat()}.{int(counter) + 1 if day == today.isoformat() else 1}"
+
+
 def write_registry(data: dict[str, Any], registry_path: Path) -> None:
     body = yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100)
     registry_path.write_text(HEADER + body, encoding="utf-8", newline="\n")
@@ -194,9 +201,7 @@ def import_aps(xlsx: Path, registry_path: Path) -> tuple[int, str]:
     if old_aps == aps_tags:
         return len(aps_tags), data["registry_version"]
 
-    today = dt.date.today().isoformat()
-    current_day, _, counter = data["registry_version"].partition(".")
-    data["registry_version"] = f"{today}.{int(counter) + 1 if current_day == today else 1}"
+    data["registry_version"] = next_version(data["registry_version"], dt.date.today())
     data["tags"] = [*aps_tags, *others]
     write_registry(data, registry_path)
     return len(aps_tags), data["registry_version"]

@@ -165,3 +165,40 @@ def test_queue_lists_open_labels_with_reasons_and_decided_ones_as_done(client, c
         "Mia",
     )
     assert item["reasons"] == ["low_confidence", "evidence_unverified"]
+
+
+def test_calibration_and_gold_set_come_from_the_decisions(client, conn):
+    conn.execute("INSERT INTO affairs (id, body_key, raw) VALUES (70450, 'CHE', '{}')")
+    add_label(conn, 70435, "aps:2.4.1", 0.45, "steht nicht im Text", False)
+    add_label(conn, 70450, "adhoc:digitalisierung-breit", 0.7, "belegt", True)  # Stichprobe
+    review(client, "confirm")  # aps:6.1.9, 0.86
+    review(client, "reject", tag_id="aps:2.4.1")
+    review(client, "confirm", tag_id="adhoc:digitalisierung-breit", affair_id=70450)
+    review(client, "add", tag_id="adhoc:digitalisierung-breit")  # von Hand: nicht kalibriert
+
+    result = client.get("/v1/eval/calibration").json()
+    assert (result["threshold"], result["reviewed"], result["confirmed"]) == (0.6, 3, 2)
+    bands = {round(band["low"], 1): band for band in result["bands"]}
+    assert list(bands) == [0.0, 0.2, 0.4, 0.6, 0.8]
+    assert (bands[0.4]["reviewed"], bands[0.4]["precision"]) == (1, 0.0)
+    assert (bands[0.6]["precision"], bands[0.6]["sample_precision"]) == (1.0, 1.0)
+    assert (bands[0.8]["precision"], bands[0.8]["sample_reviewed"]) == (1.0, 0)
+    assert (bands[0.0]["reviewed"], bands[0.0]["precision"]) == (0, None)
+
+    gold = client.get("/v1/eval/gold").json()
+    rows = [
+        (row["affair_id"], row["tag_id"], row["decision"], row["belongs"], row["sample"])
+        for row in gold
+    ]
+    assert rows == [
+        (70435, "aps:6.1.9", "confirmed", True, False),
+        (70435, "aps:2.4.1", "rejected", False, False),
+        (70450, "adhoc:digitalisierung-breit", "confirmed", True, True),
+        (70435, "adhoc:digitalisierung-breit", "added", True, False),
+    ]
+    assert (gold[0]["confidence"], gold[0]["reviewed_by"], gold[0]["input_hash"]) == (
+        0.86,
+        "Mia",
+        "h1",
+    )
+    assert (gold[3]["confidence"], gold[3]["stage"]) == (None, "human")

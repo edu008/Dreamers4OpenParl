@@ -13,6 +13,7 @@ from parltopics.classify.queue import (
     Pass,
     Result,
     acquire_run_lock,
+    adhoc_task,
     claim,
     fail,
     finish,
@@ -241,3 +242,56 @@ def test_verify_evidence_tolerates_small_differences(db):
     ]
     assert verify_evidence(db, TEXT, evidences) == [True, True, False]
     assert verify_evidence(db, TEXT, []) == []
+
+
+def test_adhoc_jobs_cover_a_fixed_list_and_only_fill_in_a_missing_summary(db):
+    task = adhoc_task("adhoc:ki-verwaltung")
+    opened = open_jobs(
+        db,
+        task=task,
+        bodies=None,
+        since=None,
+        limit=None,
+        kind="adhoc",
+        registry_version="2026-10-18.3",
+        scheme_hash="t1",
+        prompt_version="p2",
+        affair_ids=[1, 3, 4],  # 4 hat keinen Klassifikationstext
+        extra={"keywords": {"de": ["KI"]}, "candidates": 1, "sample": 1},
+    )
+    assert (opened.total, opened.new) == (2, 2)
+    params = db.execute(
+        "SELECT kind, params->'keywords', params->>'sample' FROM classification_runs WHERE id = %s",
+        (opened.run_id,),
+    ).fetchone()
+    assert params == ("adhoc", {"de": ["KI"]}, "1")
+    open_aps(db)
+    assert {job.task for job in claim(db, "w", 10, tasks=[TASK_APS])} == {TASK_APS}
+    jobs = claim(db, "w", 10, tasks=[task])
+    assert sorted(job.affair_id for job in jobs) == [1, 3]
+
+    db.execute(
+        "INSERT INTO affair_summaries (affair_id, summary, task, stage, model_version,"
+        " prompt_version, input_hash) VALUES (1, 'Schon da.', 'classify:aps', '8b', 'm', 'p', 'h1')"
+    )
+    for job in jobs:
+        adhoc_result = Result(
+            passes=[Pass("8b", "m8", [label("adhoc:ki-verwaltung")])],
+            summary_de="Aus dem Ad-hoc-Lauf.",
+            proposals=[],
+            prompt_version="p2",
+            registry_version="2026-10-18.3",
+            scheme_hash="t1",
+        )
+        assert finish(db, job, "w", adhoc_result)
+    summaries = dict(
+        db.execute(
+            "SELECT affair_id, summary FROM affair_summaries WHERE status = 'active'"
+        ).fetchall()
+    )
+    assert summaries == {1: "Schon da.", 3: "Aus dem Ad-hoc-Lauf."}
+    labels = db.execute(
+        "SELECT affair_id, task FROM affair_tags WHERE tag_id = 'adhoc:ki-verwaltung'"
+        " AND status = 'active' ORDER BY affair_id"
+    ).fetchall()
+    assert labels == [(1, task), (3, task)]

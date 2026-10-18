@@ -15,8 +15,19 @@ from psycopg.types.json import Jsonb
 from parltopics.classify.schemas import TagProposal
 
 TASK_APS = "classify:aps"
+ADHOC_PREFIX = "classify:adhoc:"  # ein Ad-hoc-Tag je Aufgabe (PRD 7.4, ADR 0004)
 MAX_ATTEMPTS = 3
 EVIDENCE_SIMILARITY = 0.9
+
+
+def adhoc_task(tag_id: str) -> str:
+    """classify:adhoc:<name> für das Tag adhoc:<name>."""
+    return f"classify:{tag_id}"
+
+
+def task_tag(task: str) -> str | None:
+    """Das Tag einer Ad-hoc-Aufgabe (adhoc:<name>), sonst None."""
+    return task.removeprefix("classify:") if task.startswith(ADHOC_PREFIX) else None
 
 
 @dataclass(frozen=True)
@@ -73,13 +84,25 @@ WHERE (%(bodies)s::text[] IS NULL OR a.body_key = ANY(%(bodies)s::text[]))
 ORDER BY a.begin_date DESC NULLS LAST, a.id DESC
 LIMIT %(limit)s
 """
+# Ad-hoc-Lauf: eine feste Liste von Geschäften (Kandidaten und Stichprobe).
+ID_SCOPE = """
+SELECT a.id FROM affairs a JOIN affair_inputs i ON i.affair_id = a.id
+WHERE a.id = ANY(%(ids)s::bigint[])
+"""
 NEW_RUN = """
 INSERT INTO classification_runs (kind, task, params, registry_version, scheme_hash, prompt_version)
 VALUES (%s, %s, %s, %s, %s, %s)
 RETURNING id
 """
-OPEN_NEW = f"""
-WITH scope AS ({SCOPE}),
+
+
+def _opening(scope: str) -> tuple[str, str]:
+    """Abfragen, die die Jobs eines Laufs öffnen: neue Geschäfte, dann veraltete Ergebnisse."""
+    return _OPEN_NEW.format(scope=scope), _OPEN_STALE.format(scope=scope)
+
+
+_OPEN_NEW = """
+WITH scope AS ({scope}),
 inserted AS (
     INSERT INTO classification_jobs (affair_id, task, run_id)
     SELECT id, %(task)s, %(run_id)s FROM scope
@@ -91,8 +114,8 @@ SELECT affair_id, %(task)s, 'open', 'new', %(run_id)s FROM inserted
 """
 # Wieder öffnen (PRD 7.7): done mit anderem Text, Prompt oder scheme_hash; failed nur mit neuem
 # Prompt; offene Jobs früherer Läufe übernimmt der neue Lauf. pending gehört einem Worker.
-OPEN_STALE = f"""
-WITH scope AS ({SCOPE}),
+_OPEN_STALE = """
+WITH scope AS ({scope}),
 stale AS (
     SELECT j.affair_id, j.status, j.run_id FROM classification_jobs j
     JOIN scope ON scope.id = j.affair_id
@@ -120,6 +143,8 @@ logged AS (
 )
 SELECT old_status, old_run FROM reopened
 """
+OPEN_NEW, OPEN_STALE = _opening(SCOPE)
+OPEN_NEW_IDS, OPEN_STALE_IDS = _opening(ID_SCOPE)
 COUNT_RUN = """
 UPDATE classification_runs r
 SET n_total = c.n, finished_at = CASE WHEN c.n = 0 THEN now() END
@@ -139,7 +164,7 @@ CLAIM = """
 WITH next AS (
     SELECT j.affair_id, j.task FROM classification_jobs j JOIN affairs a ON a.id = j.affair_id
     WHERE j.status = 'open'
-      AND (%(task)s::text IS NULL OR j.task = %(task)s::text)
+      AND (%(tasks)s::text[] IS NULL OR j.task = ANY(%(tasks)s::text[]))
       AND (%(run_id)s::integer IS NULL OR j.run_id = %(run_id)s::integer)
     ORDER BY j.priority, a.begin_date DESC NULLS LAST
     LIMIT %(batch)s
@@ -219,6 +244,10 @@ SUPERSEDE_SUMMARY = """
 UPDATE affair_summaries SET status = 'superseded'
 WHERE affair_id = %(affair_id)s AND language = 'de' AND status = 'active'
 """
+HAS_SUMMARY = """
+SELECT 1 FROM affair_summaries
+WHERE affair_id = %(affair_id)s AND language = 'de' AND status = 'active'
+"""
 INSERT_SUMMARY = """
 INSERT INTO affair_summaries (affair_id, language, summary, task, stage, model_version,
                               prompt_version, input_hash, run_id)
@@ -276,24 +305,35 @@ def open_jobs(
     registry_version: str,
     scheme_hash: str,
     prompt_version: str,
+    affair_ids: list[int] | None = None,
+    extra: dict | None = None,
 ) -> OpenResult:
-    """Legt einen Lauf an und öffnet seine Jobs: neue Geschäfte und veraltete Ergebnisse."""
+    """Legt einen Lauf an und öffnet seine Jobs: neue Geschäfte und veraltete Ergebnisse.
+
+    Mit affair_ids gelten genau diese Geschäfte statt der Filter (Ad-hoc). extra kommt zu den
+    Parametern des Laufs, etwa die Stichwörter.
+    """
     params = {
         "task": task,
         "bodies": bodies,
         "since": since,
         "limit": limit,
+        "ids": affair_ids,
         "scheme_hash": scheme_hash,
         "prompt_version": prompt_version,
     }
     logged = {"bodies": bodies, "since": since.isoformat() if since else None, "limit": limit}
+    logged |= extra or {}
+    open_new, open_stale = (
+        (OPEN_NEW, OPEN_STALE) if affair_ids is None else (OPEN_NEW_IDS, OPEN_STALE_IDS)
+    )
     with conn.transaction():
         run_id = conn.execute(
             NEW_RUN, (kind, task, Jsonb(logged), registry_version, scheme_hash, prompt_version)
         ).fetchone()[0]
         params["run_id"] = run_id
-        new = conn.execute(OPEN_NEW, params).rowcount
-        moved = conn.execute(OPEN_STALE, params).fetchall()
+        new = conn.execute(open_new, params).rowcount
+        moved = conn.execute(open_stale, params).fetchall()
         old_runs = sorted({old_run for _, old_run in moved if old_run is not None})
         if old_runs:
             conn.execute(CLOSE_RUNS, (old_runs,))
@@ -307,11 +347,14 @@ def claim(
     worker_id: str,
     batch: int,
     *,
-    task: str | None = None,
+    tasks: list[str] | None = None,
     run_id: int | None = None,
 ) -> list[Job]:
-    """Übernimmt offene Jobs mit SKIP LOCKED: Priorität, dann neueste Geschäfte zuerst."""
-    params = {"worker_id": worker_id, "batch": batch, "task": task, "run_id": run_id}
+    """Übernimmt offene Jobs mit SKIP LOCKED: Priorität, dann neueste Geschäfte zuerst.
+
+    tasks: nur diese Aufgaben; ein Worker nimmt so keine Ad-hoc-Jobs, deren Tag er nicht kennt.
+    """
+    params = {"worker_id": worker_id, "batch": batch, "tasks": tasks, "run_id": run_id}
     return [Job(*row) for row in conn.execute(CLAIM, params).fetchall()]
 
 
@@ -411,7 +454,9 @@ def _write_result(conn: psycopg.Connection, job: Job, key: dict, result: Result)
     conn.execute(SUPERSEDE, {**key, "tag_ids": active})
     conn.cursor().executemany(INSERT_LABEL, rows)
     model = {"stage": final.stage, "model_version": final.model_version}
-    if result.summary_de:
+    # Ad-hoc-Jobs ergänzen eine fehlende Kurzzusammenfassung, ersetzen aber keine (PRD 7.4).
+    first_summary = conn.execute(HAS_SUMMARY, key).fetchone() is None
+    if result.summary_de and (job.task == TASK_APS or first_summary):
         conn.execute(SUPERSEDE_SUMMARY, key)
         conn.execute(INSERT_SUMMARY, {**key, **model, "summary": result.summary_de})
     if result.proposals:

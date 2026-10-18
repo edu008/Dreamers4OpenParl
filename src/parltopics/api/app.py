@@ -29,16 +29,22 @@ from parltopics.api import queries, reviews
 from parltopics.api.schemas import (
     AffairTopics,
     BodyOut,
+    Calibration,
+    GoldLabel,
+    GraphNode,
     JobCounts,
     JobsSummary,
     Lang,
     PageDetail,
     PageOut,
     PageTree,
+    RelatedTopic,
     ReviewIn,
     ReviewQueue,
     SearchResult,
+    Stats,
     TopicAffairs,
+    TopicGraph,
     TopicOut,
 )
 from parltopics.classify.queue import summary as job_summary
@@ -70,6 +76,7 @@ TAGS = [
     {"name": "Themen", "description": "Tags der Registry (APS und Ad-hoc) und ihre Geschäfte."},
     {"name": "Review", "description": "Entscheide von Menschen zu Labels, mit Name und Zeit."},
     {"name": "Suche", "description": "Volltext über Titel und Texte (de, fr, it), ohne LLM."},
+    {"name": "Evaluation", "description": "Kalibrierung und Gold-Set aus den Entscheiden."},
     {"name": "Jobs", "description": "Stand der Klassifikation je Aufgabe."},
     {"name": "Seiten", "description": "Seitenbaum des ParlWiki."},
     {"name": "System", "description": "Betrieb."},
@@ -205,7 +212,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             counts = tasks.setdefault(task, JobCounts(task=task))
             setattr(counts, status, count)
             counts.total += count
-        return JobsSummary(tasks=list(tasks.values()), runs=queries.runs(conn))
+        return JobsSummary(
+            tasks=list(tasks.values()), runs=queries.runs(conn), errors=queries.job_errors(conn)
+        )
+
+    @api.get("/stats", tags=["Jobs"], summary="Gesamtzahlen", responses=no_database)
+    def stats(conn: Conn) -> Stats:
+        """Geschäfte gesamt, mit Text, im Volltext, klassifiziert und mit Thema, dazu die
+        Labels und die Entscheide: für die Fortschrittsanzeige «x von 326'396»."""
+        return Stats(**queries.stats(conn))
 
     @api.get("/bodies", tags=["Geschäfte"], summary="Parlamente", responses=no_database)
     def bodies(conn: Conn) -> list[BodyOut]:
@@ -303,6 +318,84 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             items=[{**row, "label": row} for row in rows],
         )
 
+    @api.get(
+        "/topics/{tag_id}/related",
+        tags=["Themen"],
+        summary="Verwandte Themen",
+        responses={404: {"description": "Thema unbekannt"}, **no_database},
+    )
+    def topic_related(
+        tag_id: str, conn: Conn, limit: Annotated[int, Query(ge=1, le=50)] = 10
+    ) -> list[RelatedTopic]:
+        """Zuerst die in der Registry als verwandt eingetragenen Themen (related), dann die
+        Themen mit den meisten gemeinsamen Geschäften. shared zählt aktive Labels."""
+        if not queries.tag_exists(conn, tag_id):
+            raise HTTPException(404, f"Thema {tag_id} unbekannt")
+        registry, _ = load()
+        shared = {row["tag_id"]: row for row in queries.co_topics(conn, tag_id, limit)}
+        known = {tag.tag_id: tag for tag in registry.tags}
+        curated = known[tag_id].related if tag_id in known else []
+        related = []
+        for other in curated:
+            if other not in known:
+                continue
+            row = shared.pop(other, None)
+            related.append(
+                RelatedTopic(
+                    tag_id=other,
+                    name_de=known[other].pref_label.de,
+                    shared=row["shared"] if row else 0,
+                    in_registry=True,
+                )
+            )
+        return related + [RelatedTopic(**row, in_registry=False) for row in shared.values()]
+
+    @api.get(
+        "/graph/topics",
+        tags=["Themen"],
+        summary="Themen-Graph",
+        responses={
+            404: {"description": "Bereich unbekannt"},
+            503: {"description": "Registry nicht lesbar oder Datenbank nicht erreichbar"},
+        },
+    )
+    def graph_topics(
+        conn: Conn,
+        area: Annotated[
+            str | None,
+            Query(description="APS-Bereich, z. B. aps:6; ohne: ein Knoten je Bereich"),
+        ] = None,
+        min_weight: Annotated[int, Query(ge=1, description="nur Kanten ab so vielen")] = 1,
+        limit: Annotated[int, Query(ge=1, le=500, description="höchstens so viele Kanten")] = 60,
+        lang: LangQuery = "de",
+    ) -> TopicGraph:
+        """Themen untereinander (F20): Ohne area ein Knoten je APS-Bereich, mit area die Themen
+        dieses Bereichs. Kantengewicht = Zahl der Geschäfte, die beide Knoten tragen. Das
+        Layout rechnet die Web-App."""
+        _, tree = load()
+        if area is not None and (area not in tree or tree[area].kind != "bereich"):
+            raise HTTPException(404, f"Bereich {area} gibt es nicht")
+        nodes, edges, hidden = queries.topic_graph(
+            conn, area=area, min_weight=min_weight, limit=limit
+        )
+        return TopicGraph(
+            area=area,
+            nodes=[
+                GraphNode(
+                    id=node["node"],
+                    label=tree[node["node"]].title_in(lang)
+                    if node["node"] in tree
+                    else node["node"],
+                    kind=tree[node["node"]].kind if node["node"] in tree else "tag",
+                    count=node["count"],
+                    group=node["node"].split(".")[0],
+                )
+                for node in nodes
+            ],
+            edges=edges,
+            hidden=hidden,
+        )
+
     @api.post(
         "/reviews",
         tags=["Review"],
@@ -326,6 +419,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         assert affair is not None  # ein Label hängt immer an einem Geschäft (Fremdschlüssel)
         return AffairTopics(**affair)
 
+    @api.get(
+        "/eval/calibration",
+        tags=["Evaluation"],
+        summary="Trefferquote je Konfidenzband",
+        responses=no_database,
+    )
+    def eval_calibration(conn: Conn) -> Calibration:
+        """Wie ehrlich ist die Konfidenz? Je Band der Anteil der Modell-Labels, die ein Mensch
+        bestätigt hat (verworfen und ersetzt zählen als falsch). Für den Bericht zählt die
+        Stichprobe, denn die übrige Warteschlange wählt nach tiefer Konfidenz aus."""
+        bands = queries.calibration(conn)
+        return Calibration(
+            threshold=settings.confidence_threshold,
+            reviewed=sum(band["reviewed"] for band in bands),
+            confirmed=sum(band["confirmed"] for band in bands),
+            bands=bands,
+        )
+
+    @api.get("/eval/gold", tags=["Evaluation"], summary="Gold-Set (Export)", responses=no_database)
+    def eval_gold(conn: Conn) -> list[GoldLabel]:
+        """Alle aktuellen Entscheide als Gold-Labels, ältester zuerst: bestätigt und von Hand
+        gesetzt gehören dazu, verworfen und ersetzt nicht. Mit Modell-, Prompt- und
+        Registry-Version und dem Text (input_hash), auf den sich der Entscheid bezieht."""
+        return [GoldLabel(**row) for row in queries.gold(conn)]
+
     @api.get("/search", tags=["Suche"], summary="Volltextsuche", responses=no_database)
     def search(
         conn: Conn,
@@ -344,6 +462,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             Literal["country", "canton", "city", "municipality"] | None,
             Query(description="Ebene des Parlaments"),
         ] = None,
+        language: Annotated[
+            Lang | None, Query(description="Sprache des Klassifikationstexts")
+        ] = None,
         date_from: Annotated[date | None, Query(alias="from", description="ab Datum")] = None,
         date_to: Annotated[date | None, Query(alias="to", description="bis Datum")] = None,
         limit: Annotated[int, Query(ge=1, le=50)] = 20,
@@ -360,6 +481,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             topic=topic,
             body_key=body_key,
             level=level,
+            language=language,
             date_from=date_from,
             date_to=date_to,
             limit=limit,
@@ -400,6 +522,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if page.kind == "querschnitt"
             else linked_querschnitt(tree, page_id)
         )
+        tag = registry.get(page.tag_id) if page.tag_id else None
         return PageDetail(
             registry_version=registry.registry_version,
             lang=lang,
@@ -407,6 +530,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ancestors=[page_out(tree[other], lang) for other in reversed(ancestors(tree, page_id))],
             children=[page_out(child, lang) for child in children(tree, page_id)],
             linked=[page_out(other, lang) for other in linked],
+            definition=(getattr(tag.definition, lang) or tag.definition.de) if tag else None,
+            alt_labels=(getattr(tag.alt_labels, lang) or tag.alt_labels.de) if tag else [],
+            related=[page_out(tree[other], lang) for other in tag.related if other in tree]
+            if tag
+            else [],
         )
 
     @api.get(

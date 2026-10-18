@@ -24,16 +24,19 @@ from psycopg_pool import ConnectionPool
 from pydantic import ValidationError
 
 from parltopics.classify.queue import (
+    TASK_APS,
     Job,
     Label,
     Pass,
     Result,
+    adhoc_task,
     claim,
     fail,
     finish,
     heartbeat,
     mark_stage,
     release_stale,
+    task_tag,
     verify_evidence,
 )
 from parltopics.classify.schemas import OutputError, Stage2Output, parse_stage1, parse_stage2
@@ -46,7 +49,7 @@ from parltopics.llm import (
     extract_json,
     load_prompt,
 )
-from parltopics.registry import RegistryError, Tag, load_registry, scheme_hash
+from parltopics.registry import RegistryError, Tag, load_registry, scheme_hash, tag_hash
 from parltopics.registry.sync import synced_version
 
 log = logging.getLogger("parltopics.worker")
@@ -73,11 +76,30 @@ class Classifier:
     scheme_hash: str
     stage1: Prompt
     stage2: Prompt
+    known: dict[str, Tag]  # alle Tags der Registry, für Ad-hoc-Jobs auch vorgeschlagene
 
     @property
     def prompt_version(self) -> str:
         """Beide Prompts von classify:aps in einer Spalte, getrennt durch ein Leerzeichen."""
         return f"{self.stage1.version} {self.stage2.version}"
+
+    @property
+    def tasks(self) -> list[str]:
+        """Aufgaben, die dieser Worker bearbeiten kann: APS und je vorgeschlagenes oder aktives
+        Ad-hoc-Tag. Ein später angelegtes Tag übernimmt erst ein neu gestarteter Worker."""
+        adhoc = (
+            adhoc_task(tag.tag_id)
+            for tag in self.known.values()
+            if tag.scheme == "adhoc" and tag.status in ("proposed", "active")
+        )
+        return [TASK_APS, *adhoc]
+
+    def versions(self, job: Job) -> tuple[str, str]:
+        """prompt_version und scheme_hash eines Jobs; Ad-hoc nutzt nur Stufe 2 und ein Tag."""
+        tag_id = task_tag(job.task)
+        if tag_id is None:
+            return self.prompt_version, self.scheme_hash
+        return self.stage2.version, tag_hash(self.known[tag_id])
 
 
 def load_classifier(settings: Settings) -> Classifier:
@@ -94,6 +116,7 @@ def load_classifier(settings: Settings) -> Classifier:
         scheme_hash=scheme_hash(registry, "aps"),
         stage1=load_prompt(settings.prompts_dir, STAGE_PROMPTS[0]),
         stage2=load_prompt(settings.prompts_dir, STAGE_PROMPTS[1]),
+        known={tag.tag_id: tag for tag in registry.tags},
     )
 
 
@@ -137,23 +160,30 @@ async def _pass(
     large: bool,
     verify: Callable[[str, list[str]], Awaitable[list[bool]]],
 ) -> tuple[Pass, Stage2Output]:
-    """Beide Stufen mit 8B oder 70B, danach die Belegprüfung."""
+    """Beide Stufen mit 8B oder 70B, danach die Belegprüfung. Ein Ad-hoc-Job braucht keine
+    Kapitel: Stufe 2 bietet nur sein Tag an."""
     user = {"affair_id": job.affair_id, "text": job.text}
-    chapter_ids = {chapter.tag_id for chapter in c.chapters}
-    stage1, _ = await _ask(
-        client,
-        c.stage1.messages({"chapters": c.chapters}, user),
-        large,
-        lambda data: parse_stage1(data, affair_id=job.affair_id, offered=chapter_ids),
-    )
     stage = "70b" if large else "8b"
-    offered = {tag.tag_id: tag for choice in stage1.chapters for tag in c.topics[choice.chapter_id]}
-    offered |= {tag.tag_id: tag for tag in c.adhoc}
-    if not offered:  # kein Kapitel und kein aktives Ad-hoc-Tag: nichts zur Auswahl
-        empty = Stage2Output(affair_id=job.affair_id, language=stage1.language)
-        settings = client.settings
-        model = settings.llm_name_large if large else settings.llm_name
-        return Pass(stage, model, []), empty
+    adhoc_id = task_tag(job.task)
+    if adhoc_id is not None:
+        offered = {adhoc_id: c.known[adhoc_id]}
+    else:
+        chapter_ids = {chapter.tag_id for chapter in c.chapters}
+        stage1, _ = await _ask(
+            client,
+            c.stage1.messages({"chapters": c.chapters}, user),
+            large,
+            lambda data: parse_stage1(data, affair_id=job.affair_id, offered=chapter_ids),
+        )
+        offered = {
+            tag.tag_id: tag for choice in stage1.chapters for tag in c.topics[choice.chapter_id]
+        }
+        offered |= {tag.tag_id: tag for tag in c.adhoc}
+        if not offered:  # kein Kapitel und kein aktives Ad-hoc-Tag: nichts zur Auswahl
+            empty = Stage2Output(affair_id=job.affair_id, language=stage1.language)
+            settings = client.settings
+            model = settings.llm_name_large if large else settings.llm_name
+            return Pass(stage, model, []), empty
     dropped: list[str] = []
 
     def parse2(data: dict) -> Stage2Output:
@@ -215,7 +245,11 @@ async def _requote(
 def escalation_reasons(
     job: Job, labels: list[Label], output: Stage2Output, threshold: float
 ) -> list[str]:
-    """Wann 70B übernimmt (ARCHITEKTUR 3.4)."""
+    """Wann 70B übernimmt (ARCHITEKTUR 3.4). Ad-hoc-Jobs nur bei tiefer Konfidenz: ihre
+    Stichprobe hat meist kein Thema, und ohne Kapitelwahl gibt es keine Vorschläge zu prüfen."""
+    if task_tag(job.task) is not None:
+        low = any(label.confidence < threshold for label in labels)
+        return ["konfidenz"] if low else []
     checks = {
         "konfidenz": any(label.confidence < threshold for label in labels),
         "keine_themen": not labels,  # auch wenn 8B kein passendes Kapitel fand
@@ -257,13 +291,14 @@ async def classify_affair(
                 raise
             # 70B unbrauchbar, 8B gültig: das 8B-Ergebnis gilt, statt den Job zu verwerfen.
             reasons.append("70b_ungueltig")
+    prompt_version, scheme = c.versions(job)
     result = Result(
         passes=passes,
         summary_de=output.summary_de,
-        proposals=output.proposed_tags,
-        prompt_version=c.prompt_version,
+        proposals=[] if task_tag(job.task) else output.proposed_tags,
+        prompt_version=prompt_version,
         registry_version=c.registry_version,
-        scheme_hash=c.scheme_hash,
+        scheme_hash=scheme,
     )
     return result, reasons
 
@@ -281,6 +316,8 @@ async def run_worker(
     Gibt die Zahl der Jobs je Ausgang zurück (done, open, failed, lost_lock).
     """
     c = load_classifier(settings)
+    if task and task_tag(task) is not None and task_tag(task) not in c.known:
+        raise RegistryError(f"{task}: Tag {task_tag(task)} steht nicht in der Registry")
     worker_id = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:6]}"
     counts: Counter[str] = Counter()
     pool = ConnectionPool(
@@ -368,7 +405,8 @@ async def run_worker(
 
             async def claim_jobs(n: int) -> list[Job]:
                 await db(release_stale, settings.job_timeout_seconds)
-                return await db(claim, worker_id, n, task=task, run_id=run_id)
+                tasks = [task] if task else c.tasks
+                return await db(claim, worker_id, n, tasks=tasks, run_id=run_id)
 
             beating = asyncio.create_task(beat())
             try:

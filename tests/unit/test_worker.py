@@ -10,6 +10,7 @@ import pytest
 from parltopics.classify.queue import Job
 from parltopics.classify.worker import OutputFailure, classify_affair, fill_slots, load_classifier
 from parltopics.llm import LLMClient
+from parltopics.registry import tag_hash
 from tests.mock_llm.app import completion, fake_completion
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tags_example.yaml"
@@ -242,3 +243,48 @@ async def test_no_matching_chapter_offers_only_adhoc_tags(settings, classifier):
     assert "adhoc:digitalisierung-breit |" in stage2
     assert "aps:2.4.1 |" not in stage2
     assert [label.tag_id for label in result.passes[-1].labels] == ["adhoc:digitalisierung-breit"]
+
+
+ADHOC = "classify:adhoc:ki-verwaltung"  # in der Test-Registry vorgeschlagen, nicht aktiv
+
+
+def adhoc_job(affair_id=7, language="de"):
+    return Job(affair_id, ADHOC, 1, 1, TEXT, "h", language)
+
+
+async def test_adhoc_job_offers_only_its_tag_and_skips_the_chapters(settings, classifier):
+    client, requests = mock_llm(settings)
+    async with client:
+        result, reasons = await classify_affair(
+            classifier, client, adhoc_job(), threshold=0.6, verify=verified, escalate=nothing
+        )
+    assert (reasons, len(requests)) == ([], 1)  # nur Stufe 2
+    system = requests[0]["messages"][0]["content"]
+    assert "adhoc:ki-verwaltung |" in system
+    assert "aps:2.4.1 |" not in system
+    assert "adhoc:digitalisierung-breit |" not in system
+    (only,) = result.passes
+    assert [label.tag_id for label in only.labels] == ["adhoc:ki-verwaltung"]
+    assert result.prompt_version.startswith("classify_topics_v2+")
+    assert " " not in result.prompt_version
+    assert result.scheme_hash == tag_hash(classifier.known["adhoc:ki-verwaltung"])
+    assert result.proposals == []
+
+
+@pytest.mark.parametrize(("change", "expected"), [(None, []), (low_confidence, ["konfidenz"])])
+async def test_adhoc_escalates_only_on_low_confidence(settings, classifier, change, expected):
+    client, _ = mock_llm(settings, changing_8b(change))
+    job = adhoc_job(affair_id=100, language="other")  # Stichprobe und Sprache zählen hier nicht
+    async with client:
+        _, reasons = await classify_affair(
+            classifier, client, job, threshold=0.6, verify=verified, escalate=nothing
+        )
+    assert reasons == expected
+
+
+def test_worker_takes_aps_and_proposed_or_active_adhoc_tasks(classifier):
+    assert classifier.tasks == [
+        "classify:aps",
+        "classify:adhoc:digitalisierung-breit",
+        "classify:adhoc:ki-verwaltung",
+    ]

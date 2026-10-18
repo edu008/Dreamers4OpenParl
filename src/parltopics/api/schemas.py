@@ -37,6 +37,15 @@ class PageDetail(BaseModel):
     ancestors: list[PageOut]
     children: list[PageOut]
     linked: list[PageOut]
+    definition: str | None = Field(
+        description="Definition des Themas aus der Registry, in lang, sonst Deutsch;"
+        " auf der Heart-Seite null"
+    )
+    alt_labels: list[str] = Field(
+        description="weitere Bezeichnungen (Aliasse) in lang, sonst Deutsch",
+        examples=[["E-Government", "Digitale Transformation"]],
+    )
+    related: list[PageOut] = Field(description="verwandte Themen aus der Registry (related)")
 
 
 class JobCounts(BaseModel):
@@ -73,11 +82,32 @@ class RunOut(BaseModel):
     n_escalated: int = Field(description="an Apertus 70B weitergegeben")
     prompt_version: str
     registry_version: str
+    duration_s: int = Field(description="Dauer in Sekunden, bei laufenden Läufen bis jetzt")
+    per_minute: float | None = Field(description="erledigte Geschäfte je Minute")
+
+
+class JobError(BaseModel):
+    task: str = Field(examples=["classify:aps"])
+    reason: str = Field(description="erste Zeile der Fehlermeldung, gekürzt")
+    count: int
 
 
 class JobsSummary(BaseModel):
     tasks: list[JobCounts]
     runs: list[RunOut] = Field(description="die letzten zehn Läufe, neuester zuerst")
+    errors: list[JobError] = Field(description="häufigste Gründe für failed, höchstens zehn")
+
+
+class Stats(BaseModel):
+    """Gesamtzahlen für die Fortschrittsanzeige."""
+
+    affairs: int = Field(description="Geschäfte in der Datenbank", examples=[326396])
+    prepared: int = Field(description="mit Klassifikationstext (affair_inputs)")
+    indexed: int = Field(description="im Volltext (search_documents)")
+    classified: int = Field(description="mit erledigtem Job classify:aps, auch ohne Thema")
+    labelled: int = Field(description="mit mindestens einem aktiven Label")
+    labels: int = Field(description="aktive Labels")
+    reviewed: int = Field(description="Labels mit Entscheid eines Menschen")
 
 
 class BodyOut(BaseModel):
@@ -219,6 +249,7 @@ class ReviewQueue(BaseModel):
 
 
 class SearchHit(AffairHead):
+    language: str | None = Field(description="Sprache des Klassifikationstexts", examples=["de"])
     rank: float = Field(description="ts_rank_cd; ein Treffer im Titel zählt mehr als im Text")
     headline: str = Field(
         description="Ausschnitte aus dem Klassifikationstext als HTML: alles maskiert,"
@@ -235,3 +266,70 @@ class SearchResult(BaseModel):
     offset: int
     duration_ms: int = Field(description="Dauer der Abfragen in der API")
     items: list[SearchHit] = Field(description="nach Rang, dann neueste zuerst")
+
+
+class CalibrationBand(BaseModel):
+    low: float = Field(description="untere Grenze der Konfidenz, eingeschlossen", examples=[0.6])
+    high: float = Field(description="obere Grenze, ausgeschlossen (beim letzten Band 1.0 dabei)")
+    reviewed: int = Field(description="Labels des Modells mit Entscheid")
+    confirmed: int
+    precision: float | None = Field(description="Anteil bestätigt; null ohne Entscheide")
+    sample_reviewed: int = Field(description="davon in der Stichprobe (jedes 50. Geschäft)")
+    sample_confirmed: int
+    sample_precision: float | None = Field(
+        description="Trefferquote nur in der Stichprobe: unabhängig davon, wie die Warteschlange"
+        " auswählt, darum die ehrliche Zahl für den Bericht"
+    )
+
+
+class Calibration(BaseModel):
+    threshold: float = Field(description="CONFIDENCE_THRESHOLD der Klassifikation")
+    reviewed: int
+    confirmed: int
+    bands: list[CalibrationBand] = Field(description="fünf Bänder zu 0.2, tiefste zuerst")
+
+
+class GoldLabel(BaseModel):
+    """Ein Entscheid eines Menschen: gehört das Thema zum Geschäft?"""
+
+    affair_id: int
+    tag_id: str
+    decision: Literal["confirmed", "rejected", "changed", "added"]
+    belongs: bool = Field(description="true bei confirmed und added, false bei rejected, changed")
+    confidence: float | None = Field(description="Konfidenz des Modells; null bei added")
+    stage: Stage
+    model_version: str
+    prompt_version: str
+    registry_version: str
+    input_hash: str = Field(description="Text, auf den sich der Entscheid bezieht")
+    reviewed_by: str | None
+    reviewed_at: datetime | None
+    sample: bool = Field(description="Geschäft der Stichprobe (jedes 50.)")
+
+
+class GraphNode(BaseModel):
+    id: str = Field(description="Seite und Tag", examples=["aps:6"])
+    label: str = Field(examples=["Infrastruktur und Umwelt"])
+    kind: PageKind = Field(description="bereich in der Übersicht, sonst kapitel oder tag")
+    count: int = Field(description="Geschäfte mit aktivem Label auf diesem Knoten")
+    group: str = Field(description="APS-Bereich, zum Beispiel für die Farbe", examples=["aps:6"])
+
+
+class GraphEdge(BaseModel):
+    a: str
+    b: str
+    weight: int = Field(description="Geschäfte, die beide Knoten tragen")
+
+
+class TopicGraph(BaseModel):
+    area: str | None = Field(description="geöffneter Bereich; null in der Übersicht")
+    nodes: list[GraphNode] = Field(description="sortiert wie der Seitenbaum")
+    edges: list[GraphEdge] = Field(description="stärkste zuerst, höchstens limit")
+    hidden: int = Field(description="Kanten ab min_weight, die wegen limit fehlen")
+
+
+class RelatedTopic(BaseModel):
+    tag_id: str = Field(examples=["adhoc:digitalisierung-breit"])
+    name_de: str
+    shared: int = Field(description="Geschäfte mit beiden Themen (aktive Labels)")
+    in_registry: bool = Field(description="in der Registry als verwandt eingetragen")

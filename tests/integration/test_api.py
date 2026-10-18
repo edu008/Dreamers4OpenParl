@@ -56,7 +56,7 @@ def test_endpoints_read_labels_topics_and_jobs(conn, repo_root, api_settings):
     seed(conn)
     with TestClient(create_app(api_settings)) as client:
         counts = {"open": 0, "pending": 0, "done": 1, "failed": 0, "total": 1}
-        expected = {"tasks": [{"task": "classify:aps", **counts}], "runs": []}
+        expected = {"tasks": [{"task": "classify:aps", **counts}], "runs": [], "errors": []}
         assert client.get("/v1/jobs/summary").json() == expected
 
         affair = client.get("/v1/affairs/70435/topics").json()
@@ -153,6 +153,16 @@ def test_parliaments_german_types_and_recent_runs(conn, repo_root, api_settings)
         " prompt_version, n_total, n_done, n_failed, n_escalated)"
         " VALUES ('full', 'classify:aps', '2026-10-18.3', 's', 'p', 5, 4, 1, 2)"
     )
+    conn.execute(
+        "INSERT INTO classification_runs (kind, task, registry_version, scheme_hash,"
+        " prompt_version, n_total, n_done, started_at, finished_at) VALUES ('daily',"
+        " 'classify:aps', 'v', 's', 'p', 30, 30, '2026-10-18 10:00+00', '2026-10-18 10:10+00')"
+    )
+    conn.execute(
+        "INSERT INTO classification_jobs (affair_id, task, status, attempts, last_error)"
+        " VALUES (80002, 'classify:aps', 'failed', 3, %s)",
+        ("ungültige Antwort: 1 validation error\nchapters zu kurz",),
+    )
     with TestClient(create_app(api_settings)) as client:
         bodies = [tuple(body.values()) for body in client.get("/v1/bodies").json()]
         assert bodies == [("CHE", "Schweiz", "country", 1), ("ZH", "Zürich", "canton", 1)]
@@ -161,10 +171,26 @@ def test_parliaments_german_types_and_recent_runs(conn, repo_root, api_settings)
         assert (affair["type"], affair["type_de"]) == ("Postulate", "Postulat")
         assert client.get("/v1/affairs/70435/topics").json()["type_de"] is None  # raw ohne Typ
 
-        (run,) = client.get("/v1/jobs/summary").json()["runs"]
+        summary = client.get("/v1/jobs/summary").json()
+        finished, run = summary["runs"]  # neuester zuerst
+        assert (finished["duration_s"], finished["per_minute"]) == (600, 3.0)
         assert (run["kind"], run["task"], run["finished_at"]) == ("full", "classify:aps", None)
         counts = (run["n_total"], run["n_done"], run["n_failed"], run["n_escalated"])
         assert counts == (5, 4, 1, 2)
+        assert run["duration_s"] >= 0
+        reason = "ungültige Antwort: 1 validation error"
+        assert summary["errors"] == [{"task": "classify:aps", "reason": reason, "count": 1}]
+
+        stats = client.get("/v1/stats").json()
+        assert stats == {
+            "affairs": 3,
+            "prepared": 2,
+            "indexed": 0,
+            "classified": 1,
+            "labelled": 2,
+            "labels": 2,
+            "reviewed": 0,
+        }
 
 
 def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
@@ -232,4 +258,56 @@ def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
         assert found("digitalisieren", to="2024-12-31") == (1, [80003])
         assert found("digitalisieren", limit=1, offset=1) == (2, [80003])
         assert found("Raumfahrt") == (0, [])
+        assert first["language"] == "de"
+        assert found("numériser", language="fr") == (1, [70437])
+        assert found("digitalisieren", language="fr") == (0, [])
         assert client.get("/v1/search", params={"q": "a"}).status_code == 422
+
+
+def test_topic_graph_by_area_and_related_topics(conn, repo_root, api_settings):
+    migrate(conn, repo_root / "migrations")
+    sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
+    seed(conn)  # 70435: aktiv aps:6.1.9
+    conn.execute(
+        "INSERT INTO affairs (id, body_key, raw) VALUES (70436, 'CHE', '{}'), (70437, 'CHE', '{}')"
+    )
+    label = (
+        "INSERT INTO affair_tags (affair_id, tag_id, scheme, confidence, task, stage,"
+        " model_version, prompt_version, registry_version, input_hash)"
+        " VALUES (%s, %s, split_part(%s, ':', 1), 0.8, 'classify:aps', '8b', 'm', 'p', 'v', 'h')"
+    )
+    for affair_id, tag_id in [
+        (70435, "aps:2.4.1"),
+        (70435, "aps:6.1"),
+        (70436, "aps:6.1.9"),
+        (70436, "aps:2.4.1"),
+        (70437, "aps:6.1.9"),
+        (70437, "adhoc:digitalisierung-breit"),
+    ]:
+        conn.execute(label, (affair_id, tag_id, tag_id))
+
+    with TestClient(create_app(api_settings)) as client:
+        overview = client.get("/v1/graph/topics").json()
+        nodes = [(n["id"], n["kind"], n["count"], n["group"]) for n in overview["nodes"]]
+        assert nodes == [("aps:2", "bereich", 2, "aps:2"), ("aps:6", "bereich", 3, "aps:6")]
+        assert overview["nodes"][0]["label"] == "Wirtschaft"
+        assert overview["edges"] == [{"a": "aps:2", "b": "aps:6", "weight": 2}]
+        assert (overview["area"], overview["hidden"]) == (None, 0)
+        assert client.get("/v1/graph/topics", params={"min_weight": 3}).json()["edges"] == []
+
+        area = client.get("/v1/graph/topics", params={"area": "aps:6"}).json()
+        nodes = [(n["id"], n["kind"], n["count"]) for n in area["nodes"]]
+        assert nodes == [("aps:6.1", "kapitel", 1), ("aps:6.1.9", "tag", 3)]
+        assert area["edges"] == [{"a": "aps:6.1", "b": "aps:6.1.9", "weight": 1}]
+        for unknown in ("aps:6.1", "aps:9"):  # Kapitel ist kein Bereich
+            assert client.get("/v1/graph/topics", params={"area": unknown}).status_code == 404
+
+        related = client.get("/v1/topics/aps:6.1.9/related").json()
+        rows = [(row["tag_id"], row["shared"], row["in_registry"]) for row in related]
+        assert rows == [
+            ("adhoc:digitalisierung-breit", 1, True),  # aus der Registry zuerst
+            ("aps:2.4.1", 2, False),
+            ("aps:6.1", 1, False),
+        ]
+        assert related[0]["name_de"] == "Digitalisierung (breit)"
+        assert client.get("/v1/topics/aps:9.9/related").status_code == 404
