@@ -9,6 +9,7 @@ nicht von einem CDN (PRD 9, Offline); FastAPIs Standardseiten /docs und /redoc b
 OpenAPI-Schema steht unter /v1/openapi.json.
 """
 
+import time
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import date
@@ -36,6 +37,7 @@ from parltopics.api.schemas import (
     PageTree,
     ReviewIn,
     ReviewQueue,
+    SearchResult,
     TopicAffairs,
     TopicOut,
 )
@@ -67,6 +69,7 @@ TAGS = [
     {"name": "Geschäfte", "description": "Ein Geschäft mit seinen Themen, Belegen und Versionen."},
     {"name": "Themen", "description": "Tags der Registry (APS und Ad-hoc) und ihre Geschäfte."},
     {"name": "Review", "description": "Entscheide von Menschen zu Labels, mit Name und Zeit."},
+    {"name": "Suche", "description": "Volltext über Titel und Texte (de, fr, it), ohne LLM."},
     {"name": "Jobs", "description": "Stand der Klassifikation je Aufgabe."},
     {"name": "Seiten", "description": "Seitenbaum des ParlWiki."},
     {"name": "System", "description": "Betrieb."},
@@ -322,6 +325,50 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         affair = queries.affair_topics(conn, body.affair_id)
         assert affair is not None  # ein Label hängt immer an einem Geschäft (Fremdschlüssel)
         return AffairTopics(**affair)
+
+    @api.get("/search", tags=["Suche"], summary="Volltextsuche", responses=no_database)
+    def search(
+        conn: Conn,
+        q: Annotated[
+            str,
+            Query(
+                min_length=2,
+                max_length=200,
+                description='Suchbegriffe; "…" für eine Wortfolge, -wort schliesst aus,'
+                " or für oder",
+            ),
+        ],
+        topic: Annotated[str | None, Query(description="nur mit diesem aktiven Thema")] = None,
+        body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
+        level: Annotated[
+            Literal["country", "canton", "city", "municipality"] | None,
+            Query(description="Ebene des Parlaments"),
+        ] = None,
+        date_from: Annotated[date | None, Query(alias="from", description="ab Datum")] = None,
+        date_to: Annotated[date | None, Query(alias="to", description="bis Datum")] = None,
+        limit: Annotated[int, Query(ge=1, le=50)] = 20,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> SearchResult:
+        """Volltextsuche über die Klassifikationstexte (Titel und Texte), ohne Sprachangabe: Die
+        Begriffe werden deutsch, französisch und italienisch auf ihren Stamm zurückgeführt. Rang
+        nach ts_rank_cd, Treffer im Titel zählen mehr. Je Treffer ein Ausschnitt mit markierten
+        Begriffen und die aktiven Themen."""
+        start = time.perf_counter()
+        total, items = queries.search(
+            conn,
+            q=q,
+            topic=topic,
+            body_key=body_key,
+            level=level,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            offset=offset,
+        )
+        duration_ms = round((time.perf_counter() - start) * 1000)
+        return SearchResult(
+            q=q, total=total, limit=limit, offset=offset, duration_ms=duration_ms, items=items
+        )
 
     @api.get("/pages", tags=["Seiten"], summary="Seitenbaum des ParlWiki", responses=no_registry)
     def pages(lang: LangQuery = "de") -> PageTree:

@@ -44,6 +44,8 @@ Die API-Dokumentation für die Web-App steht nach `make api` unter <http://127.0
 
 Review-Entscheide schreibt `POST /v1/reviews` (bestätigen, verwerfen, ändern, hinzufügen, zurücknehmen), die offenen Fälle liefert `GET /v1/reviews/queue`. Im Hack-MVP gibt es keine Anmeldung und keine Rollen: Wer die API erreicht, kann entscheiden; an jedem Entscheid stehen Name und Zeit, und jeder lässt sich mit `undo` zurücknehmen. Die Aktion `undo` braucht Migration 0004: Auf der gemeinsamen Datenbank führt die betreibende Person `make migrate` aus.
 
+Die Volltextsuche `GET /v1/search` (de, fr, it, ohne LLM) liest `search_documents`. Das füllt `parltopics inputs` gleich mit; Klassifikationstexte, die vor dieser Version gebaut wurden, bekommen ihr Dokument beim nächsten `inputs`-Lauf mit denselben Filtern.
+
 ## Klassifikation
 
 Nach dem Ingest läuft die Pipeline in drei Kommandos (PRD 7.1, [ARCHITEKTUR.md](ARCHITEKTUR.md#2-pipeline)):

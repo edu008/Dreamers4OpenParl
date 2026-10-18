@@ -76,12 +76,16 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/reviews/queue",
         "/v1/pages/{page_id}/affairs",
         "/v1/bodies",
+        "/v1/search",
     } <= set(paths)
     parameters = paths["/v1/topics/{tag_id}/affairs"]["get"]["parameters"]
     names = {parameter["name"] for parameter in parameters}
     assert {"tag_id", "body_key", "from", "to", "min_confidence", "limit", "offset"} <= names
     parameters = paths["/v1/pages/{page_id}/affairs"]["get"]["parameters"]
     assert {"page_id", "level", "type", "from", "to"} <= {p["name"] for p in parameters}
+    parameters = paths["/v1/search"]["get"]["parameters"]
+    names = {"q", "topic", "body_key", "level", "from", "to", "limit", "offset"}
+    assert names <= {p["name"] for p in parameters}
 
 
 def test_database_endpoints_answer_503_without_database(tmp_path):

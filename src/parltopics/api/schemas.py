@@ -48,6 +48,11 @@ class JobCounts(BaseModel):
     total: int = 0
 
 
+class TopicRef(BaseModel):
+    tag_id: str = Field(examples=["aps:6.1.9"])
+    name_de: str = Field(examples=["Digitalisierung"])
+
+
 class RunOut(BaseModel):
     """Ein Lauf der Klassifikation mit seinen Zählern."""
 
@@ -205,3 +210,22 @@ class ReviewQueue(BaseModel):
     items: list[ReviewItem] = Field(
         description="open: tiefste Konfidenz zuerst; done: neuester Entscheid zuerst"
     )
+
+
+class SearchHit(AffairHead):
+    rank: float = Field(description="ts_rank_cd; ein Treffer im Titel zählt mehr als im Text")
+    headline: str = Field(
+        description="Ausschnitte aus dem Klassifikationstext als HTML: alles maskiert,"
+        " nur die Treffer stehen in <mark>",
+        examples=["Der Bundesrat soll die Verwaltung <mark>digitalisieren</mark>."],
+    )
+    topics: list[TopicRef] = Field(description="aktive Themen, höchste Konfidenz zuerst")
+
+
+class SearchResult(BaseModel):
+    q: str
+    total: int = Field(description="Treffer insgesamt, unabhängig von limit und offset")
+    limit: int
+    offset: int
+    duration_ms: int = Field(description="Dauer der Abfragen in der API")
+    items: list[SearchHit] = Field(description="nach Rang, dann neueste zuerst")

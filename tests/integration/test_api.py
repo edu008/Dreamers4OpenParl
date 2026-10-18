@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from parltopics.api.app import create_app
 from parltopics.db import migrate
+from parltopics.inputs import SEARCH as INDEX
 from parltopics.registry import file_hash, load_registry
 from parltopics.registry.sync import sync_registry
 
@@ -164,3 +165,64 @@ def test_parliaments_german_types_and_recent_runs(conn, repo_root, api_settings)
         assert (run["kind"], run["task"], run["finished_at"]) == ("full", "classify:aps", None)
         counts = (run["n_total"], run["n_done"], run["n_failed"], run["n_escalated"])
         assert counts == (5, 4, 1, 2)
+
+
+def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
+    migrate(conn, repo_root / "migrations")
+    sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
+    seed(conn)  # 70435: «Der Bundesrat soll die Verwaltung digitalisieren.», aktiv aps:6.1.9
+    conn.execute(
+        "INSERT INTO bodies (id, body_key, name, level, raw)"
+        " VALUES (2, 'ZH', 'Zürich', 'canton', '{}')"
+    )
+    conn.execute(
+        "INSERT INTO affairs (id, body_key, title_fr, begin_date, raw) VALUES"
+        " (70437, 'CHE', 'Numérisation', '2026-02-01', '{}'),"
+        " (80003, 'ZH', 'Velowege', '2024-06-01', '{}')"
+    )
+    texts = [
+        (
+            70437,
+            "Numérisation <script>x()</script> si coût < 5 & délai\nLe Conseil doit numériser.",
+            "fr",
+        ),
+        (80003, "Velowege in Zürich\nDie Stadt soll die Ausleihe digitalisieren.", "de"),
+    ]
+    for affair_id, text, language in texts:
+        conn.execute(
+            "INSERT INTO affair_inputs (affair_id, text, language, source, input_hash)"
+            " VALUES (%s, %s, %s, 'texts', 'h')",
+            (affair_id, text, language),
+        )
+    conn.execute(INDEX, ([70435, 70437, 80003],))
+
+    def found(q, **params):
+        result = client.get("/v1/search", params={"q": q, **params}).json()
+        return result["total"], [item["affair_id"] for item in result["items"]]
+
+    with TestClient(create_app(api_settings)) as client:
+        result = client.get("/v1/search", params={"q": "digitalisieren"}).json()
+        assert (result["q"], result["total"]) == ("digitalisieren", 2)
+        assert result["duration_ms"] >= 0
+        first, second = result["items"]
+        assert (first["affair_id"], second["affair_id"]) == (70435, 80003)  # Titel vor Text
+        assert first["rank"] > second["rank"]
+        assert "<mark>digitalisieren</mark>" in first["headline"]
+        assert [topic["tag_id"] for topic in first["topics"]] == ["aps:6.1.9"]
+        assert second["topics"] == []
+
+        french = client.get("/v1/search", params={"q": "numériser"}).json()["items"]
+        assert [item["affair_id"] for item in french] == [70437]
+        headline = french[0]["headline"]
+        assert "<mark>" in headline
+        assert "&lt;" in headline  # maskiert: nur <mark> ist echtes HTML
+        assert "<" not in headline.replace("<mark>", "").replace("</mark>", "")
+
+        assert found('"Verwaltung digitalisieren"') == (1, [70435])
+        assert found("digitalisieren", topic="aps:6.1.9") == (1, [70435])
+        assert found("digitalisieren", body_key="ZH") == (1, [80003])
+        assert found("digitalisieren", level="canton") == (1, [80003])
+        assert found("digitalisieren", to="2024-12-31") == (1, [80003])
+        assert found("digitalisieren", limit=1, offset=1) == (2, [80003])
+        assert found("Raumfahrt") == (0, [])
+        assert client.get("/v1/search", params={"q": "a"}).status_code == 422

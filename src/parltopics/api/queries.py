@@ -1,5 +1,6 @@
 """Lesende Abfragen der Sidecar-API (PRD F10) auf einer Verbindung im Autocommit."""
 
+import html
 from datetime import date
 
 import psycopg
@@ -32,6 +33,42 @@ SELECT {LABEL_COLUMNS}
 FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
 WHERE l.affair_id = %s
 ORDER BY l.status = 'active' DESC, l.confidence DESC, l.id DESC
+"""
+# Volltext (F15) ohne Sprachangabe: die Anfrage in allen Konfigurationen, verbunden mit ODER.
+TSQUERY = """(websearch_to_tsquery('german', %(q)s) || websearch_to_tsquery('french', %(q)s)
+           || websearch_to_tsquery('italian', %(q)s) || websearch_to_tsquery('simple', %(q)s))"""
+SEARCH_FILTER = f"""
+FROM search_documents d JOIN affairs a ON a.id = d.affair_id
+LEFT JOIN bodies b ON b.body_key = a.body_key
+WHERE d.document @@ {TSQUERY}
+  AND (%(body_key)s::text IS NULL OR a.body_key = %(body_key)s::text)
+  AND (%(level)s::text IS NULL OR b.level = %(level)s::text)
+  AND (%(date_from)s::date IS NULL OR a.begin_date >= %(date_from)s::date)
+  AND (%(date_to)s::date IS NULL OR a.begin_date <= %(date_to)s::date)
+  AND (%(topic)s::text IS NULL OR EXISTS (
+      SELECT 1 FROM affair_tags l
+      WHERE l.affair_id = a.id AND l.tag_id = %(topic)s::text AND l.status = 'active'))
+"""
+# Treffer markieren STX und ETX; search() maskiert den Rest und macht daraus <mark>.
+MARK = ("\x02", "\x03")
+HEADLINE = f"MaxFragments=2, MaxWords=25, MinWords=10, StartSel={MARK[0]}, StopSel={MARK[1]}"
+SEARCH = f"""
+WITH page AS (
+    SELECT {AFFAIR_HEAD}, d.language, ts_rank_cd(d.document, {TSQUERY}) AS rank
+    {SEARCH_FILTER}
+    ORDER BY rank DESC, a.begin_date DESC NULLS LAST, a.id DESC
+    LIMIT %(limit)s OFFSET %(offset)s
+)
+SELECT page.*,
+       ts_headline((CASE page.language WHEN 'de' THEN 'german' WHEN 'fr' THEN 'french'
+                                       WHEN 'it' THEN 'italian' ELSE 'simple' END)::regconfig,
+                   i.text, {TSQUERY}, %(headline)s) AS headline,
+       (SELECT coalesce(json_agg(json_build_object('tag_id', l.tag_id, 'name_de', t.name_de)
+                                 ORDER BY l.confidence DESC), '[]')
+        FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
+        WHERE l.affair_id = page.affair_id AND l.status = 'active') AS topics
+FROM page JOIN affair_inputs i ON i.affair_id = page.affair_id
+ORDER BY page.rank DESC, page.begin_date DESC NULLS LAST, page.affair_id DESC
 """
 RUNS = """
 SELECT id, task, kind, started_at, finished_at, n_total, n_done, n_failed, n_escalated,
@@ -186,4 +223,42 @@ def review_queue(
         f" ORDER BY {QUEUE_ORDER[state]} LIMIT %(limit)s OFFSET %(offset)s",
         params,
     ).fetchall()
+    return total, rows
+
+
+def search(
+    conn: psycopg.Connection,
+    *,
+    q: str,
+    topic: str | None,
+    body_key: str | None,
+    level: str | None,
+    date_from: date | None,
+    date_to: date | None,
+    limit: int,
+    offset: int,
+) -> tuple[int, list[dict]]:
+    """Volltextsuche: (Treffer insgesamt, eine Seite mit Ausschnitt als sicherem HTML).
+
+    shortcut: rechnet den Rang für alle Treffer; bei sehr häufigen Wörtern über 326k Geschäfte
+    wird das langsam, dann Treffer vor dem Rang begrenzen.
+    """
+    params = {
+        "q": q,
+        "topic": topic,
+        "body_key": body_key,
+        "level": level,
+        "date_from": date_from,
+        "date_to": date_to,
+        "limit": limit,
+        "offset": offset,
+        "headline": HEADLINE,
+    }
+    cursor = conn.cursor(row_factory=dict_row)
+    total = cursor.execute(f"SELECT count(*) AS n {SEARCH_FILTER}", params).fetchone()["n"]
+    rows = cursor.execute(SEARCH, params).fetchall()
+    for row in rows:
+        # Der Text ist frei von Tags, kann aber Zeichen wie < enthalten: erst maskieren.
+        escaped = html.escape(row["headline"])
+        row["headline"] = escaped.replace(MARK[0], "<mark>").replace(MARK[1], "</mark>")
     return total, rows
