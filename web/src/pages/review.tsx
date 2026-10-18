@@ -32,7 +32,10 @@ function matchesReason(row: ReviewCandidate, filter: ReasonFilter): boolean {
     : row.reasons.includes("low_confidence")
 }
 
-function countBy(rows: ReviewCandidate[], pick: (row: ReviewCandidate) => string | null) {
+function countBy(
+  rows: ReviewCandidate[],
+  pick: (row: ReviewCandidate) => string | null
+) {
   const counts = new Map<string, number>()
   for (const row of rows) {
     const key = pick(row)
@@ -62,7 +65,11 @@ function sortValue(row: ReviewCandidate, key: DoneKey): string | number {
   }
 }
 
-function sortRows(rows: ReviewCandidate[], key: DoneKey, dir: SortDir): ReviewCandidate[] {
+function sortRows(
+  rows: ReviewCandidate[],
+  key: DoneKey,
+  dir: SortDir
+): ReviewCandidate[] {
   return [...rows].sort((a, b) =>
     compareValues(sortValue(a, key), sortValue(b, key), dir)
   )
@@ -106,7 +113,7 @@ function AffairCell({
         {[row.number, row.body].filter(Boolean).join(" · ")}
       </p>
       <Link
-        to={`/review/geschaefte/${row.affairId}`}
+        to={`/admin/review/geschaefte/${row.affairId}`}
         title={row.title}
         className="line-clamp-2 text-base leading-snug font-medium underline-offset-4 hover:underline"
       >
@@ -365,7 +372,6 @@ function DoneTable({ rows }: { rows: ReviewCandidate[] }) {
 // Arbeitsliste: Labels mit Prüfbedarf, standardmässig die unsichersten zuerst. Entschiedene
 // stehen getrennt, eingeklappt, damit die Liste oben nur zeigt, was noch zu tun ist.
 export function ReviewPage() {
-  const review = useReview()
   const [reason, setReason] = useState<ReasonFilter>("alle")
   const [area, setArea] = useState(ALL)
   const [body, setBody] = useState(ALL)
@@ -395,24 +401,6 @@ export function ReviewPage() {
     setTopic(ALL)
   }
 
-  if (!review.active) {
-    return (
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
-            Review
-          </h1>
-          <ProcessingBadge />
-        </div>
-        <p className="max-w-[68ch] text-muted-foreground">
-          Der Review ist für Mitarbeitende, die Labels prüfen. Wähle oben rechts
-          die Ansicht «Admin», um die Warteschlange zu sehen und Labels zu
-          bestätigen oder zu verwerfen.
-        </p>
-      </div>
-    )
-  }
-
   return (
     <>
       <div className="flex flex-col gap-2">
@@ -439,10 +427,7 @@ export function ReviewPage() {
           <h2 id="queue-heading" className="font-heading text-lg font-medium">
             Offen ({open.length})
           </h2>
-          <Progress
-            done={live.done.length}
-            total={total}
-          />
+          <Progress done={live.done.length} total={total} />
         </div>
         {total > 0 && (
           <div className="flex flex-wrap items-center gap-2">

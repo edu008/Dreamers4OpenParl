@@ -9,12 +9,12 @@ import { ReviewQueueProvider } from "@/components/review-queue-provider.tsx"
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ReviewQueueProvider>
-      <ReviewProvider>
-        <BrowserRouter>
+    <BrowserRouter>
+      <ReviewQueueProvider>
+        <ReviewProvider>
           <App />
-        </BrowserRouter>
-      </ReviewProvider>
-    </ReviewQueueProvider>
+        </ReviewProvider>
+      </ReviewQueueProvider>
+    </BrowserRouter>
   </StrictMode>
 )

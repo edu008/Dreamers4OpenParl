@@ -1,5 +1,3 @@
-import { Link } from "react-router"
-
 import { Confidence } from "@/components/confidence"
 import { Button } from "@/components/ui/button"
 import { useReview } from "@/hooks/use-review"
@@ -45,7 +43,6 @@ export interface Versions {
 // der Prüfansicht, die Entscheide. Ein verworfenes Label bleibt sichtbar (durchgestrichen).
 export function MarginNotes({
   mode,
-  affairId,
   labels,
   versions,
   pendingId,
@@ -53,7 +50,6 @@ export function MarginNotes({
   onDecide,
 }: {
   mode: "public" | "review"
-  affairId: string
   labels: MarginLabel[]
   versions: Versions | null
   /** Label, dessen Entscheid gerade gespeichert wird. */
@@ -172,16 +168,6 @@ export function MarginNotes({
       {error && (
         <p role="alert" className="text-destructive">
           Entscheid nicht gespeichert: {error}
-        </p>
-      )}
-      {mode === "public" && review.active && labels.length > 0 && (
-        <p>
-          <Link
-            to={`/review/geschaefte/${affairId}`}
-            className="inline-block py-2 font-medium underline underline-offset-2"
-          >
-            Im Review prüfen
-          </Link>
         </p>
       )}
       {versions && (

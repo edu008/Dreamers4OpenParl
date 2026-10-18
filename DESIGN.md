@@ -129,7 +129,8 @@ Systemschrift (`ui-sans-serif, system-ui`) für die Oberfläche, `Georgia` als P
 - Hauptspalte höchstens 56 rem breit, 24 px seitlicher Rand, 32 px oben und unten.
 - Geschäftsseite: Text links, Randspalte 14 rem rechts, bei breiten Fenstern mitlaufend (sticky). Auf schmalen Fenstern steht die Randspalte unter dem Text.
 - Tabellen mit festen Spaltenbreiten, damit Spalten über Seiten hinweg auf einer Linie bleiben.
-- Kopfzeile bricht um: Navigation, Suche, Ansichtsschalter. Seitenfuss trägt den Darstellungsschalter.
+- Zwei Bereiche mit eigener Navigation: die öffentliche Seite unter `/` (Themen, Graph, So funktioniert's; rein lesend) und der Admin-Bereich unter `/admin` (Übersicht, Review). Die öffentliche Seite verlinkt nicht in den Admin-Bereich; der Admin-Bereich hat einen Link «Öffentliche Seite».
+- Kopfzeile bricht um: Navigation, Suche (öffentlich) oder Link zur öffentlichen Seite (Admin). Seitenfuss trägt den Darstellungsschalter.
 - Handybreite 375 px ohne seitliches Überlaufen. Bedienflächen mindestens 24 px hoch (WCAG 2.5.8).
 
 ## Elevation & Depth
@@ -143,7 +144,7 @@ Kleine Ecken: 2 bis 4 px. Ränder sind 1 px. Knöpfe und Felder sind rechteckig 
 ## Components
 
 - **Knopf:** Primär in Waldgrün mit weisser Schrift, sonst Umriss oder Geist. Gedrückt/aktiv per `aria-pressed`.
-- **Ansichtsschalter (Leser, Reviewer, Admin) und Darstellungsschalter:** leise segmentierte Knöpfe, Auswahl durch Tönung und Gewicht. Der Ansichtsschalter ist eine Demo-Ansicht ohne Zugriffskontrolle.
+- **Darstellungsschalter:** leise segmentierte Knöpfe, Auswahl durch Tönung und Gewicht.
 - **Konfidenz:** Zahl mit zwei Stellen, daneben das Wort (hoch ab 0.8, mittel ab 0.6, sonst tief), Farbe verstärkt. In der Randspalte steht «Konfidenz» davor, in Tabellen im Spaltenkopf.
 - **Randspalte:** je Label Name, Konfidenz, Zustand des Belegs, Prüfstatus, Modellversion. Technische Angaben eingeklappt. Entscheiden nur in der Prüfansicht.
 - **Belegmarkierung:** gelber Grund mit Unterlinie direkt im Originaltext.
@@ -165,5 +166,5 @@ Kleine Ecken: 2 bis 4 px. Ränder sind 1 px. Knöpfe und Felder sind rechteckig 
 - Keine Karten um jeden Block, keine Schatten, keine Verläufe.
 - Kein Gelb ausser am Beleg, kein Grün als Dekoration.
 - Kein grosser Seitenbaum als Graph ohne Zoom oder Filter.
-- Keine Rollen vortäuschen: ohne Anmeldung ist «Reviewer» eine Ansicht, kein Schutz.
+- Keine Rollen vortäuschen: ohne Anmeldung ist `/admin` ein eigener Bereich, kein Schutz.
 - Kein Stand, der nicht stimmt: Zahlen aus echten Daten oder gar nicht anzeigen.

@@ -4,13 +4,12 @@ import type { AffairTopics, ReviewAction } from "@/lib/api"
 import type { Role } from "@/lib/review"
 
 export interface ReviewState {
-  /** Gewählte Ansicht. Im MVP eine Darstellung, keine Zugangskontrolle. */
+  /** Ansicht aus der Adresse: «admin» unter /admin. Im MVP keine Zugangskontrolle. */
   role: Role
   /** Admin darf Labels entscheiden. */
   active: boolean
   isAdmin: boolean
   name: string
-  setRole: (role: Role) => void
   setName: (name: string) => void
   /** Speichert den Entscheid im Backend und gibt das Geschäft mit den neuen Labels zurück. */
   decide: (
