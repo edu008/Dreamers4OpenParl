@@ -1,12 +1,12 @@
-import { Link, useSearchParams } from "react-router"
+import { Link, useLocation } from "react-router"
 
 import { SearchForm } from "@/components/search-form"
 
 // Platzhalter: Die Suche übernimmt ein Agent im Backend (PRD 7.8). Sobald er angeschlossen ist,
 // zeigt diese Seite seine Treffer (Form siehe lib/search-contract.ts).
 export function SearchPage() {
-  const [params] = useSearchParams()
-  const query = params.get("q")?.trim() ?? ""
+  const { search } = useLocation()
+  const query = new URLSearchParams(search).get("q")?.trim() ?? ""
   return (
     <>
       <div className="flex flex-col gap-3">
