@@ -1,5 +1,7 @@
 """Sidecar-API gegen ein echtes PostgreSQL (PRD F10, F18)."""
 
+import csv
+import io
 from pathlib import Path
 
 import pytest
@@ -534,3 +536,81 @@ def test_stored_records_of_affairs_bodies_texts_and_docs(conn, repo_root, api_se
         )
         for path in ("/v1/affairs/1", "/v1/affairs/1/docs", "/v1/docs/1", "/v1/bodies/XX"):
             assert client.get(path).status_code == 404, path
+
+
+def test_page_summary_and_csv_export(conn, repo_root, api_settings):
+    migrate(conn, repo_root / "migrations")
+    sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
+    seed(conn)  # 70435: CHE, Motion, 2026-03-01, aps:6.1.9 mit 0.86 und gefundenem Beleg
+    conn.execute(
+        "INSERT INTO bodies (id, body_key, name, level, raw)"
+        " VALUES (2, 'ZH', 'Zürich', 'canton', '{}')"
+    )
+    postulate = Jsonb({"type_harmonized_de": "Postulat"})
+    conn.execute(
+        "INSERT INTO affairs (id, body_key, number, title_de, type_harmonized_en, begin_date, raw)"
+        " VALUES (80001, 'ZH', '=1+1', 'Velo; \"schnell\"', 'Postulate', '2025-05-01', %s),"
+        " (80002, 'ZH', NULL, 'Ohne Datum', 'Postulate', NULL, %s)",
+        (postulate, postulate),
+    )
+    label = (
+        "INSERT INTO affair_tags (affair_id, tag_id, scheme, confidence, evidence,"
+        " evidence_verified, task, stage, model_version, prompt_version, registry_version,"
+        " input_hash) VALUES (%s, 'aps:6.1.9', 'aps', %s, %s, false, 'classify:aps', '8b',"
+        " 'm', 'p', 'v', 'h')"
+    )
+    conn.execute(label, (80001, 0.7, "-steht da"))
+    conn.execute(label, (80002, 0.65, None))
+
+    with TestClient(create_app(api_settings)) as client:
+        path = "/v1/pages/aps:6.1.9/affairs"
+        summary = client.get(f"{path}/summary").json()
+        totals = {key: summary[key] for key in ("rows", "affairs", "bodies", "verified")}
+        assert totals == {"rows": 3, "affairs": 3, "bodies": 2, "verified": 1}
+        assert (summary["first_date"], summary["last_date"]) == ("2025-05-01", "2026-03-01")
+        assert summary["by_level"] == [
+            {"level": "country", "count": 1},
+            {"level": "canton", "count": 2},
+        ]
+        assert summary["by_body"] == [
+            {"body_key": "ZH", "name": "Zürich", "level": "canton", "count": 2},
+            {"body_key": "CHE", "name": "Schweiz", "level": "country", "count": 1},
+        ]
+        assert summary["by_year"] == [
+            {"year": 2025, "count": 1},
+            {"year": 2026, "count": 1},
+            {"year": None, "count": 1},
+        ]
+        assert summary["by_type"] == [
+            {"type": "Postulate", "type_de": "Postulat", "count": 2},
+            {"type": "Motion", "type_de": None, "count": 1},
+        ]
+        # Jede Verteilung ohne ihren eigenen Filter: by_body zeigt weiter beide Parlamente.
+        zurich = client.get(f"{path}/summary", params={"body_key": "ZH"}).json()
+        assert (zurich["rows"], len(zurich["by_body"]), zurich["by_level"]) == (
+            2,
+            2,
+            [{"level": "canton", "count": 2}],
+        )
+        recent = client.get(f"{path}/summary", params={"from": "2026-01-01"}).json()
+        assert (recent["rows"], len(recent["by_year"])) == (1, 3)
+
+        response = client.get(f"{path}.csv")
+        assert response.headers["content-type"] == "text/csv; charset=utf-8"
+        assert 'filename="aps-6-1-9.csv"' in response.headers["content-disposition"]
+        assert response.text.startswith("﻿OpenParlData-ID;Nummer;Titel;")
+        assert response.text.endswith("\r\n")
+        rows = list(csv.reader(io.StringIO(response.text[1:], newline=""), delimiter=";"))
+        assert rows[1:] == [
+            ["70435", "24.3456", "Digitale Verwaltung", "Motion", "Schweiz", "Bund",
+             "2026-03-01", "Digitalisierung", "0.86", "ja", "die Verwaltung digitalisieren",
+             "70b"],
+            ["80001", "'=1+1", 'Velo; "schnell"', "Postulat", "Zürich", "Kanton", "2025-05-01",
+             "Digitalisierung", "0.70", "nein", "'-steht da", "8b"],
+            ["80002", "", "Ohne Datum", "Postulat", "Zürich", "Kanton", "", "Digitalisierung",
+             "0.65", "nein", "", "8b"],
+        ]  # fmt: skip
+        filtered = client.get(f"{path}.csv", params={"body_key": "ZH"}).text
+        assert filtered.count("\r\n") == 3  # Kopf und zwei Zeilen
+        for unknown in ("/v1/pages/aps:9/affairs.csv", "/v1/pages/aps:9/affairs/summary"):
+            assert client.get(unknown).status_code == 404

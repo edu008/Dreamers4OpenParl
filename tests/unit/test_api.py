@@ -97,6 +97,8 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/graph/topics/{tag_id}",
         "/v1/graph/affairs/{affair_id}",
         "/v1/reviews/summary",
+        "/v1/pages/{page_id}/affairs/summary",
+        "/v1/pages/{page_id}/affairs.csv",
     } <= set(paths)
     parameters = paths["/v1/reviews/queue"]["get"]["parameters"]
     assert {"state", "tag_id", "body_key", "page_id", "reason"} <= {p["name"] for p in parameters}
@@ -118,6 +120,34 @@ def test_database_endpoints_answer_503_without_database(tmp_path):
     for path in ("/v1/affairs/1", "/v1/affairs/1/docs", "/v1/docs/1", "/v1/bodies/GE"):
         assert client.get(path).status_code == 503
     assert client.get("/healthz").status_code == 200
+
+
+def test_csv_comes_in_blocks_with_bom_crlf_and_defused_formulas(monkeypatch):
+    from parltopics.api import app as module
+
+    row = {
+        "affair_id": 1,
+        "number": "@x",
+        "title": "a;b",
+        "type_de": None,
+        "type": "Motion",
+        "body_name": None,
+        "body_key": "ZH",
+        "body_level": "canton",
+        "begin_date": None,
+        "name_de": "Digitalisierung",
+        "confidence": 0.5,
+        "evidence_verified": True,
+        "evidence": "=1",
+        "stage": "human",
+    }
+    whole = "".join(module.affairs_csv([row] * 3))
+    monkeypatch.setattr(module, "CSV_BLOCK", 2)
+    chunks = list(module.affairs_csv([row] * 3))
+    assert (len(chunks), "".join(chunks)) == (2, whole)
+    assert whole.startswith("﻿OpenParlData-ID;Nummer;")
+    line = "1;'@x;\"a;b\";Motion;ZH;Kanton;;Digitalisierung;0.50;ja;'=1;Mensch"
+    assert whole.split("\r\n")[1] == line
 
 
 def test_language_fields_are_nested_like_openparldata():

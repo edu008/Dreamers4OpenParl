@@ -2,6 +2,7 @@
 
 import html
 import re
+from collections.abc import Iterator
 from datetime import date
 
 import psycopg
@@ -664,3 +665,72 @@ def body_record(conn: psycopg.Connection, body_key: str) -> dict | None:
         return None
     counts = {"n_affairs": row["n_affairs"], "n_labelled": row["n_labelled"]}
     return {**_body(row["id"], row["body_key"], row["raw"]), **counts}
+
+
+# Auswertung einer Seite wie in der Web-App: Kennzahlen mit allen Filtern, jede Verteilung ohne
+# ihren eigenen Filter, damit sie die Alternativen zeigt. Verteilungen zählen Geschäfte.
+PAGE_TOTALS = f"""
+SELECT count(*) AS rows, count(DISTINCT a.id) AS affairs, count(DISTINCT a.body_key) AS bodies,
+       count(*) FILTER (WHERE l.evidence_verified) AS verified,
+       min(a.begin_date) AS first_date, max(a.begin_date) AS last_date
+{TOPIC_FILTER}
+"""
+PAGE_DISTRIBUTIONS = {
+    "by_level": (
+        ("level",),
+        f"SELECT b.level, count(DISTINCT a.id) AS count {TOPIC_FILTER} GROUP BY b.level"
+        " ORDER BY array_position(ARRAY['country', 'canton', 'city', 'municipality'], b.level)",
+    ),
+    "by_body": (
+        ("body_key",),
+        f"SELECT a.body_key, b.name, b.level, count(DISTINCT a.id) AS count {TOPIC_FILTER}"
+        " GROUP BY a.body_key, b.name, b.level ORDER BY count DESC, b.name, a.body_key",
+    ),
+    "by_year": (
+        ("date_from", "date_to"),
+        "SELECT extract(year FROM a.begin_date)::int AS year, count(DISTINCT a.id) AS count"
+        f" {TOPIC_FILTER} GROUP BY 1 ORDER BY 1 NULLS LAST",
+    ),
+    "by_type": (
+        ("type",),
+        "SELECT a.type_harmonized_en AS type, max(a.raw->>'type_harmonized_de') AS type_de,"
+        f" count(DISTINCT a.id) AS count {TOPIC_FILTER} GROUP BY 1 ORDER BY count DESC, 1",
+    ),
+}
+
+
+def _filter_params(
+    tag_ids: list[str],
+    *,
+    body_key: str | None = None,
+    level: str | None = None,
+    affair_type: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    min_confidence: float = 0.0,
+) -> dict:
+    return {
+        "tag_ids": tag_ids,
+        "body_key": body_key,
+        "level": level,
+        "type": affair_type,
+        "date_from": date_from,
+        "date_to": date_to,
+        "min_confidence": min_confidence,
+    }
+
+
+def page_summary(conn: psycopg.Connection, tag_ids: list[str], **filters) -> dict:
+    """Kennzahlen und Verteilungen der Geschäfte dieser Tags; Filter wie topic_affairs."""
+    params = _filter_params(tag_ids, **filters)
+    cursor = conn.cursor(row_factory=dict_row)
+    summary = cursor.execute(PAGE_TOTALS, params).fetchone()
+    for name, (own, sql) in PAGE_DISTRIBUTIONS.items():
+        summary[name] = cursor.execute(sql, params | dict.fromkeys(own)).fetchall()
+    return summary
+
+
+def stream_topic_affairs(conn: psycopg.Connection, tag_ids: list[str], **filters) -> Iterator[dict]:
+    """Alle Zeilen wie topic_affairs, ohne Grenze, Zeile für Zeile vom Server (CSV-Export)."""
+    params = {**_filter_params(tag_ids, **filters), "limit": None, "offset": 0}  # LIMIT NULL
+    yield from conn.cursor(row_factory=dict_row).stream(TOPIC_AFFAIRS, params)

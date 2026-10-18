@@ -10,8 +10,11 @@ OpenAPI-Schema steht unter /v1/openapi.json.
 """
 
 import asyncio
+import csv
+import io
+import re
 import time
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterable, Iterator
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
@@ -22,7 +25,7 @@ import openai
 import psycopg
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from psycopg_pool import ConnectionPool, PoolClosed, PoolTimeout
 from pydantic import ValidationError
@@ -36,6 +39,7 @@ from parltopics.api.schemas import (
     AdhocPreview,
     AdhocScope,
     AffairRecord,
+    AffairsSummary,
     AffairStar,
     AffairTopics,
     BodyDetail,
@@ -160,6 +164,61 @@ def subtree_tag_ids(tree: dict[str, Page], page_id: str) -> list[str]:
         for page in tree.values()
         if page.tag_id and (page.page_id == page_id or page_id in ancestors(tree, page.page_id))
     ]
+
+
+# CSV wie der Export der Web-App (web/src/lib/export.ts): Spalten, Ebenen, Formelzeichen.
+CSV_HEADER = [
+    "OpenParlData-ID",
+    "Nummer",
+    "Titel",
+    "Typ",
+    "Parlament",
+    "Ebene",
+    "Datum",
+    "Thema",
+    "Konfidenz",
+    "Beleg im Text gefunden",
+    "Beleg",
+    "Prüfstufe",
+]
+LEVEL_LABEL = {"country": "Bund", "canton": "Kanton", "city": "Stadt", "municipality": "Gemeinde"}
+CSV_BLOCK = 1000
+
+
+def csv_cell(value: object) -> str:
+    """Leer für None; ein Formelzeichen am Anfang wird mit ' entschärft (Tabellenkalkulation)."""
+    text = "" if value is None else str(value)
+    return f"'{text}" if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
+def affairs_csv(rows: Iterable[dict]) -> Iterator[str]:
+    """Semikolon, UTF-8 mit BOM, CRLF; gibt die Zeilen in Blöcken zu CSV_BLOCK aus."""
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";", lineterminator="\r\n")
+    buffer.write("﻿")
+    writer.writerow(CSV_HEADER)
+    for count, row in enumerate(rows, start=1):
+        level = row["body_level"]
+        values = [
+            row["affair_id"],
+            row["number"],
+            row["title"],
+            row["type_de"] or row["type"],
+            row["body_name"] or row["body_key"],
+            LEVEL_LABEL.get(level, level) if level else None,
+            row["begin_date"],
+            row["name_de"],
+            f"{row['confidence']:.2f}",
+            "ja" if row["evidence_verified"] else "nein",
+            row["evidence"],
+            "Mensch" if row["stage"] == "human" else row["stage"],
+        ]
+        writer.writerow([csv_cell(value) for value in values])
+        if count % CSV_BLOCK == 0:
+            yield buffer.getvalue()
+            buffer.seek(0)
+            buffer.truncate()
+    yield buffer.getvalue()
 
 
 class TreeCache:
@@ -967,18 +1026,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             else [],
         )
 
-    @api.get(
-        "/pages/{page_id}/affairs",
-        tags=["Seiten"],
-        summary="Geschäfte einer Seite und ihrer Unterseiten",
-        responses={
-            404: {"description": "Seite unbekannt"},
-            503: {"description": "Registry nicht lesbar oder Datenbank nicht erreichbar"},
-        },
-    )
-    def page_affairs(
-        page_id: str,
-        conn: Conn,
+    def affair_filters(
         body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
         level: Annotated[
             Literal["country", "canton", "city", "municipality"] | None,
@@ -990,6 +1038,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         date_from: Annotated[date | None, Query(alias="from", description="ab Datum")] = None,
         date_to: Annotated[date | None, Query(alias="to", description="bis Datum")] = None,
         min_confidence: Annotated[float, Query(ge=0, le=1)] = 0.0,
+    ) -> dict:
+        """Filter der Geschäfte einer Seite, mit den Namen von queries.topic_affairs."""
+        return {
+            "body_key": body_key,
+            "level": level,
+            "affair_type": affair_type,
+            "date_from": date_from,
+            "date_to": date_to,
+            "min_confidence": min_confidence,
+        }
+
+    AffairFilters = Annotated[dict, Depends(affair_filters)]
+    page_errors = {
+        404: {"description": "Seite unbekannt"},
+        503: {"description": "Registry nicht lesbar oder Datenbank nicht erreichbar"},
+    }
+
+    @api.get(
+        "/pages/{page_id}/affairs",
+        tags=["Seiten"],
+        summary="Geschäfte einer Seite und ihrer Unterseiten",
+        responses=page_errors,
+    )
+    def page_affairs(
+        page_id: str,
+        conn: Conn,
+        filters: AffairFilters,
         limit: Annotated[int, Query(ge=1, le=500)] = 50,
         offset: Annotated[int, Query(ge=0)] = 0,
     ) -> TopicAffairs:
@@ -998,18 +1073,41 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         Unterseiten. Eine Zeile je Geschäft und Thema: Ein Geschäft mit zwei Themen eines
         Kapitels erscheint zweimal. Verlinkte Querschnittsseiten zählen nicht dazu."""
         total, items = queries.topic_affairs(
-            conn,
-            subtree(page_id),
-            body_key=body_key,
-            level=level,
-            affair_type=affair_type,
-            date_from=date_from,
-            date_to=date_to,
-            min_confidence=min_confidence,
-            limit=limit,
-            offset=offset,
+            conn, subtree(page_id), **filters, limit=limit, offset=offset
         )
         return TopicAffairs(total=total, limit=limit, offset=offset, items=items)
+
+    @api.get(
+        "/pages/{page_id}/affairs/summary",
+        tags=["Seiten"],
+        summary="Auswertung der Geschäfte einer Seite",
+        responses=page_errors,
+    )
+    def page_affairs_summary(page_id: str, conn: Conn, filters: AffairFilters) -> AffairsSummary:
+        """Kennzahlen und Verteilungen wie die Auswertung der Web-App, über alle Geschäfte der
+        Seite statt einer geladenen Auswahl. Die Kennzahlen folgen allen Filtern; jede
+        Verteilung lässt ihren eigenen weg (by_level ohne level, by_body ohne body_key, by_year
+        ohne from und to, by_type ohne type), damit sie die Alternativen zeigt."""
+        return AffairsSummary(**queries.page_summary(conn, subtree(page_id), **filters))
+
+    @api.get(
+        "/pages/{page_id}/affairs.csv",
+        tags=["Seiten"],
+        summary="Geschäfte einer Seite als CSV",
+        response_class=StreamingResponse,
+        responses={200: {"content": {"text/csv": {}}}, **page_errors},
+    )
+    def page_affairs_csv(page_id: str, conn: Conn, filters: AffairFilters) -> StreamingResponse:
+        """Alle Zeilen wie GET /v1/pages/{page_id}/affairs, ohne Grenze, als CSV wie der Export
+        der Web-App: Semikolon, UTF-8 mit BOM, Formelzeichen entschärft. Die DVS-Liste (F12)
+        ist /v1/pages/adhoc:digitalisierung-breit/affairs.csv."""
+        rows = queries.stream_topic_affairs(conn, subtree(page_id), **filters)
+        name = re.sub(r"[^a-z0-9]+", "-", page_id, flags=re.IGNORECASE)
+        return StreamingResponse(
+            affairs_csv(rows),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{name}.csv"'},
+        )
 
     app.include_router(api)
 

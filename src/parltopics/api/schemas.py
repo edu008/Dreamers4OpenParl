@@ -649,3 +649,41 @@ class ReviewSummary(BaseModel):
     )
     by_body: list[BodyCount] = Field(description="offene Labels je Parlament, nach Name")
     by_topic: list[TopicCount] = Field(description="offene Labels je Thema, wie der Seitenbaum")
+
+
+class LevelCount(BaseModel):
+    level: str | None = Field(description=LEVEL, examples=["canton"])
+    count: int
+
+
+class PageBodyCount(BodyCount):
+    level: str | None = Field(description=LEVEL)
+
+
+class YearCount(BaseModel):
+    year: int | None = Field(description="Jahr von begin_date; null ohne Datum", examples=[2026])
+    count: int
+
+
+class TypeCount(BaseModel):
+    type: str | None = Field(description="harmonisierter Typ (englisch)", examples=["Motion"])
+    type_de: str | None = Field(examples=["Motion"])
+    count: int
+
+
+class AffairsSummary(BaseModel):
+    """Auswertung der Geschäfte einer Seite. Kennzahlen mit allen Filtern; jede Verteilung ohne
+    ihren eigenen Filter, damit sie die Alternativen zeigt (wie die Web-App)."""
+
+    rows: int = Field(description="Zeilen wie unter /affairs: eine je Geschäft und Thema")
+    affairs: int = Field(description="Geschäfte, ohne Doppelzählung")
+    bodies: int = Field(description="Parlamente")
+    verified: int = Field(description="Zeilen mit gefundenem Beleg")
+    first_date: date | None
+    last_date: date | None
+    by_level: list[LevelCount] = Field(description="Geschäfte je Ebene, ohne den Filter level")
+    by_body: list[PageBodyCount] = Field(
+        description="Geschäfte je Parlament, meiste zuerst, ohne den Filter body_key"
+    )
+    by_year: list[YearCount] = Field(description="Geschäfte je Jahr, ohne die Filter from und to")
+    by_type: list[TypeCount] = Field(description="Geschäfte je Typ, meiste zuerst, ohne type")
