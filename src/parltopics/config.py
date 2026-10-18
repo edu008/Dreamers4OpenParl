@@ -3,6 +3,7 @@
 import datetime as dt
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator
@@ -25,7 +26,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://parltopics:parltopics@localhost:5432/parltopics"
 
     parallel_8b: int = Field(20, ge=1)  # Pilot 18.10.2026: 16 ohne Drosselung, Volllauf < 24 h
-    parallel_70b: int = Field(4, ge=1)
+    parallel_70b: int = Field(12, ge=1)  # Curia-Check 19.10.2026: 12 parallel ohne Drosselung
+    # single_70b: ein 70B-Durchlauf über alle Themen (Curia-Check: 84,6 % statt 72,7 %);
+    # two_stage: Kapitel und Themen mit 8B, Eskalation an 70B (bis 19.10.2026).
+    classify_mode: Literal["single_70b", "two_stage"] = "single_70b"
     confidence_threshold: float = Field(0.6, ge=0, le=1)
     job_timeout_seconds: int = Field(600, ge=30)
     heartbeat_seconds: int = Field(120, ge=5)

@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 Language = Literal["de", "fr", "it", "rm", "other"]
 
 MAX_CHAPTERS = 3
-MAX_TAGS = 5
+MAX_TAGS = 3  # höchstens 3 Themen je Geschäft (Entscheid 19.10.2026)
 MAX_PROPOSALS = 2
 SUMMARY_MAX = 300
 EVIDENCE_MAX = 300
@@ -104,7 +104,7 @@ def parse_stage2(
     """Stufe 2 prüfen. Gibt die bereinigte Ausgabe und die verworfenen Tag-IDs zurück.
 
     Nicht angebotene Tags werden verworfen; ein mehrfach genanntes Tag zählt einmal, mit seiner
-    höchsten Konfidenz; behalten werden die 5 Tags mit der höchsten Konfidenz und die ersten 2
+    höchsten Konfidenz; behalten werden die 3 Tags mit der höchsten Konfidenz und die ersten 2
     Vorschläge.
     """
     output = Stage2Output.model_validate(data)

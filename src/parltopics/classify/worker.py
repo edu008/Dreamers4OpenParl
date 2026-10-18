@@ -55,6 +55,7 @@ from parltopics.registry.sync import synced_version
 log = logging.getLogger("parltopics.worker")
 
 STAGE_PROMPTS = ("classify_chapters_v2", "classify_topics_v2")
+SINGLE_PROMPT = "classify_single_v1"
 SAMPLE_EVERY = 50  # Stichprobe von 2 % nach affair_id: reproduzierbar, ohne Zufall
 IDLE_SECONDS = 5
 INVALID = (JSONExtractionError, OutputError, ValidationError)
@@ -77,10 +78,13 @@ class Classifier:
     stage1: Prompt
     stage2: Prompt
     known: dict[str, Tag]  # alle Tags der Registry, für Ad-hoc-Jobs auch vorgeschlagene
+    single: Prompt | None = None  # gesetzt: APS-Jobs einstufig mit 70B (CLASSIFY_MODE)
 
     @property
     def prompt_version(self) -> str:
-        """Beide Prompts von classify:aps in einer Spalte, getrennt durch ein Leerzeichen."""
+        """Prompt(s) von classify:aps; zweistufig beide, getrennt durch ein Leerzeichen."""
+        if self.single is not None:
+            return self.single.version
         return f"{self.stage1.version} {self.stage2.version}"
 
     @property
@@ -117,6 +121,11 @@ def load_classifier(settings: Settings) -> Classifier:
         stage1=load_prompt(settings.prompts_dir, STAGE_PROMPTS[0]),
         stage2=load_prompt(settings.prompts_dir, STAGE_PROMPTS[1]),
         known={tag.tag_id: tag for tag in registry.tags},
+        single=(
+            load_prompt(settings.prompts_dir, SINGLE_PROMPT)
+            if settings.classify_mode == "single_70b"
+            else None
+        ),
     )
 
 
@@ -161,12 +170,17 @@ async def _pass(
     verify: Callable[[str, list[str]], Awaitable[list[bool]]],
 ) -> tuple[Pass, Stage2Output]:
     """Beide Stufen mit 8B oder 70B, danach die Belegprüfung. Ein Ad-hoc-Job braucht keine
-    Kapitel: Stufe 2 bietet nur sein Tag an."""
+    Kapitel: Stufe 2 bietet nur sein Tag an. Einstufig bietet ein Prompt alle Themen an."""
     user = {"affair_id": job.affair_id, "text": job.text}
     stage = "70b" if large else "8b"
     adhoc_id = task_tag(job.task)
+    prompt = c.stage2
     if adhoc_id is not None:
         offered = {adhoc_id: c.known[adhoc_id]}
+    elif c.single is not None:
+        prompt = c.single
+        offered = {tag.tag_id: tag for tags in c.topics.values() for tag in tags}
+        offered |= {tag.tag_id: tag for tag in c.adhoc}
     else:
         chapter_ids = {chapter.tag_id for chapter in c.chapters}
         stage1, _ = await _ask(
@@ -191,7 +205,7 @@ async def _pass(
         dropped.extend(rejected)
         return output
 
-    messages = c.stage2.messages({"tags": list(offered.values())}, user)
+    messages = prompt.messages({"tags": list(offered.values())}, user)
     stage2, model = await _ask(client, messages, large, parse2)
     verified = await verify(job.text, [tag.evidence for tag in stage2.tags])
     if not all(verified):
@@ -275,6 +289,11 @@ async def classify_affair(
     Ist nur die 70B-Antwort ungültig, gilt das 8B-Ergebnis (Grund `70b_ungueltig`).
     """
     passes: list[Pass] = []
+    if c.single is not None and task_tag(job.task) is None:
+        # Einstufig: ein 70B-Durchlauf, keine Eskalation. Ungültig auch nach der Wiederholung:
+        # OutputFailure, der Job ist dauerhaft failed.
+        final, output = await _pass(c, client, job, large=True, verify=verify)
+        return _result(c, job, [final], output), []
     try:
         first, output = await _pass(c, client, job, large=False, verify=verify)
         passes.append(first)
@@ -291,8 +310,12 @@ async def classify_affair(
                 raise
             # 70B unbrauchbar, 8B gültig: das 8B-Ergebnis gilt, statt den Job zu verwerfen.
             reasons.append("70b_ungueltig")
+    return _result(c, job, passes, output), reasons
+
+
+def _result(c: Classifier, job: Job, passes: list[Pass], output: Stage2Output) -> Result:
     prompt_version, scheme = c.versions(job)
-    result = Result(
+    return Result(
         passes=passes,
         summary_de=output.summary_de,
         proposals=[] if task_tag(job.task) else output.proposed_tags,
@@ -300,7 +323,6 @@ async def classify_affair(
         registry_version=c.registry_version,
         scheme_hash=scheme,
     )
-    return result, reasons
 
 
 async def run_worker(
@@ -339,12 +361,14 @@ async def run_worker(
                 f"Registry {c.registry_version} ist nicht synchronisiert (Datenbank: {synced});"
                 " zuerst `parltopics registry sync`"
             )
+        # Einstufig arbeitet jeder Job mit 70B: so viele Plätze wie 70B-Anfragen erlaubt sind.
+        slots = settings.parallel_70b if c.single is not None else settings.parallel_8b
         log.info(
             "worker %s: registry %s, prompts %s, %d parallel",
             worker_id,
             c.registry_version,
             c.prompt_version,
-            settings.parallel_8b,
+            slots,
         )
 
         async def beat() -> None:
@@ -410,7 +434,7 @@ async def run_worker(
 
             beating = asyncio.create_task(beat())
             try:
-                await fill_slots(claim_jobs, process, settings.parallel_8b, once=once)
+                await fill_slots(claim_jobs, process, slots, once=once)
             finally:
                 beating.cancel()
     return counts
