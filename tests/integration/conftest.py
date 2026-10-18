@@ -30,13 +30,7 @@ def conn():
 
 @pytest.fixture
 def api_settings(conn, tmp_path) -> Settings:
-    """Einstellungen für eine App auf dem Schema dieses Tests, mit dem Review-Token «geheim»."""
+    """Einstellungen für eine App auf dem Schema dieses Tests."""
     schema = conn.execute("SELECT current_schema()").fetchone()[0]
     url = make_conninfo(os.environ["TEST_DATABASE_URL"], options=f"-c search_path={schema},public")
-    return Settings(
-        _env_file=None,
-        database_url=url,
-        web_dist_dir=tmp_path,
-        registry_path=FIXTURE,
-        review_token="geheim",
-    )
+    return Settings(_env_file=None, database_url=url, web_dist_dir=tmp_path, registry_path=FIXTURE)

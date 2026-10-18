@@ -11,8 +11,6 @@ from tests.integration.test_api import FIXTURE, seed
 
 pytestmark = pytest.mark.integration
 
-TOKEN = {"Authorization": "Bearer geheim"}
-
 
 @pytest.fixture
 def client(conn, repo_root, api_settings):
@@ -25,7 +23,7 @@ def client(conn, repo_root, api_settings):
 
 def review(client, action, tag_id="aps:6.1.9", **extra):
     body = {"affair_id": 70435, "tag_id": tag_id, "action": action, "user_name": " Mia ", **extra}
-    return client.post("/v1/reviews", json=body, headers=TOKEN)
+    return client.post("/v1/reviews", json=body)
 
 
 def state(response, tag_id="aps:6.1.9"):
@@ -114,12 +112,6 @@ def test_undo_without_migration_0004_is_503_and_changes_nothing(client, conn):
     assert response.status_code == 503
     assert "0004" in response.json()["detail"]
     assert state(client.get("/v1/affairs/70435/topics")) == ("active", "confirmed", "Mia", "70b")
-
-
-def test_wrong_token_is_401(client):
-    body = {"affair_id": 70435, "tag_id": "aps:6.1.9", "action": "confirm", "user_name": "Mia"}
-    wrong = {"Authorization": "Bearer falsch"}
-    assert client.post("/v1/reviews", json=body, headers=wrong).status_code == 401
 
 
 def add_label(conn, affair_id, tag_id, confidence, evidence, verified):

@@ -13,9 +13,9 @@ from parltopics.config import Settings
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tags_example.yaml"
 
 
-def client_for(dist: Path, registry: Path = FIXTURE, **overrides) -> TestClient:
+def client_for(dist: Path, registry: Path = FIXTURE) -> TestClient:
     """Ohne `with`: die App startet nicht, ihr Datenbank-Pool bleibt geschlossen."""
-    settings = Settings(_env_file=None, web_dist_dir=dist, registry_path=registry, **overrides)
+    settings = Settings(_env_file=None, web_dist_dir=dist, registry_path=registry)
     return TestClient(create_app(settings))
 
 
@@ -87,17 +87,9 @@ def test_database_endpoints_answer_503_without_database(tmp_path):
     assert client.get("/healthz").status_code == 200
 
 
-def test_reviews_need_a_configured_and_correct_token(tmp_path):
+def test_reviews_need_no_token_only_the_database(tmp_path):
     body = {"affair_id": 1, "tag_id": "aps:6.1.9", "action": "confirm", "user_name": "Mia"}
-    right = {"Authorization": "Bearer geheim"}
-    assert client_for(tmp_path).post("/v1/reviews", json=body, headers=right).status_code == 503
-    client = client_for(tmp_path, review_token="geheim")
-    for headers in ({}, {"Authorization": "Bearer falsch"}, {"Authorization": "Basic geheim"}):
-        response = client.post("/v1/reviews", json=body, headers=headers)
-        assert response.status_code == 401
-        assert response.headers["www-authenticate"] == "Bearer"
-    # Token und Body stimmen, es fehlt nur die Datenbank.
-    assert client.post("/v1/reviews", json=body, headers=right).status_code == 503
+    assert client_for(tmp_path).post("/v1/reviews", json=body).status_code == 503
 
 
 @pytest.mark.parametrize(

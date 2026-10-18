@@ -42,7 +42,7 @@ make help                     # alle Ziele
 
 Die API-Dokumentation für die Web-App steht nach `make api` unter <http://127.0.0.1:8000/v1/docs> (Swagger UI aus dem Paket, ohne CDN); das Schema unter `/v1/openapi.json`.
 
-Review-Entscheide schreibt `POST /v1/reviews` (bestätigen, verwerfen, ändern, hinzufügen, zurücknehmen). Er braucht `REVIEW_TOKEN` in `.env`, sonst antwortet er 503; die Web-App schickt den Token als `Authorization: Bearer <token>`, in Swagger über «Authorize». Die Aktion `undo` braucht Migration 0004: Auf der gemeinsamen Datenbank führt die betreibende Person `make migrate` aus.
+Review-Entscheide schreibt `POST /v1/reviews` (bestätigen, verwerfen, ändern, hinzufügen, zurücknehmen), die offenen Fälle liefert `GET /v1/reviews/queue`. Im Hack-MVP gibt es keine Anmeldung und keine Rollen: Wer die API erreicht, kann entscheiden; an jedem Entscheid stehen Name und Zeit, und jeder lässt sich mit `undo` zurücknehmen. Die Aktion `undo` braucht Migration 0004: Auf der gemeinsamen Datenbank führt die betreibende Person `make migrate` aus.
 
 ## Klassifikation
 

@@ -9,7 +9,6 @@ nicht von einem CDN (PRD 9, Offline); FastAPIs Standardseiten /docs und /redoc b
 OpenAPI-Schema steht unter /v1/openapi.json.
 """
 
-import secrets
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import date
@@ -21,7 +20,6 @@ import psycopg
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from psycopg_pool import ConnectionPool, PoolClosed, PoolTimeout
 
@@ -58,7 +56,8 @@ SWAGGER = Path(__file__).parent / "static" / "swagger"  # swagger-ui-dist, Apach
 
 DESCRIPTION = """Sidecar-API von ParlTopics (PRD F10): Themen zu Geschäften aus OpenParlData,
 klassifiziert mit Apertus. Geschäfts-IDs sind OpenParlData-IDs. Alle Endpunkte lesen nur, ausser
-POST /v1/reviews: Er braucht den REVIEW_TOKEN als `Authorization: Bearer <token>` («Authorize»).
+POST /v1/reviews für Review-Entscheide. Im Hack-MVP gibt es dafür keine Anmeldung und keine Rollen;
+an jedem Entscheid stehen Name und Zeit.
 
 Ohne Datenbank antworten die Endpunkte unter Geschäfte, Themen, Review und Jobs mit 503;
 /healthz und die Seiten unter /v1/pages funktionieren weiter."""
@@ -66,7 +65,7 @@ Ohne Datenbank antworten die Endpunkte unter Geschäfte, Themen, Review und Jobs
 TAGS = [
     {"name": "Geschäfte", "description": "Ein Geschäft mit seinen Themen, Belegen und Versionen."},
     {"name": "Themen", "description": "Tags der Registry (APS und Ad-hoc) und ihre Geschäfte."},
-    {"name": "Review", "description": "Entscheide von Menschen zu Labels (mit REVIEW_TOKEN)."},
+    {"name": "Review", "description": "Entscheide von Menschen zu Labels, mit Name und Zeit."},
     {"name": "Jobs", "description": "Stand der Klassifikation je Aufgabe."},
     {"name": "Seiten", "description": "Seitenbaum des ParlWiki."},
     {"name": "System", "description": "Betrieb."},
@@ -99,7 +98,6 @@ NO_BUILD_PAGE = """<!doctype html>
 """
 
 LangQuery = Annotated[Lang, Query(description="Sprache der Titel, sonst Deutsch")]
-BEARER = HTTPBearer(auto_error=False, description="REVIEW_TOKEN aus der Konfiguration der API")
 
 
 def page_out(page: Page, lang: Lang) -> PageOut:
@@ -188,18 +186,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     Conn = Annotated[psycopg.Connection, Depends(connection)]
     no_database = {503: {"description": "Datenbank nicht erreichbar"}}
     no_registry = {503: {"description": "Registry nicht lesbar"}}
-
-    def reviewer(
-        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(BEARER)],
-    ) -> None:
-        expected = settings.review_token.get_secret_value() if settings.review_token else ""
-        if not expected:
-            raise HTTPException(503, "Review nicht eingerichtet: REVIEW_TOKEN fehlt")
-        given = credentials.credentials if credentials else ""
-        if not secrets.compare_digest(given.encode(), expected.encode()):
-            raise HTTPException(
-                401, "Token fehlt oder ist falsch", headers={"WWW-Authenticate": "Bearer"}
-            )
 
     @app.get("/healthz", tags=["System"], summary="Lebenszeichen der API")
     def healthz() -> dict[str, str]:
@@ -312,15 +298,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         "/reviews",
         tags=["Review"],
         summary="Entscheid zum Label eines Themas",
-        dependencies=[Depends(reviewer)],
         responses={
-            401: {"description": "Token fehlt oder ist falsch"},
             404: {"description": "Kein passendes Label, Thema unbekannt oder Geschäft ohne Text"},
             409: {"description": "Für das Thema gibt es schon ein aktives Label"},
-            503: {
-                "description": "Datenbank nicht erreichbar, REVIEW_TOKEN nicht gesetzt oder"
-                " Migration 0004 fehlt (undo)"
-            },
+            503: {"description": "Datenbank nicht erreichbar oder Migration 0004 fehlt (undo)"},
         },
     )
     def review(body: ReviewIn, conn: Conn) -> AffairTopics:
