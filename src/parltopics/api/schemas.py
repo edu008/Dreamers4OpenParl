@@ -1,9 +1,9 @@
 """Antwortmodelle der Sidecar-API (PRD F10); sie bestimmen das Schema unter /v1/openapi.json."""
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 from parltopics.wiki.tree import PageKind
 
@@ -65,6 +65,8 @@ class LabelOut(BaseModel):
     evidence_verified: bool = Field(description="Die Textstelle steht (unscharf) im Text")
     status: Literal["active", "rejected", "superseded"]
     review_status: Literal["confirmed", "rejected", "changed"] | None
+    reviewed_by: str | None = Field(description="Name der Person, die entschieden hat")
+    reviewed_at: datetime | None
     task: str = Field(examples=["classify:aps"])
     stage: Stage
     model_version: str = Field(examples=["apertus-v1-5-8b"])
@@ -92,6 +94,31 @@ class AffairTopics(BaseModel):
     language: str | None = Field(examples=["de"])
     summary_de: str | None = Field(description="Kurzzusammenfassung in einem Satz")
     labels: list[LabelOut] = Field(description="Aktive Labels zuerst, danach der Verlauf")
+
+
+class ReviewIn(BaseModel):
+    """Ein Entscheid zum Label eines Themas an einem Geschäft."""
+
+    affair_id: int = Field(examples=[70435])
+    tag_id: str = Field(examples=["aps:6.1.9"])
+    action: Literal["confirm", "reject", "change", "add", "undo"] = Field(
+        description="confirm und reject: aktives Label bestätigen oder verwerfen; change: aktives"
+        " Label verwerfen und new_tag_id von Hand setzen; add: Thema von Hand setzen; undo: den"
+        " letzten Entscheid zu diesem Thema zurücknehmen"
+    )
+    new_tag_id: str | None = Field(None, description="nur bei change: das richtige Thema")
+    comment: str | None = Field(None, max_length=2000)
+    user_name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
+    ] = Field(description="Name aus der Review-Anmeldung", examples=["Mia Muster"])
+
+    @model_validator(mode="after")
+    def _new_tag_only_for_change(self) -> Self:
+        if (self.action == "change") != (self.new_tag_id is not None):
+            raise ValueError("new_tag_id gehört zu change und nur dorthin")
+        if self.new_tag_id == self.tag_id:
+            raise ValueError("new_tag_id muss ein anderes Thema sein als tag_id")
+        return self
 
 
 class TopicOut(BaseModel):

@@ -42,6 +42,8 @@ make help                     # alle Ziele
 
 Die API-Dokumentation für die Web-App steht nach `make api` unter <http://127.0.0.1:8000/v1/docs> (Swagger UI aus dem Paket, ohne CDN); das Schema unter `/v1/openapi.json`.
 
+Review-Entscheide schreibt `POST /v1/reviews` (bestätigen, verwerfen, ändern, hinzufügen, zurücknehmen). Er braucht `REVIEW_TOKEN` in `.env`, sonst antwortet er 503; die Web-App schickt den Token als `Authorization: Bearer <token>`, in Swagger über «Authorize». Die Aktion `undo` braucht Migration 0004: Auf der gemeinsamen Datenbank führt die betreibende Person `make migrate` aus.
+
 ## Klassifikation
 
 Nach dem Ingest läuft die Pipeline in drei Kommandos (PRD 7.1, [ARCHITEKTUR.md](ARCHITEKTUR.md#2-pipeline)):
