@@ -103,6 +103,10 @@ export function MarginNotes({
                 >
                   {rejected ? "Verworfen" : "Bestätigt"} von {entry.by}
                 </p>
+              ) : mode === "public" ? (
+                <p className="text-muted-foreground">
+                  Noch nicht von einem Menschen geprüft
+                </p>
               ) : (
                 label.needsReview && (
                   <p className="font-semibold text-level-medium">
@@ -144,7 +148,7 @@ export function MarginNotes({
           )
         })}
       </ul>
-      {mode === "public" && labels.length > 0 && (
+      {mode === "public" && review.active && labels.length > 0 && (
         <p>
           <Link
             to={`/review/geschaefte/${affairId}`}

@@ -209,6 +209,27 @@ export function ReviewPage() {
   const open = rows.filter((row) => !row.entry)
   const done = rows.filter((row) => row.entry)
 
+  if (!review.active) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
+            Review
+          </h1>
+          <ProcessingBadge />
+        </div>
+        <p className="max-w-[68ch] text-muted-foreground">
+          Der Review ist für Mitarbeitende, die Labels prüfen. Nach der
+          Anmeldung siehst du die Warteschlange und kannst Labels bestätigen
+          oder verwerfen.
+        </p>
+        <div className="pt-2">
+          <ReviewSignIn />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="flex flex-col gap-2">
