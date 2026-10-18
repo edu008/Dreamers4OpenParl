@@ -56,6 +56,7 @@ async def test_a_run_classifies_every_job_once(conn, repo_root):
         registry_path=FIXTURE,
         prompts_dir=repo_root / "prompts",
         parallel_8b=2,
+        classify_mode="two_stage",  # prüft Eskalation 8B → 70B
     )
     classifier = load_classifier(settings)
     versions = {

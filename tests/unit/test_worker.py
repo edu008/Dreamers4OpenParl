@@ -288,3 +288,64 @@ def test_worker_takes_aps_and_proposed_or_active_adhoc_tasks(classifier):
         "classify:adhoc:digitalisierung-breit",
         "classify:adhoc:ki-verwaltung",
     ]
+
+
+@pytest.fixture
+def single(settings):
+    s = settings.model_copy(update={"registry_path": FIXTURE, "classify_mode": "single_70b"})
+    return s, load_classifier(s)
+
+
+async def test_single_stage_asks_70b_once_with_all_topics(single):
+    settings, classifier = single
+
+    def answer(body):
+        data = json.loads(fake_completion(body["messages"]))
+        if "tags" in data:
+            text = TEXT[:40]
+            data["tags"] = [
+                {"tag_id": t, "confidence": c, "evidence": text}
+                for t, c in [
+                    ("aps:6.1.9", 0.6),
+                    ("aps:2.4.1", 0.9),
+                    ("adhoc:digitalisierung-breit", 0.8),
+                    ("aps:6.1.9", 0.5),
+                    ("aps:2.4.1", 0.4),
+                ]
+            ]
+        return json.dumps(data)
+
+    client, requests = mock_llm(settings, answer)
+    escalations = []
+
+    async def escalate():
+        escalations.append(True)
+
+    async with client:
+        result, reasons = await classify_affair(
+            classifier, client, job(), threshold=0.6, verify=verified, escalate=escalate
+        )
+    assert (reasons, escalations) == ([], [])
+    assert [body["model"] for body in requests] == ["test-70b"]
+    system = requests[0]["messages"][0]["content"]
+    assert "aps:2.4.1 |" in system and "aps:6.1.9 |" in system  # Themen aus mehreren Kapiteln
+    assert "adhoc:digitalisierung-breit |" in system
+    (only,) = result.passes
+    assert only.stage == "70b"
+    assert [label.tag_id for label in only.labels] == [
+        "aps:2.4.1",
+        "adhoc:digitalisierung-breit",
+        "aps:6.1.9",
+    ]
+    assert result.prompt_version.startswith("classify_single_v1+")
+
+
+async def test_single_stage_fails_after_two_invalid_answers(single):
+    settings, classifier = single
+    client, requests = mock_llm(settings, lambda body: "kein JSON")
+    async with client:
+        with pytest.raises(OutputFailure):
+            await classify_affair(
+                classifier, client, job(), threshold=0.6, verify=verified, escalate=nothing
+            )
+    assert [body["model"] for body in requests] == ["test-70b", "test-70b"]

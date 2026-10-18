@@ -24,4 +24,5 @@ def settings() -> Settings:
         registry_path=REPO_ROOT / "registry" / "tags.yaml",
         prompts_dir=REPO_ROOT / "prompts",
         migrations_dir=REPO_ROOT / "migrations",
+        classify_mode="two_stage",  # die meisten Worker-Tests prüfen den zweistufigen Ablauf
     )

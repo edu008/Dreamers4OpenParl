@@ -94,15 +94,15 @@ def test_stage2_drops_tags_that_were_not_offered():
     assert dropped == ["aps:9.9.9"]
 
 
-def test_stage2_keeps_five_best_tags_and_two_proposals():
+def test_stage2_keeps_three_best_tags_and_two_proposals():
     offered = {f"adhoc:t{i}" for i in range(7)}
     tags = [{"tag_id": f"adhoc:t{i}", "confidence": i / 10, "evidence": "x"} for i in range(7)]
     proposals = [{"name_de": f"P{i}", "description_de": "d", "reason": "r"} for i in range(3)]
     result, dropped = parse_stage2(
         stage2(tags=tags, proposed_tags=proposals), affair_id=70435, offered=offered
     )
-    assert [t.tag_id for t in result.tags] == [f"adhoc:t{i}" for i in (6, 5, 4, 3, 2)]
-    assert sorted(dropped) == ["adhoc:t0", "adhoc:t1"]
+    assert [t.tag_id for t in result.tags] == [f"adhoc:t{i}" for i in (6, 5, 4)]
+    assert sorted(dropped) == ["adhoc:t0", "adhoc:t1", "adhoc:t2", "adhoc:t3"]
     assert [p.name_de for p in result.proposed_tags] == ["P0", "P1"]
 
 
