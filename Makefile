@@ -4,6 +4,7 @@ SHELL := /bin/bash
 
 UV ?= uv
 PARLTOPICS_VERSION ?= dev
+BUNDLE_VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 TEST_DATABASE_URL ?= postgresql://parltopics:parltopics@localhost:5432/parltopics
 COMPOSE := docker compose $(if $(wildcard .env),--env-file .env) -f deploy/docker-compose.yml
 
@@ -60,8 +61,8 @@ image: wheels ## App-Image aus den Wheels bauen
 offline-test: image ## Offline-Test in einem Docker-Netz ohne Internet
 	deploy/airgap/offline-test.sh
 
-bundle: ## Air-Gap-Bundle nach dist/ bauen (online)
-	deploy/airgap/build-bundle.sh
+bundle: ## Air-Gap-Bundle nach dist/ bauen (online), Version aus git describe
+	PARLTOPICS_VERSION=$(BUNDLE_VERSION) deploy/airgap/build-bundle.sh
 
 clean: ## Erzeugte Dateien entfernen
 	rm -rf dist .archify deploy/airgap/wheels .pytest_cache .ruff_cache

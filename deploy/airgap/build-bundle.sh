@@ -23,6 +23,7 @@ docker save -o "$STAGE/images/pgvector.tar" "$DB_IMAGE"
 docker save -o "$STAGE/images/python-base.tar" "$PYTHON_IMAGE"
 cp -r deploy migrations prompts registry "$STAGE/"
 cp .env.example "$STAGE/.env.example"
+cp .dockerignore "$STAGE/.dockerignore"
 printf '%s\n' "$VERSION" > "$STAGE/VERSION"
 cp deploy/airgap/load-bundle.sh "$STAGE/load-bundle.sh"
 (cd "$STAGE" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)

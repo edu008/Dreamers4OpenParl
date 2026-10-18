@@ -1,0 +1,6 @@
+# Positivliste: Der Build-Kontext enthält nur, was deploy/Dockerfile kopiert.
+*
+!deploy/airgap/wheels/
+!migrations/
+!prompts/
+!registry/

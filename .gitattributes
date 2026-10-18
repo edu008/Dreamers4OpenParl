@@ -1,0 +1,15 @@
+# Zeilenenden für ein Team mit Windows und WSL: Skripte und Diagramm-Quellen immer mit LF,
+# damit Shell-Skripte laufen und die Hashes in docs/architecture/manifest.json stimmen.
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.mjs text eol=lf
+*.sql text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Makefile text eol=lf
+docs/architecture/src/*.json text eol=lf
+docs/architecture/manifest.json text eol=lf
+# Erzeugte Diagramme und das vendorte Archify bleiben byte-genau.
+docs/architecture/*.html -text
+.claude/skills/archify/** -text

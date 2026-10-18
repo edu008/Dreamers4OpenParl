@@ -33,7 +33,7 @@ Das ruft [`deploy/airgap/build-bundle.sh`](../deploy/airgap/build-bundle.sh) auf
 4. Compose-Dateien, Dockerfile, `migrations/`, `prompts/`, `registry/tags.yaml`, `.env.example` und `load-bundle.sh` kommen dazu.
 5. `SHA256SUMS` hält die Prüfsummen aller Dateien fest.
 
-Ergebnis: `dist/parltopics-bundle-<version>.tar`. Grösse grob: Images rund 1 GB, Wheels einige hundert MB.
+Ergebnis: `dist/parltopics-bundle-<version>.tar`, die Version stammt aus `git describe`. In der CI gemessen: rund 1,4 GB, davon 183 MB Wheels (43 Dateien), der Rest sind die drei Images.
 
 ### 2.2 Daten holen (Rechner mit Internet)
 
