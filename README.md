@@ -71,6 +71,18 @@ Keep the files and directories as shown below — don't rename or move them.
 | `LICENSE` | Apache-2.0 |
 | `src/` | Your code |
 
+ParlTopics adds these directories (monorepo, see [docs/PRD.md, Anhang D](docs/PRD.md#anhang-d-projektstruktur-monorepo)):
+
+| Path | What it is |
+| --- | --- |
+| `docs/` | PRD, architecture, air-gap guide, ADRs, interactive diagrams (`docs/architecture/`) |
+| `registry/tags.yaml` | Tag registry, the single source of all topics |
+| `prompts/` | Versioned prompts for workers and agent |
+| `migrations/` | Numbered SQL migrations (PostgreSQL 16) |
+| `deploy/` | Dockerfile, Docker Compose, air-gap bundle and offline test |
+| `tests/` | Unit and integration tests, mock LLM |
+| `scripts/` | Build and check of the Archify diagrams, ERD generator |
+
 ## Environment
 
 - Include instructions for running the project in your technical report.
@@ -80,6 +92,8 @@ LLM_NAME — name and version of the model
 LLM_BASE_URL — endpoint base URL
 LLM_API_KEY — your API key
 ```
+
+ParlTopics reads exactly these variables and adds `LLM_NAME_LARGE` for the 70B model. All settings are listed in [`.env.example`](.env.example).
 
 ## 📦 Submission Requirements & Deliverables
 
@@ -120,27 +134,45 @@ Each dimension is scored from 0 to 5.
 
 ## Getting started
 
-> Status: work in progress during the hackathon (18 to 19 October 2026). The commands below are updated as the code in `src/` lands.
+> Status: work in progress during the hackathon (18 to 19 October 2026). The commands below are updated as the code in `src/` lands. Commands that are not implemented yet exit with code 3 and name their milestone.
+
+Requires [uv](https://docs.astral.sh/uv/), Docker with Compose v2 and make.
 
 ```bash
 git clone https://github.com/edu008/Dreamers4OpenParl.git
 cd Dreamers4OpenParl
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r src/requirements.txt
+make setup              # Python 3.12 and dependencies from uv.lock (uv sync)
 
 # Configure the model endpoint (never commit the key)
 cp .env.example .env
-# set LLM_NAME, LLM_BASE_URL, LLM_API_KEY in .env
+# set LLM_NAME, LLM_NAME_LARGE, LLM_BASE_URL, LLM_API_KEY in .env
+
+make db && make migrate # PostgreSQL 16 with pgvector in Docker, create the schema
+make test               # unit tests
+uv run parltopics llm check
+make api                # web app and API on http://127.0.0.1:8000
 ```
 
-The bulk export files are downloaded at runtime into a local data folder that is excluded from
-git. Exact run commands for data download, classification and evaluation follow in this section
-and in the reproducibility chapter of the technical report.
+The bulk export files are downloaded in a separate online step (`uv run parltopics download`) into
+`data/import/`, which is excluded from git. Exact run commands for data download, classification and
+evaluation follow in this section and in the reproducibility chapter of the technical report.
+
+## 📚 Project documentation (German)
+
+| Document | Content |
+| --- | --- |
+| [PRD](docs/PRD.md) | Product requirements: goals, scope by phase, requirements F1–F22, metrics, milestones |
+| [Architektur](docs/ARCHITEKTUR.md) | Worker and agent design, pipeline, tools, versions and hashes |
+| [Diagramme](docs/architecture/README.md) | Eight interactive Archify diagrams (open the HTML files locally) |
+| [Air-Gap](docs/AIRGAP.md) | Build online, transfer, run offline; offline test |
+| [Entwicklung](docs/ENTWICKLUNG.md) | Setup, tests, conventions, pull request checklist |
+| [ADR](docs/adr/README.md) | Architecture decisions |
 
 ## 🤖 Use of AI tools
 
 - **Apertus v1.5** (8B, 70B) is the only model used inside the product.
 - **Claude** (Anthropic) was used as a development assistant for data exploration, code and documentation.
+- **Archify** (MIT) renders the architecture diagrams in `docs/architecture/`.
 
 ## 👥 Team Dreamers
 

@@ -1,0 +1,33 @@
+# Einmal einrichten: uvx pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(\.claude/skills/|docs/architecture/.*\.html$)
+      - id: end-of-file-fixer
+        exclude: ^(\.claude/skills/|docs/architecture/.*\.html$)
+      - id: check-yaml
+        args: [--unsafe]
+        exclude: ^\.claude/skills/
+      - id: check-added-large-files
+        args: [--maxkb=2048]
+      - id: detect-private-key
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+      - id: registry-validate
+        name: Registry prüfen
+        entry: uv run parltopics registry validate
+        language: system
+        files: ^registry/
+        pass_filenames: false

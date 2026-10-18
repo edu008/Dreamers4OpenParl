@@ -1,0 +1,49 @@
+# ParlTopics Tag-Registry: einzige Quelle aller Tags (PRD 7.2, Anhang A, ADR 0001).
+# APS-Einträge erzeugt `parltopics registry import-aps <aps_topics.xlsx>` (Meilenstein M0).
+# Jede inhaltliche Änderung erhöht registry_version. Neue Tags nur über Vorschläge und Review.
+# Schreibt die Web-App die Datei neu, gehen diese Kommentare verloren (ADR 0001).
+registry_version: "2026-10-18.1"
+
+schemes:
+  aps:
+    label: "Année Politique Suisse"
+    source: "aps_topics.xlsx (hackapertus, Stand 18.10.2026)"
+    fixed: true
+  adhoc:
+    label: "Ad-hoc-Themen"
+    source: "ParlTopics-Team"
+    fixed: false
+
+tags:
+  - tag_id: "adhoc:digitalisierung-breit"
+    scheme: adhoc
+    status: active
+    names:
+      de: "Digitalisierung (breit)"
+      fr: "Numérisation (large)"
+      it: "Digitalizzazione (ampia)"
+    descriptions:
+      de: >-
+        Breite Definition entlang PolitMonitor: Geschäfte zu E-Government und digitaler
+        Verwaltung, Cybersicherheit, künstlicher Intelligenz, Datenschutz und Datenpolitik,
+        digitalen Medien und Plattformen sowie Breitband und digitaler Infrastruktur.
+      fr: >-
+        Définition large selon PolitMonitor : objets portant sur la cyberadministration et
+        l'administration numérique, la cybersécurité, l'intelligence artificielle, la protection
+        et la politique des données, les médias et plateformes numériques ainsi que le haut débit
+        et l'infrastructure numérique.
+      it: >-
+        Definizione ampia secondo PolitMonitor: oggetti relativi all'amministrazione digitale,
+        alla cibersicurezza, all'intelligenza artificiale, alla protezione e alla politica dei
+        dati, ai media e alle piattaforme digitali, nonché alla banda larga e all'infrastruttura
+        digitale.
+    aliases:
+      - "Breitband"
+      - "Cybersicherheit"
+      - "Datenschutz"
+      - "digitale Medien"
+      - "E-Government"
+      - "KI"
+      - "künstliche Intelligenz"
+    unreviewed_translations: [fr, it]
+    created: {at: "2026-10-18", by: "team"}

@@ -1,0 +1,62 @@
+# Betrieb von ParlTopics (PRD 9, 10.3; AIRGAP.md). Aufruf aus dem Repo- bzw. Bundle-Verzeichnis:
+#   docker compose --env-file .env -f deploy/docker-compose.yml up -d db                 nur Datenbank
+#   docker compose --env-file .env -f deploy/docker-compose.yml --profile app up -d      plus Web-App/API
+#   docker compose --env-file .env -f deploy/docker-compose.yml --profile worker up -d   plus Worker (ab M1)
+# Ports sind nur an 127.0.0.1 gebunden; nach aussen gehört ein Reverse-Proxy davor.
+name: parltopics
+
+x-app: &app
+  image: parltopics-app:${PARLTOPICS_VERSION:-dev}
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+  env_file:
+    - path: ${PARLTOPICS_ENV_FILE:-../.env}
+      required: false
+  environment:
+    DATABASE_URL: postgresql://parltopics:${POSTGRES_PASSWORD:-parltopics}@db:5432/parltopics
+    REGISTRY_PATH: /app/registry/tags.yaml
+  volumes:
+    - ${REGISTRY_DIR:-../registry}:/app/registry
+    - ${IMPORT_DIR:-../data/import}:/data/import:ro
+  depends_on:
+    db:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: parltopics
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-parltopics}
+      POSTGRES_DB: parltopics
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parltopics -d parltopics"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    <<: *app
+    profiles: ["app"]
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  worker:
+    <<: *app
+    profiles: ["worker"]
+    command: ["parltopics", "worker"]
+
+volumes:
+  pgdata:

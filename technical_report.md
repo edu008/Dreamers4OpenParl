@@ -3,7 +3,7 @@
 A deeper write-up than the README: what you built, how it works, and what the
 numbers say.
 
-- **Challenge:** `challenge name`
+- **Challenge:** OpenParlData: Topic classification for Swiss parliaments with Apertus
 - **Event:** On-site Liebefeld
 - **Team:** `team name` — `member`, `member`, `member`
 - **Demo:** `link to video`
@@ -17,6 +17,11 @@ The problem, your approach, and the headline result in one paragraph.
 Components, data flow, and where each one runs. Put diagrams in `docs/` and
 reference them here.
 
+> Draft from the project setup. Details: [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md) and the interactive
+> diagrams in [docs/architecture/](docs/architecture/README.md), e.g. the
+> [system architecture](docs/architecture/01-systemarchitektur.html) and the
+> [pipeline](docs/architecture/02-pipeline.html).
+
 ### Target architecture (mandatory)
 
 State which of the three architectures your project is deployable in, and how
@@ -27,6 +32,23 @@ it meets that constraint:
 - **c) Sovereign Swiss cloud** — on a cloud platform operated in Switzerland, under Swiss jurisdiction, with Swiss data residency.
 
 List any external dependencies, and separate build time from runtime.
+
+**ParlTopics targets b) Air-gapped**, which also covers a) and c). At runtime the application talks to one
+host only, the OpenAI-compatible Apertus endpoint in `LLM_BASE_URL`; the HTTP client refuses every other
+host. During the hack this endpoint is Keera; in air-gapped operation it is an Apertus server inside the
+same network (template: `deploy/docker-compose.llm.yml`). Code and images are identical in both cases.
+
+| Phase | Where | External dependencies |
+| --- | --- | --- |
+| Build | machine with internet | PyPI (wheels pinned in `uv.lock`), Docker Hub (`python:3.12-slim`, `pgvector/pgvector:pg16`) |
+| Data download | machine with internet | `files.openparldata.ch` |
+| Transfer | removable media | bundle with images, wheels and checksums; data bundle |
+| Runtime | server without internet | only `LLM_BASE_URL` |
+
+The app image is built only from bundled wheels (`pip install --no-index`). A CI job runs the services in a
+Docker network without a route to the internet and checks migration, registry, LLM call (mock), health
+endpoint and that outbound internet access fails. See [docs/AIRGAP.md](docs/AIRGAP.md) and the
+[air-gap diagram](docs/architecture/08-airgap-deployment.html).
 
 ## 3. Use of Apertus
 

@@ -1,0 +1,53 @@
+[project]
+name = "parltopics"
+version = "0.1.0"
+description = "Themen-Klassifikation für OpenParlData mit Apertus: Worker, Agent, ParlWiki"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "jinja2>=3.1",
+    "psycopg[binary,pool]>=3.2",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "httpx>=0.27",
+    "openai>=1.54",
+    "pyyaml>=6.0",
+    "lingua-language-detector>=2.0",
+    "typer>=0.12",
+]
+
+[project.scripts]
+parltopics = "parltopics.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/parltopics"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+# Deutsche Texte enthalten typografische Zeichen (–, „“, ·) absichtlich.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra"
+markers = ["integration: braucht PostgreSQL über TEST_DATABASE_URL"]

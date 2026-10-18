@@ -1,0 +1,25 @@
+# VORLAGE, im Hack nicht getestet: interner Apertus-Endpunkt mit vLLM für den Air-Gap-Betrieb
+# (AIRGAP.md 3). Braucht eine NVIDIA-GPU mit Container-Toolkit. Die Gewichte (Apache 2.0) vorher
+# online laden und nach MODELS_DIR kopieren. VLLM_IMAGE auf eine vLLM-Version festlegen, die
+# Apertus unterstützt. Für 70B einen zweiten Dienst mit --tensor-parallel-size ergänzen.
+# Danach in .env: LLM_BASE_URL=http://llm:8000/v1 und LLM_NAME=apertus-8b
+# Aufruf:
+#   docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.llm.yml \
+#     --profile app --profile llm up -d
+services:
+  llm:
+    image: ${VLLM_IMAGE:?VLLM_IMAGE setzen, z. B. vllm/vllm-openai:<version>}
+    profiles: ["llm"]
+    command: ["--model", "/models/Apertus-v1.5-8B", "--served-model-name", "apertus-8b", "--port", "8000"]
+    environment:
+      HF_HUB_OFFLINE: "1"
+    volumes:
+      - ${MODELS_DIR:?MODELS_DIR setzen}:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped

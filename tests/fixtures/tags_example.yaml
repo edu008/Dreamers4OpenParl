@@ -1,0 +1,49 @@
+# Testdaten mit fiktiven Codes, nur für die Tests der Registry-Logik.
+registry_version: "2026-10-18.3"
+schemes:
+  aps: {label: "Année Politique Suisse", source: "Testdaten", fixed: true}
+  adhoc: {label: "Ad-hoc-Themen", source: "Testdaten", fixed: false}
+tags:
+  - tag_id: "aps:6"
+    scheme: aps
+    status: active
+    names: {de: "Infrastruktur", fr: "Infrastructure"}
+    descriptions: {de: "Bereich (Testdaten)"}
+  - tag_id: "aps:6.1"
+    scheme: aps
+    status: active
+    parent: "aps:6"
+    names: {de: "Verkehr und Kommunikation"}
+    descriptions: {de: "Kapitel (Testdaten)"}
+  - tag_id: "aps:6.1.9"
+    scheme: aps
+    status: active
+    parent: "aps:6.1"
+    names: {de: "Digitalisierung", fr: "Numérisation", it: "Digitalizzazione"}
+    descriptions: {de: "Geschäfte zur Digitalisierung (Testdaten)"}
+    aliases: ["E-Government", "Digitale Transformation"]
+    unreviewed_translations: [it]
+  - tag_id: "aps:6.1.10"
+    scheme: aps
+    status: retired
+    parent: "aps:6.1"
+    names: {de: "Zurückgezogen"}
+    descriptions: {de: "Nicht mehr aktiv (Testdaten)"}
+  - tag_id: "adhoc:digitalisierung-breit"
+    scheme: adhoc
+    status: active
+    names: {de: "Digitalisierung (breit)"}
+    descriptions: {de: "Breite Definition (Testdaten)"}
+    created: {at: "2026-10-18", by: "team"}
+  - tag_id: "adhoc:ki-verwaltung"
+    scheme: adhoc
+    status: proposed
+    names: {de: "KI in der Verwaltung"}
+    descriptions: {de: "Vorschlag (Testdaten)"}
+    proposal: {by: "apertus-70b", run: "2026-10-18-07", recommendation: child_of, related_tag: "aps:6.1.9"}
+  - tag_id: "adhoc:e-government"
+    scheme: adhoc
+    status: merged
+    merged_into: "adhoc:digitalisierung-breit"
+    names: {de: "E-Government"}
+    descriptions: {de: "Zusammengelegt (Testdaten)"}
