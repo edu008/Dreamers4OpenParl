@@ -25,6 +25,7 @@ from parltopics.agent.tools import (
     MAX_TOOL_CALLS,
     TIMEOUT_SECONDS,
     ToolArgs,
+    ToolError,
     UnknownToolError,
     parse_tool_call,
     tool_definitions,
@@ -37,6 +38,7 @@ from parltopics.wiki.tree import Page
 PROMPT = "agent_system_v1"
 MAX_STEPS = MAX_TOOL_CALLS + 3  # Modellaufrufe der Schleife: Platz für Fehler und Nachfrage
 RESULT_MAX = 8000  # Zeichen je Werkzeugergebnis im Prompt
+COUNTING = ("count_affairs", "read_page")  # die Quellen für Zahlen (Prompt, Regel 3)
 CITATION = re.compile(r"\s*\[(\d+)\]")
 ANSWER_JSON = '{"answer": "…", "cited_ids": [IDs]}'
 ANSWER = f"Antworte nur mit {ANSWER_JSON}."
@@ -125,7 +127,13 @@ async def run(
         entry: dict[str, Any] = {"name": action.action, "args": action.args}
         try:
             result, ids = await execute(action.action, parse_tool_call(action.action, action.args))
-        except (UnknownToolError, ValidationError, JSONExtractionError, psycopg.Error) as error:
+        except (
+            UnknownToolError,
+            ToolError,
+            ValidationError,
+            JSONExtractionError,
+            psycopg.Error,
+        ) as error:
             result, ids = {"error": _brief(error)}, []
             entry["error"] = _brief(error)
         known.update(ids)
@@ -174,7 +182,10 @@ async def run(
             note = f"Diese IDs hat kein Werkzeug geliefert: {unknown}. Zitiere nur gelieferte. "
             answer = as_answer(await step(note + ANSWER)) or answer
         outcome.answer, outcome.cited_ids = keep_known(answer, known)
-    outcome.status = "limit_reached" if forced else "ok" if outcome.cited_ids else "no_results"
+    # Belegt ist eine Antwort durch Zitate oder durch Zahlen aus einer gelungenen Zählung.
+    counted = any(call["name"] in COUNTING and "error" not in call for call in outcome.tool_calls)
+    backed = outcome.answer is not None and (outcome.cited_ids or counted)
+    outcome.status = "limit_reached" if forced else "ok" if backed else "no_results"
     return outcome
 
 

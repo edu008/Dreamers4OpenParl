@@ -7,7 +7,9 @@ Navigationssuche in search_runs.
 """
 
 import asyncio
-from dataclasses import dataclass
+import json
+import re
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -24,6 +26,7 @@ from parltopics.agent.tools import (
     ReadPageArgs,
     SearchAffairsArgs,
     ToolArgs,
+    ToolError,
 )
 from parltopics.api import navigate, queries
 from parltopics.classify import adhoc
@@ -52,6 +55,7 @@ GROUPS = {
     "level": "b.level AS key",
     "year": "extract(year FROM a.begin_date)::int AS key",
 }
+TAG_ID = re.compile(r'"(?:tag_id|page_id)": "([^"]+)"')
 
 Found = tuple[Any, list[int]]  # Ergebnis für den Prompt, zitierbare Geschäfts-IDs
 
@@ -79,10 +83,10 @@ def _heads(rows: list[dict]) -> list[dict]:
     ]
 
 
-def _filters(args: SearchAffairsArgs | CountAffairsArgs) -> dict:
+def _filters(args: SearchAffairsArgs | CountAffairsArgs, tags: list[str]) -> dict:
     """Parameter für navigate.FILTERS und TAG_FILTER."""
     return {
-        "tags": args.tags,
+        "tags": tags,
         "body_keys": args.body_keys,
         "levels": [],
         "year_from": args.year_from,
@@ -100,13 +104,29 @@ class Tools:
     registry: Registry
     tree: dict[str, Page]
     transport: httpx.AsyncBaseTransport | None = None
+    known_tags: set[str] = field(default_factory=set)  # Tag-IDs aus Werkzeugergebnissen
 
     async def __call__(self, name: str, args: ToolArgs) -> Found:
-        return await getattr(self, name)(args)
+        result, ids = await getattr(self, name)(args)
+        self.known_tags.update(TAG_ID.findall(json.dumps(result, ensure_ascii=False, default=str)))
+        return result, ids
+
+    def _expand(self, tags: list[str]) -> list[str]:
+        """Tags mit ihren Unterthemen (aps:6.1 umfasst aps:6.1.9). Nur IDs aus Werkzeugen: eine
+        erfundene ID zählte sonst still null Geschäfte."""
+        unknown = [tag for tag in tags if tag not in self.known_tags]
+        if unknown:
+            raise ToolError(f"Tag-IDs ohne Werkzeugergebnis: {unknown}. Suche sie mit list_tags.")
+        below = {
+            t.tag_id for t in self.registry.tags for tag in tags if t.tag_id.startswith(f"{tag}.")
+        }
+        return sorted({*tags, *below})
 
     async def search_affairs(self, args: SearchAffairsArgs) -> Found:
+        tags = self._expand(args.tags)
+
         def run() -> list[dict]:
-            params = {**_filters(args), "q": args.query, "limit": args.limit}
+            params = {**_filters(args, tags), "q": args.query, "limit": args.limit}
             ids = [row[0] for row in self.conn.execute(SEARCH, params)]
             return _heads(queries.hits(self.conn, ids))
 
@@ -166,6 +186,7 @@ class Tools:
         return found, [args.affair_id]
 
     async def count_affairs(self, args: CountAffairsArgs) -> Found:
+        tags = self._expand(args.tags)
         sql = (
             f"SELECT {GROUPS[args.group_by]}, count(*) AS count"
             " FROM affairs a LEFT JOIN bodies b ON b.body_key = a.body_key"
@@ -173,11 +194,14 @@ class Tools:
             f" GROUP BY 1 ORDER BY count DESC, 1 LIMIT {GROUPS_MAX}"
         )
         cursor = self.conn.cursor(row_factory=dict_row)
-        rows = await asyncio.to_thread(lambda: cursor.execute(sql, _filters(args)).fetchall())
-        # Die Filter stehen im Ergebnis, damit das Modell keine Zählung aller Geschäfte einem
-        # Thema zuschreibt.
+        params = _filters(args, tags)
+        rows = await asyncio.to_thread(lambda: cursor.execute(sql, params).fetchall())
+        # Die Filter stehen mit Namen im Ergebnis, damit das Modell keine Zählung aller Geschäfte
+        # oder eines anderen Themas dem gefragten Thema zuschreibt.
+        names = {tag.tag_id: tag.pref_label.de for tag in self.registry.tags}
         counted = {
-            "themen": args.tags or "keine: alle Geschäfte, nicht nur eines Themas",
+            "themen": [f"{tag} {names.get(tag, '')}".strip() for tag in args.tags]
+            or "keine: alle Geschäfte, nicht nur eines Themas",
             "parlamente": args.body_keys or "alle",
             "jahre": [args.year_from, args.year_to],
         }

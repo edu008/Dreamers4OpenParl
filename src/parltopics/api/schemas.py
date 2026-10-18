@@ -723,7 +723,8 @@ class AgentOut(BaseModel):
         " Bestätigen-Knopf, der POST /v1/adhoc aufruft"
     )
     status: Literal["ok", "no_results", "limit_reached"] = Field(
-        description="ok: mit Zitaten; limit_reached: Antwort nach 6 Werkzeugen oder 60 s erzwungen"
+        description="ok: belegt mit Zitaten oder Zahlen aus count_affairs oder read_page;"
+        " limit_reached: Antwort nach 6 Werkzeugen oder 60 s erzwungen"
     )
     steps: int = Field(description="Modellaufrufe des Agenten, ohne die in den Werkzeugen")
     duration_ms: int

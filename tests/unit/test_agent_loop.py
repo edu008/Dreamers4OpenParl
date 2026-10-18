@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from parltopics.agent.execute import Tools
 from parltopics.agent.loop import Answer, first_messages, keep_known, parse_reply, run
-from parltopics.agent.tools import MAX_TOOL_CALLS, ListTagsArgs
+from parltopics.agent.tools import MAX_TOOL_CALLS, CountAffairsArgs, ListTagsArgs, ToolError
 from parltopics.config import Settings
 from parltopics.llm import JSONExtractionError
 from parltopics.registry import load_registry
@@ -96,6 +96,10 @@ def test_bad_tool_arguments_go_back_to_the_model():
     outcome = asyncio.run(run(start(), ask, one_affair))
     (call,) = outcome.tool_calls
     assert call["error"] and outcome.status == "no_results"
+    # Eine gelungene Zählung belegt eine Antwort mit Zahlen, auch ohne Zitate.
+    count = '{"action": "count_affairs", "args": {"group_by": "level"}}'
+    counted = asyncio.run(run(start(), scripted(count, '{"answer": "Kantone: 3"}'), one_affair))
+    assert (counted.status, counted.cited_ids) == ("ok", [])
 
 
 def test_an_answer_without_any_tool_is_sent_back_once():
@@ -114,6 +118,16 @@ def test_list_tags_matches_names_aliases_and_definitions():
     found, ids = asyncio.run(tools.list_tags(ListTagsArgs(query="Digitale Transformation")))
     assert (found[0]["tag_id"], ids) == ("aps:6.1.9", [])
     assert all(tag["status"] in ("active", "proposed") for tag in found)
+
+
+def test_tags_must_come_from_a_tool_and_include_their_subtopics():
+    tools = Tools(settings=None, conn=None, registry=load_registry(FIXTURE), tree={})
+    count = CountAffairsArgs(group_by="level", tags=["aps:6.1"])
+    with pytest.raises(ToolError, match="list_tags"):  # erfunden: kein Werkzeug lieferte aps:6.1
+        asyncio.run(tools("count_affairs", count))
+    found, _ = asyncio.run(tools("list_tags", ListTagsArgs(query="Verkehr")))
+    assert "aps:6.1" in {tag["tag_id"] for tag in found}
+    assert {"aps:6.1", "aps:6.1.9"} <= set(tools._expand(["aps:6.1"]))
 
 
 def test_first_messages_list_every_tool_and_the_question():

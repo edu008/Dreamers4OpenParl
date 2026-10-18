@@ -107,6 +107,10 @@ class UnknownToolError(ValueError):
     """Das Modell hat ein Werkzeug verlangt, das es nicht gibt."""
 
 
+class ToolError(ValueError):
+    """Ein Werkzeug lehnt die Argumente ab; die Meldung geht an das Modell zurück."""
+
+
 def tool_definitions() -> list[dict[str, Any]]:
     """Tool-Liste im OpenAI-Format für chat.completions(tools=...)."""
     return [
