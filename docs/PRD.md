@@ -24,6 +24,7 @@
 - Hack-MVP ohne Anmeldung und Rollen: Schreibende Endpunkte prüfen keinen Token; jeder Entscheid trägt Name und Zeit, steht in `reviews` und lässt sich zurücknehmen (F10).
 - Begriff: „Hierarchiestufe“ meint Bereich, Kapitel und Thema. „Ebene“ bleibt Bund, Kanton und Gemeinde.
 - Abweichungen vom Konzepttext, weil das PRD oder ein Entscheid vom 18.10.2026 gilt: Die Registry bleibt `registry/tags.yaml` statt `tags.md` (ADR 0001). Im Air-Gap-Betrieb bleibt ein interner Endpunkt statt Keera vorgesehen (10.3). Geschäftsseiten gibt es nur in der Web-App, nicht als Markdown-Datei (F14). Die Web-App ist eine React-SPA statt serverseitig gerendert. Alle Ad-hoc-Tags sind Querschnittsseiten unter Heart, auch mit nur einem `broader` (7.9, offene Frage 17).
+- Abweichung von 7.5 (Entscheid vom 19.10.2026): Die öffentliche Web-App hat nur eine Aufgabe, Geschäfte finden. Startseite ist die Suche mit den neuesten Geschäften (`GET /v1/search` ohne `q`). Seitenbaum, Tag-Seiten und Graph liegen im Admin-Bereich unter `/admin`; ein Tag an einem Geschäft filtert öffentlich die Suche, statt auf die Tag-Seite zu verlinken. Gestaltung nach `DESIGN.md` (Swiss Design mit Clay-Oberflächen).
 
 **Änderungen in 0.3**
 

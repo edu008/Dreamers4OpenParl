@@ -97,7 +97,7 @@ Der Offline-Test ([`deploy/airgap/offline-test.sh`](../deploy/airgap/offline-tes
 1. `parltopics db migrate` legt das Schema an.
 2. `parltopics registry validate` liest `registry/tags.yaml`.
 3. `parltopics llm check` erreicht den Mock-LLM.
-4. Die Web-App antwortet: `/healthz`, die SPA aus `web/dist` mit ihren Assets, der SPA-Fallback für `/tags/aps:6.1.9` und der Seitenbaum unter `/v1/pages`. `index.html` lädt nichts von aussen.
+4. Die Web-App antwortet: `/healthz`, die SPA aus `web/dist` mit ihren Assets, der SPA-Fallback für `/admin/themen/aps:6.1.9` und der Seitenbaum unter `/v1/pages`. `index.html` lädt nichts von aussen.
 5. Ein Aufruf ins Internet aus dem App-Container scheitert.
 
 ## 5. Checkliste

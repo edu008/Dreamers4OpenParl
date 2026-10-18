@@ -69,7 +69,7 @@ export function AffairTable({ rows }: { rows: TopicAffair[] }) {
                     .join(" · ")}
                 </p>
                 <Link
-                  to={`/geschaefte/${row.affair_id}`}
+                  to={`/admin/review/geschaefte/${row.affair_id}`}
                   className="text-base leading-snug font-medium text-foreground underline-offset-4 hover:underline"
                 >
                   {row.title ?? `Geschäft ${row.affair_id}`}

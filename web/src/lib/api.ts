@@ -225,14 +225,16 @@ export interface HitTopic {
 }
 
 export interface SearchHit extends AffairHead {
-  rank: number
-  /** Ausschnitt als HTML: alles maskiert, nur Treffer in <mark>. Nie ungeprüft einfügen. */
-  headline: string
+  /** null ohne Suchbegriff (neueste Geschäfte). */
+  rank: number | null
+  /** Ausschnitt als HTML: alles maskiert, nur Treffer in <mark>. Nie ungeprüft einfügen. null ohne q. */
+  headline: string | null
   topics: HitTopic[]
 }
 
 export interface SearchResult {
-  q: string
+  /** null: Liste der neuesten Geschäfte statt einer Suche. */
+  q: string | null
   total: number
   limit: number
   offset: number

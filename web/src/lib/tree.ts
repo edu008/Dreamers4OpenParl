@@ -12,7 +12,9 @@ export const KIND_LABEL: Record<PageKind, string> = {
 }
 
 export function pageHref(page: WikiPage): string {
-  return page.kind === "heart" ? "/" : `/tags/${page.page_id}`
+  return page.kind === "heart"
+    ? "/admin/themen"
+    : `/admin/themen/${page.page_id}`
 }
 
 export function childrenOf(pages: WikiPage[], pageId: string): WikiPage[] {
