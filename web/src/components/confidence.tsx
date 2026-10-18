@@ -19,13 +19,19 @@ const LEVEL_CLASS: Record<ConfidenceLevel, string> = {
 export function Confidence({
   value,
   className,
+  labelled = false,
 }: {
   value: number
   className?: string
+  /** Schreibt «Konfidenz» davor; in Tabellen steht das schon im Spaltenkopf. */
+  labelled?: boolean
 }) {
   const level = confidenceLevel(value)
   return (
     <span className={cn("inline-flex items-baseline gap-1.5", className)}>
+      {labelled && (
+        <span className="text-xs text-muted-foreground">Konfidenz</span>
+      )}
       <span
         className={cn("tabular text-sm font-semibold", LEVEL_CLASS[level])}
         aria-label={`Konfidenz ${value.toFixed(2)}`}

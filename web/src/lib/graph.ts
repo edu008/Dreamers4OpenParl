@@ -175,7 +175,7 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]): void {
         const dx = nodes[j].x - nodes[i].x
         const dy = nodes[j].y - nodes[i].y
         const distSq = dx * dx + dy * dy + 0.01
-        const force = 2600 / distSq
+        const force = 6000 / distSq
         const dist = Math.sqrt(distSq)
         const fx = (dx / dist) * force
         const fy = (dy / dist) * force
@@ -189,7 +189,7 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]): void {
       const a = byId.get(edge.a)
       const b = byId.get(edge.b)
       if (!a || !b) continue
-      const rest = edge.kind === "bereich" ? 70 : 45
+      const rest = edge.kind === "bereich" ? 90 : 70
       const dx = b.x - a.x
       const dy = b.y - a.y
       const dist = Math.sqrt(dx * dx + dy * dy) || 1

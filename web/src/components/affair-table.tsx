@@ -1,3 +1,4 @@
+import { affairTypeDe } from "@/lib/affair-type"
 import { useMemo } from "react"
 import { Link } from "react-router"
 
@@ -58,10 +59,15 @@ export function AffairTable({ rows }: { rows: TopicAffair[] }) {
         </thead>
         <tbody>
           {sorted.map((row) => (
-            <tr key={row.affair_id} className="border-b border-border align-top">
+            <tr
+              key={row.affair_id}
+              className="border-b border-border align-top"
+            >
               <td className="px-3 py-3">
                 <p className="tabular text-xs text-muted-foreground">
-                  {[row.number, row.type].filter(Boolean).join(" · ")}
+                  {[row.number, affairTypeDe(row.type)]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
                 <Link
                   to={`/geschaefte/${row.affair_id}`}

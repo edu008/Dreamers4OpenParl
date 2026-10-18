@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
+import { usePageTitle } from "@/hooks/use-page-title"
 import type { PageTree, WikiPage } from "@/lib/api"
 import {
   ancestorsOf,
@@ -30,10 +31,11 @@ import {
   pageHref,
 } from "@/lib/tree"
 
-/** Tag-, Kapitel-, Bereichs- oder Querschnittsseite (PRD 7.9). Inhalt folgt in M3. */
+/** Tag-, Kapitel-, Bereichs- oder Querschnittsseite (PRD 7.9).  */
 export function TagPage() {
   const { tagId = "" } = useParams()
   const tree = useApi<PageTree>("/v1/pages")
+  usePageTitle(tree.data?.pages.find((p) => p.page_id === tagId)?.title)
 
   if (tree.loading) {
     return (
@@ -99,14 +101,6 @@ export function TagPage() {
         </h1>
       </div>
       <TopicAffairs page={page} />
-      <Alert>
-        <AlertTitle>Inhalt folgt in Meilenstein M3</AlertTitle>
-        <AlertDescription>
-          Beschreibung, Kurzzusammenfassung, Zusammenfassung der letzten zwölf
-          Monate mit Belegen, Kennzahlen und Geschäftsliste entstehen aus der
-          Datenbank (PRD 7.9, F23 bis F25).
-        </AlertDescription>
-      </Alert>
       <PageList
         title="Unterseiten"
         description="Diese Seite fasst ihre Unterseiten zusammen."
