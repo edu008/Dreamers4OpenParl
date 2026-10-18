@@ -11,10 +11,17 @@
         "source": "github",
         "repo": "DietrichGebert/ponytail"
       }
+    },
+    "taste-skill": {
+      "source": {
+        "source": "github",
+        "repo": "Leonxlnx/taste-skill"
+      }
     }
   },
   "enabledPlugins": {
     "ecc@ecc": true,
-    "ponytail@ponytail": true
+    "ponytail@ponytail": true,
+    "taste-skill@taste-skill": true
   }
 }
