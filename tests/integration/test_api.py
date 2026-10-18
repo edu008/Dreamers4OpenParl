@@ -66,6 +66,8 @@ def test_endpoints_read_labels_topics_and_jobs(conn, repo_root, api_settings):
             TEXT,
         )
         assert (affair["body_name"], affair["body_level"]) == ("Schweiz", "country")
+        facts = ("external_id", "title_long", "type_name", "state", "end_date")
+        assert [affair[key] for key in facts] == [None] * 5  # raw ohne diese Angaben
         labels = [(item["tag_id"], item["status"], item["confidence"]) for item in affair["labels"]]
         assert labels == [("aps:6.1.9", "active", 0.86), ("aps:2.4.1", "superseded", 0.4)]
         assert client.get("/v1/affairs/1/topics").status_code == 404
