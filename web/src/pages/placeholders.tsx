@@ -59,21 +59,6 @@ export function SearchPage() {
   )
 }
 
-export function ReviewPage() {
-  return (
-    <Planned
-      title="Review"
-      description="Human in the Loop für Labels und neue Tags."
-      milestone="M3"
-      items={[
-        "Unsichere Labels zuerst",
-        "Vorschläge für neue Tags annehmen, zusammenlegen oder ablehnen",
-        "Jede Entscheidung mit Name und Zeitpunkt",
-      ]}
-    />
-  )
-}
-
 export function GraphPage() {
   return (
     <Planned

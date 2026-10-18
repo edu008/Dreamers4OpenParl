@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
+import { ReviewBar } from "@/components/review-bar"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 
@@ -43,6 +44,9 @@ export function Layout() {
             </Button>
           ))}
         </nav>
+        <div className="ml-auto">
+          <ReviewBar />
+        </div>
       </header>
       <Separator />
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-8">

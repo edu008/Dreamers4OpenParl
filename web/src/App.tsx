@@ -3,10 +3,10 @@ import { Route, Routes } from "react-router"
 import { Layout } from "@/components/layout"
 import { HomePage } from "@/pages/home"
 import { AffairPage } from "@/pages/affair"
+import { ReviewPage } from "@/pages/review"
 import {
   GraphPage,
   NotFoundPage,
-  ReviewPage,
   SearchPage,
   StatusPage,
 } from "@/pages/placeholders"
