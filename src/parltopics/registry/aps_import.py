@@ -219,6 +219,9 @@ def apply_descriptions(
         alt = {lang: labels for lang, labels in (entry.get("alt") or {}).items() if labels}
         if alt:
             tag["alt_labels"] = alt
+        for field in ("close_match", "broad_match"):  # Curia-Vista-Sachbereiche (ADR 0007)
+            if entry.get(field):
+                tag[field] = entry[field]
     return tags
 
 
