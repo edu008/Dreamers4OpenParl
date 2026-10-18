@@ -1,6 +1,5 @@
 import { Link } from "react-router"
 
-import { ApiStatus } from "@/components/api-status"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -70,23 +69,6 @@ export function GraphPage() {
         "Klick auf einen Knoten öffnet die Seite",
       ]}
     />
-  )
-}
-
-export function StatusPage() {
-  return (
-    <>
-      <ApiStatus />
-      <Planned
-        title="Läufe"
-        description="Fortschritt der Klassifikation und der Seitenläufe."
-        milestone="M3"
-        items={[
-          "Jobs je Status: open, pending, done, failed",
-          "Seiten je Status und Schwelle bis zur nächsten Zusammenfassung",
-        ]}
-      />
-    </>
   )
 }
 
