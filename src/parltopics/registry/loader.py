@@ -30,19 +30,23 @@ def load_registry(path: Path) -> Registry:
         raise RegistryError(f"{path}: {error}") from error
 
 
-def canonical_tag(tag: Tag) -> dict[str, Any]:
-    """Die Felder, die eine Klassifikation beeinflussen, weil sie im Prompt stehen.
+PROMPT_LANGUAGES = ("de", "fr", "it")
 
-    hidden_labels, related und die Curia-Matches stehen nicht im Prompt und zählen nicht.
-    Die Reihenfolge von broader und alt_labels zählt nicht.
+
+def canonical_tag(tag: Tag) -> dict[str, Any]:
+    """Was die Klassifikations-Prompts von einem Tag zeigen (classify_chapters, classify_topics).
+
+    Nur diese Felder zählen: tag_id, pref_label DE/FR/IT, definition DE und alt_labels.
+    broader, hidden_labels, related, die Curia-Matches und Definitionen in anderen Sprachen stehen
+    in keinem Prompt und öffnen deshalb keine Jobs. Die Reihenfolge der alt_labels zählt nicht.
     """
     alt_labels = {lang: sorted(labels) for lang, labels in tag.alt_labels.model_dump().items()}
+    labels = tag.pref_label.model_dump(exclude_none=True)
     return {
         "tag_id": tag.tag_id,
-        "broader": sorted(tag.broader),
-        "pref_label": tag.pref_label.model_dump(exclude_none=True),
-        "alt_labels": {lang: labels for lang, labels in alt_labels.items() if labels},
-        "definition": tag.definition.model_dump(exclude_none=True),
+        "pref_label": {lang: labels[lang] for lang in PROMPT_LANGUAGES if lang in labels},
+        "alt_labels": {lang: values for lang, values in alt_labels.items() if values},
+        "definition_de": tag.definition.de,
     }
 
 

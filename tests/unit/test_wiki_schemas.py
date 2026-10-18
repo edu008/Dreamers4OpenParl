@@ -54,3 +54,16 @@ def test_short_summary_must_not_invent_numbers():
     data = summary({"text": "Belegt.", "affair_ids": [70435]}, short="Seit 2019 viele Vorstösse.")
     with pytest.raises(SummaryError):
         parse_page_summary(data, **ALLOWED)
+
+
+def test_ids_and_page_codes_are_not_invented_numbers():
+    data = summary(
+        {
+            "text": "Geschäft 70435 gehört zu aps:6.1.9.",
+            "affair_ids": [70435],
+            "page_ids": ["aps:6.1.9"],
+        }
+    )
+    output, dropped = parse_page_summary(data, **ALLOWED)
+    assert dropped == []
+    assert len(output.statements) == 1

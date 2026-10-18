@@ -37,7 +37,7 @@ def pages():
 
 def done_states(pages, days_ago=1):
     built = NOW - dt.timedelta(days=days_ago)
-    return {page_id: PageState(built_at=built) for page_id in pages}
+    return {page_id: PageState(status="done", built_at=built) for page_id in pages}
 
 
 def test_tree_has_heart_and_one_page_per_active_tag(pages):
@@ -97,38 +97,81 @@ def test_new_affair_opens_the_path_up_to_heart(pages):
         done_states(pages),
         {"aps:6.1.9": 1},
         NOW,
-        rebuild=lambda page: True,
+        rebuild=lambda page: "changed",
         thresholds=Thresholds(tag_changes=1),
     )
     assert opened(result) == ["aps:6.1.9", "aps:6.1", "aps:6", "heart"]
-    assert [e.to_status for e in result.events] == ["open", "done"] * 4
+    assert [e.to_status for e in result.events] == ["open", "pending", "done"] * 4
     assert all(result.states[p].status == "done" for p in opened(result))
 
 
 def test_below_threshold_the_page_stays_done(pages):
-    result = run_pages(pages, done_states(pages), {"aps:6.1.9": 1}, NOW, rebuild=lambda p: True)
+    result = run_pages(
+        pages, done_states(pages), {"aps:6.1.9": 1}, NOW, rebuild=lambda p: "changed"
+    )
     assert opened(result) == []
     assert result.states["aps:6.1.9"].status == "done"
     assert result.states["aps:6.1.9"].pending_changes == 1
 
 
 def test_unchanged_summary_stops_the_propagation(pages):
-    result = run_pages(pages, done_states(pages), {"aps:6.1.9": 5}, NOW, rebuild=lambda page: False)
+    result = run_pages(
+        pages, done_states(pages), {"aps:6.1.9": 5}, NOW, rebuild=lambda page: "unchanged"
+    )
     assert opened(result) == ["aps:6.1.9"]
 
 
 def test_querschnitt_propagates_to_heart_only(pages):
     result = run_pages(
-        pages, done_states(pages), {"adhoc:digitalisierung-breit": 5}, NOW, rebuild=lambda p: True
+        pages,
+        done_states(pages),
+        {"adhoc:digitalisierung-breit": 5},
+        NOW,
+        rebuild=lambda p: "changed",
     )
     assert opened(result) == ["adhoc:digitalisierung-breit", "heart"]
 
 
 def test_weekly_refresh_and_removed_evidence(pages):
     tag_page = pages["aps:6.1.9"]
-    week_old = PageState(pending_changes=1, built_at=NOW - dt.timedelta(days=8))
-    fresh = PageState(pending_changes=1, built_at=NOW - dt.timedelta(days=1))
-    removed = PageState(pending_changes=0, built_at=NOW, cited_label_removed=True)
+    week_old = PageState("done", pending_changes=1, built_at=NOW - dt.timedelta(days=8))
+    fresh = PageState("done", pending_changes=1, built_at=NOW - dt.timedelta(days=1))
+    removed = PageState("done", pending_changes=0, built_at=NOW, cited_label_removed=True)
     assert should_open(tag_page, week_old, NOW)
     assert not should_open(tag_page, fresh, NOW)
     assert should_open(tag_page, removed, NOW)
+
+
+def test_new_failed_and_pending_pages(pages):
+    tag_page = pages["aps:6.1.9"]
+    assert should_open(tag_page, PageState(), NOW)
+    assert not should_open(tag_page, PageState("failed", built_at=NOW), NOW)
+    assert should_open(tag_page, PageState("failed", pending_changes=1, built_at=NOW), NOW)
+    assert not should_open(tag_page, PageState("pending", pending_changes=9, built_at=NOW), NOW)
+
+
+def test_a_failed_page_stops_its_branch_but_not_the_run(pages):
+    def rebuild(page):
+        if page.page_id == "aps:6.1.9":
+            raise TimeoutError("Endpunkt antwortet nicht")
+        return "changed"
+
+    states = done_states(pages)
+    result = run_pages(
+        pages,
+        states,
+        {"aps:6.1.9": 5, "adhoc:digitalisierung-breit": 5},
+        NOW,
+        rebuild=rebuild,
+    )
+    failed = result.states["aps:6.1.9"]
+    assert failed.status == "failed"
+    assert failed.last_error == "Endpunkt antwortet nicht"
+    assert [e.to_status for e in result.events if e.page_id == "aps:6.1.9"] == [
+        "open",
+        "pending",
+        "failed",
+    ]
+    assert result.states["aps:6.1"].pending_changes == 0
+    assert opened(result) == ["aps:6.1.9", "adhoc:digitalisierung-breit", "heart"]
+    assert states["aps:6.1.9"].status == "done"

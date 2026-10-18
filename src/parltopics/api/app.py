@@ -118,7 +118,10 @@ def add_web(app: FastAPI, dist: Path) -> None:
         index = root / "index.html"
         if not index.is_file():
             return HTMLResponse(NO_BUILD_PAGE)
-        candidate = (root / path).resolve()
+        try:
+            candidate = (root / path).resolve()
+        except (OSError, ValueError):
+            raise HTTPException(404, "Ungültiger Pfad") from None
         if path and candidate.is_relative_to(root) and candidate.is_file():
             headers = {"Cache-Control": ASSET_CACHE} if path.startswith("assets/") else None
             return FileResponse(candidate, headers=headers)

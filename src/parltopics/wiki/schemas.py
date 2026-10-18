@@ -42,20 +42,28 @@ def parse_page_summary(
     allowed_pages: set[str],
     allowed_numbers: set[str],
 ) -> tuple[PageSummaryOutput, list[Statement]]:
-    """Prüft jede Aussage. Gibt die bereinigte Ausgabe und die verworfenen Aussagen zurück."""
+    """Prüft jede Aussage. Gibt die bereinigte Ausgabe und die verworfenen Aussagen zurück.
+
+    allowed_numbers: Kennzahlen, Jahre und Länge des Zeitfensters. Die IDs der angebotenen
+    Geschäfte und die Codes der angebotenen Seiten zählen automatisch dazu. SummaryError heisst:
+    die Seite einmal neu anfordern, danach failed (PRD 7.9, Regel 4).
+    """
     output = PageSummaryOutput.model_validate(data)
+    numbers = set(allowed_numbers) | {str(affair_id) for affair_id in allowed_affairs}
+    for page_id in allowed_pages:
+        numbers |= numbers_in(page_id)
 
     def supported(statement: Statement) -> bool:
         cited = bool(statement.affair_ids or statement.page_ids)
         known = set(statement.affair_ids) <= allowed_affairs and set(statement.page_ids) <= (
             allowed_pages
         )
-        return cited and known and numbers_in(statement.text) <= allowed_numbers
+        return cited and known and numbers_in(statement.text) <= numbers
 
     kept = [s for s in output.statements if supported(s)]
     dropped = [s for s in output.statements if not supported(s)]
     if not kept:
         raise SummaryError("Keine belegte Aussage")
-    if not numbers_in(output.summary_short) <= allowed_numbers:
+    if not numbers_in(output.summary_short) <= numbers:
         raise SummaryError("Kurzzusammenfassung enthält Zahlen ohne Kennzahl")
     return output.model_copy(update={"statements": kept}), dropped

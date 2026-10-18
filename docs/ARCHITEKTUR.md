@@ -34,11 +34,11 @@ flowchart LR
 | Ingest, Input | `parltopics.ingest`, `parltopics.inputs` | CLI auf dem Server | Import-Bündel | `affairs`, `affair_texts`, `affair_docs`, `affair_inputs`, `search_documents` |
 | Registry | `parltopics.registry` | CLI und Bibliothek | `registry/tags.yaml` | `tags`, `registry_syncs`; die Datei nur bei Review-Aktionen |
 | Worker | `parltopics.classify` | Dienst `worker` oder CLI `classify` | `classification_jobs`, `affair_inputs`, `tags` | `affair_tags`, `tag_proposal_raw`, Job-Status, `job_events` |
-| Agent | `parltopics.agent` | im Prozess der Web-App | über lesende Werkzeuge | `agent_runs` |
+| Agent | `parltopics.agent` | im Prozess der API | über lesende Werkzeuge | `agent_runs` |
 | API | `parltopics.api` | Dienst `api` (FastAPI) | alle Tabellen | `reviews`, Label-Status, Registry-Datei (nur Review) |
 | Web-App | `web/` (React, Vite, shadcn/ui) | statischer Build in `web/dist`, von `api` ausgeliefert | Sidecar-API unter `/v1` | über die API |
 | Seitenlauf | `parltopics.wiki` | Dienst `worker` oder CLI `pages` (M3) | Labels, `affair_summaries`, Registry | `wiki_pages`, `wiki_page_events`, Markdown-Export |
-| Navigationssuche | `parltopics.search.navigate` | im Prozess der Web-App | `wiki_pages`, `affair_summaries`, Volltext | `search_runs` |
+| Navigationssuche | `parltopics.search.navigate` | im Prozess der API | `wiki_pages`, `affair_summaries`, Volltext | `search_runs` |
 | Export, Evaluation | `parltopics.export`, `parltopics.evaluation` | CLI | Labels, Gold-Set | Dateien |
 
 Der einzige Netzwerkzugriff zur Laufzeit geht an `LLM_BASE_URL`. Der gemeinsame Client in `parltopics.llm.client` verweigert jeden anderen Host.
@@ -189,7 +189,7 @@ Ein neues Ad-hoc-Tag öffnet also nie den APS-Volllauf (ADR 0004).
 
 ### 4.1 Einsatz und Grenzen
 
-Der Agent beantwortet natürlichsprachige Fragen mit mehreren Schritten und hilft der Redaktion beim Anlegen von Ad-hoc-Themen. Einfache Suchanfragen beantwortet die Navigationssuche (Abschnitt 6) direkt; der Agent nutzt sie als Werkzeug `navigate_tree`. Er läuft im Prozess der Web-App, nutzt Apertus 70B (`LLM_NAME_LARGE`) und darf nur lesen. Schreiben kann nur ein Mensch über die Web-App.
+Der Agent beantwortet natürlichsprachige Fragen mit mehreren Schritten und hilft der Redaktion beim Anlegen von Ad-hoc-Themen. Einfache Suchanfragen beantwortet die Navigationssuche (Abschnitt 6) direkt; der Agent nutzt sie als Werkzeug `navigate_tree`. Er läuft im Prozess der API (FastAPI), nutzt Apertus 70B (`LLM_NAME_LARGE`) und darf nur lesen. Schreiben kann nur ein Mensch über die Web-App.
 
 ### 4.2 Schleife
 
@@ -271,7 +271,7 @@ PRD 7.9, ADR 0008. Der Seitenlauf baut die Seiten des ParlWiki aus den Labels, d
 | Tag-Seite | `aps:6.1.9` | `tags/aps-6.1.9-<slug>.md` | Kapitel | Kurzzusammenfassungen der Geschäfte und Kennzahlen | 8B |
 | Querschnitt | `adhoc:<name>` | `querschnitt/adhoc-<name>.md` | Heart; verlinkt aus allen `broader` | wie Tag-Seite | 8B |
 
-`build_tree(registry)` in `wiki/tree.py` erzeugt den Baum aus den aktiven Tags. Ist die Eltern-Seite eines aktiven Tags nicht aktiv, bricht der Aufbau mit einer Fehlermeldung ab. Ab 1'000 Geschäften kommt die Geschäftsliste in Jahresdateien (`tags/aps-6.1.9-<slug>/2025.md`); die Seite selbst behält ihren Namen.
+`build_tree(registry)` in `wiki/tree.py` erzeugt den Baum aus den aktiven Tags. Ist die Eltern-Seite eines aktiven Tags nicht aktiv, bricht der Aufbau mit einer Fehlermeldung ab. Über 1'000 Geschäften kommt die Geschäftsliste in Jahresdateien (`tags/aps-6.1.9-<slug>/2025.md`); die Seite selbst behält ihren Namen.
 
 ### 5.2 Ablauf eines Seitenlaufs
 
@@ -288,6 +288,7 @@ für jede Hierarchiestufe von unten (Tag-Seiten, Querschnitt) nach oben (Heart):
             unverändert → done ohne neuen Aufruf, keine Weitergabe
             sonst Prompt → Modell → parse_page_summary (Belegprüfung)
                 unbelegte Aussagen: einmal neu anfordern, dann verwerfen; keine übrig → failed
+                Fehler im Aufruf → failed; keine Weitergabe, die übrigen Seiten laufen weiter
             neuer summary_hash ≠ alter → Eltern-Seite: pending_changes + 1
             pending → done, built_at = jetzt, pending_changes = 0
 ```
@@ -302,6 +303,8 @@ Weil der Lauf Stufe für Stufe von unten nach oben geht, erreicht eine Änderung
 | Kapitel, Bereich, Heart | genug geänderte Unterseiten | `PAGE_PARENT_CHANGES` | 1 |
 | jede Seite mit Änderungen | Zusammenfassung älter als | `PAGE_MAX_AGE_DAYS` | 7 Tage |
 | jede Seite | ein zitiertes Label fällt weg | – | sofort |
+| neue Seite | immer, sie beginnt als `open` | – | sofort |
+| `failed`-Seite | neue Änderungen oder ein Mensch öffnet sie | – | – |
 
 ### 5.4 Eingaben je Prompt
 
@@ -342,7 +345,7 @@ PRD 7.10, ADR 0008. Die Suche steigt durch den Seitenbaum ab. Der Code steuert d
 ```text
 stapel = [heart]; schritte = 0; filter = keine
 solange stapel nicht leer:
-    falls schritte ≥ NAVIGATE_MAX_STEPS: Grenze erreicht, abbrechen
+    falls schritte ≥ NAVIGATE_MAX_STEPS − 1: Grenze erreicht, abbrechen   # letzter Aufruf bleibt für den Fallback
     knoten = stapel.pop()
     kinder = Unterseiten(knoten)
     falls keine kinder (Tag-Seite):
@@ -359,12 +362,12 @@ Volltextsuche mit filter → 70B wählt aus den Treffern → Antwort mit Suchweg
 
 | Grenze | Variable | Start |
 |---|---|---|
-| Modellaufrufe je Suche | `NAVIGATE_MAX_STEPS` | 8 |
+| Modellaufrufe je Suche, Fallback eingeschlossen | `NAVIGATE_MAX_STEPS` | 8 |
 | Mindestrelevanz eines Kindes | `NAVIGATE_MIN_RELEVANCE` | 0.3 |
 | Äste je Knoten | `NAVIGATE_MAX_BRANCHES` | 2 |
 | Geschäfte am Blatt | `NAVIGATE_MAX_CANDIDATES` | 20 |
 
-- `parse_step` verwirft Seiten-IDs, die nicht angeboten waren; bleibt keine, ist der Schritt ungültig. `parse_selection` behält nur angebotene Geschäfte.
+- `parse_step` verwirft Seiten-IDs, die nicht angeboten waren, und zählt doppelt bewertete Seiten einmal; bleibt keine, ist der Schritt ungültig. `parse_answer` behält nur angebotene Geschäfte und nur Aussagen über gewählte Geschäfte.
 - Jede Suche landet in `search_runs` mit Suchweg, besuchten Knoten, Filtern, Schritten, Fallback, Geschäften, Antwort, Modellen und Status. Eine Suche ohne Treffer speichert keine Antwort (Regel in der Datenbank).
 - Der Agent ruft dieselbe Funktion als Werkzeug `navigate_tree` auf und bekommt Suchweg, Filter und Geschäfte zurück. Für seine Grenze von 6 Aufrufen zählt das als einer.
 
@@ -392,7 +395,7 @@ Verbindlich sind [`migrations/0001_init.sql`](../migrations/0001_init.sql) und [
 - Rohvorschläge bleiben erhalten und zeigen nach der Gruppierung auf ihren Vorschlag.
 - 0002 ergänzt die Registry nach SKOS (`tag_labels`, `tag_relations`, `tag_mappings`), die Kurzzusammenfassungen (`affair_summaries`), den Seitenbaum (`wiki_pages`, `wiki_page_events`) und die Navigationssuche (`search_runs`). Bestehende Tabellen bleiben unverändert.
 - Genau eine Seite `heart` ohne Tag und ohne Eltern; jede andere Seite gehört zu genau einem Tag. Eine Seite im Status `pending` trägt `worker_id` und `locked_at`.
-- Pro Tag-Paar gibt es nur `broader` oder `related`. Eine Suche ohne Treffer speichert keine Antwort.
+- Pro Tag-Paar und Richtung gibt es nur `broader` oder `related`; dass `related` nicht in die eigene Hierarchie zeigt, prüft die Registry. Eine Suche ohne Treffer speichert keine Antwort.
 
 Diagramm: [07-datenmodell](architecture/07-datenmodell.html).
 

@@ -199,11 +199,17 @@ def export(
 
 
 @app.command()
+def pages() -> None:
+    """Seitenlauf: offene Seiten von den Tag-Seiten bis Heart zusammenfassen (F23–F25)."""
+    _planned("M3", "F23–F25")
+
+
+@app.command()
 def wiki(
     out: Annotated[Path, typer.Option(help="Zielverzeichnis")] = Path("wiki"),
     affair: Annotated[int | None, typer.Option(help="nur dieses Geschäft exportieren")] = None,
 ) -> None:
-    """Markdown-Export für Themen- und Parlamentsseiten (F14)."""
+    """Markdown-Export: Heart, Bereiche, Kapitel, Tag-Seiten, Querschnitt, Parlamente (F14)."""
     _planned("M3", "F14")
 
 

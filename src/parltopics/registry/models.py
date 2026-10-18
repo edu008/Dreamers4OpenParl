@@ -19,7 +19,7 @@ Scheme = Literal["aps", "adhoc"]
 Status = Literal["proposed", "active", "merged", "retired"]
 ApsLevel = Literal["bereich", "kapitel", "thema"]
 
-TAG_ID_PATTERN = re.compile(r"^(aps|adhoc):[a-z0-9][a-z0-9.\-]*$")
+TAG_ID_PATTERN = re.compile(r"^(aps:\d+(?:\.\d+){0,2}|adhoc:[a-z0-9][a-z0-9.\-]*)$")
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MATCH_PATTERN = re.compile(r"^curia:[A-Za-z0-9.\-]+$")
 VERSION_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}\.\d+$")
@@ -108,7 +108,10 @@ class Tag(_Strict):
     @classmethod
     def _tag_id_format(cls, value: str) -> str:
         if not TAG_ID_PATTERN.match(value):
-            raise ValueError(f"tag_id {value!r} passt nicht zu <schema>:<kleinbuchstaben-ziffern>")
+            raise ValueError(
+                f"tag_id {value!r}: APS als aps:<Bereich>[.<Kapitel>[.<Thema>]],"
+                " Ad-hoc als adhoc:<kleinbuchstaben-ziffern>"
+            )
         return value
 
     @field_validator("slug")
@@ -188,6 +191,12 @@ class Registry(_Strict):
             for field, target in targets:
                 if target not in by_id:
                     raise ValueError(f"{tag.tag_id}: {field} verweist auf unbekanntes Tag {target}")
+            lineage = self._ancestors(tag.tag_id, by_id)
+            for target in tag.related:
+                if target in lineage or tag.tag_id in self._ancestors(target, by_id):
+                    raise ValueError(
+                        f"{tag.tag_id}: related {target} liegt in der eigenen Hierarchie (broader)"
+                    )
             if tag.scheme == "adhoc":
                 for target in tag.broader:
                     if by_id[target].aps_level not in ("kapitel", "thema"):
@@ -195,6 +204,19 @@ class Registry(_Strict):
                             f"{tag.tag_id}: broader {target} muss ein APS-Kapitel oder -Thema sein"
                         )
         return self
+
+    @staticmethod
+    def _ancestors(tag_id: str, by_id: dict[str, Tag]) -> set[str]:
+        """Alle Vorfahren über broader, ohne Endlosschleife bei fehlerhaften Daten."""
+        seen: set[str] = set()
+        stack = list(by_id[tag_id].broader)
+        while stack:
+            current = stack.pop()
+            if current in seen or current not in by_id:
+                continue
+            seen.add(current)
+            stack.extend(by_id[current].broader)
+        return seen
 
     def get(self, tag_id: str) -> Tag:
         for tag in self.tags:

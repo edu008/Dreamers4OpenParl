@@ -40,8 +40,8 @@
     "07-datenmodell": {
       "type": "erd",
       "quality": "standard",
-      "source_sha256": "2f18dfa16f39589f3dabfdb07a24a6d7d4b89d43a001004fb701166ad1aa1c0f",
-      "html_sha256": "a4b6d777a79a096a1425ab22ea2005fcfad151ada5bb780da0b441c1f60e09b6"
+      "source_sha256": "cf437b0c94682f9d105fb1696d94a83a03a04f4717ed32ac8d38e7b1649ee090",
+      "html_sha256": "03c35759de02842c04201f9be1794c757aed7cabbbd33e7cb4c845805e781fe2"
     },
     "08-airgap-deployment": {
       "type": "dataflow",
@@ -52,14 +52,14 @@
     "09-wiki-hierarchie": {
       "type": "tree",
       "quality": "showcase",
-      "source_sha256": "d3b2294eed7c6e60614d4916e24f3b9131437e3852df3b8c2ef7d86307c7d1cc",
-      "html_sha256": "8410f4149b53a799239a49e6ac6452d483d3d9124793697a03626657209d77bb"
+      "source_sha256": "996fe04a50abbe25058d99a013acc5d2a331f272180cba58f5a06e14a613bf92",
+      "html_sha256": "1817cf9b9478fac3da13cfdc5fa07eb59eeb086c3b84c3fb7e6fae4ea5e3be4d"
     },
     "10-navigationssuche": {
       "type": "workflow",
       "quality": "showcase",
-      "source_sha256": "a05bd41c107f871381f7c8cab431f06bf52dad615a98a5120741249cc164c3f8",
-      "html_sha256": "48ba0f7b50001f5f3edff0ff3f6b8b3d4debd7d6bbf05d2448d72381870b11e4"
+      "source_sha256": "481324001cb7cc14dde044594568483b9c8446886ea134e2c73fbc33bec55517",
+      "html_sha256": "05778ebbbcb8fe3b200684e50aa58ae2e8005bc7424bf09be96dcee4c2a482ab"
     }
   }
 }

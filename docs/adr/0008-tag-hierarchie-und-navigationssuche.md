@@ -10,7 +10,7 @@ Das ParlWiki hatte Themen- und Geschäftsseiten, aber keinen Einstieg von oben. 
 
 ## Entscheid
 
-- **Seitenbaum:** Heart → Bereich → Kapitel → Tag-Seite → Geschäfte, aus dem APS-Schema. Ad-hoc-Tags hängen als Querschnittsthemen unter Heart und werden aus ihren `broader`-Kapiteln verlinkt. Die Tags übernehmen die Rolle, die bei RAPTOR das Clustering mit Embeddings hat.
+- **Seitenbaum:** Heart → Bereich → Kapitel → Tag-Seite → Geschäfte, aus dem APS-Schema. Alle Ad-hoc-Tags hängen als Querschnittsthemen unter Heart, auch mit nur einem `broader`, und werden von ihren `broader`-Seiten verlinkt (offene Frage im PRD, Abschnitt 15). Die Tags übernehmen die Rolle, die bei RAPTOR das Clustering mit Embeddings hat.
 - **Zusammenfassungen von unten nach oben:** Tag-Seiten aus den Kurzzusammenfassungen ihrer Geschäfte, Eltern-Seiten aus den Zusammenfassungen ihrer Kinder plus Stichproben. Jede Aussage nennt ihre Belege, der Code prüft sie.
 - **Seitenstatus:** wie Jobs (`open`, `pending`, `done`, `failed`), mit Schwellen und Weitergabe nach oben, nur bei inhaltlicher Änderung.
 - **Navigationssuche:** eine vom Code gesteuerte Schleife wie bei den Workern (ADR 0005). Apertus 8B vergleicht an jedem Knoten alle Kinder in einem Prompt, Apertus 70B wählt am Blatt die Geschäfte und antwortet. Rückweg zum nächstbesten Geschwister, höchstens 8 Schritte, Volltextsuche als Fallback, Suchweg in der Antwort.

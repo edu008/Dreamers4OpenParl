@@ -137,17 +137,34 @@ DEFAULT_THRESHOLDS = Thresholds()
 
 @dataclass
 class PageState:
-    status: PageStatus = "done"
+    """Stand einer Seite. Neue Seiten beginnen als open, wie in wiki_pages."""
+
+    status: PageStatus = "open"
     pending_changes: int = 0
     built_at: dt.datetime | None = None
     cited_label_removed: bool = False
+    last_error: str | None = None
+
+
+PageOutcome = Literal["changed", "unchanged", "failed"]
 
 
 def should_open(
     page: Page, state: PageState, now: dt.datetime, thresholds: Thresholds = DEFAULT_THRESHOLDS
 ) -> bool:
-    """Seite neu zusammenfassen? Weggefallene Belege öffnen immer, sonst Schwelle oder Alter."""
+    """Seite in diesem Lauf bauen?
+
+    Immer bei weggefallenem Beleg und bei neuen Seiten (open, nie gebaut). Eine failed-Seite erst
+    wieder, wenn neue Änderungen eintreffen; eine pending-Seite gehört einem anderen Worker.
+    Sonst entscheiden Schwelle und Alter.
+    """
     if state.cited_label_removed:
+        return True
+    if state.status == "pending":
+        return False
+    if state.status == "failed":
+        return state.pending_changes > 0
+    if state.status == "open" or state.built_at is None:
         return True
     if state.pending_changes <= 0:
         return False
@@ -156,7 +173,7 @@ def should_open(
     )
     if state.pending_changes >= limit:
         return True
-    return state.built_at is None or now - state.built_at >= thresholds.max_age
+    return now - state.built_at >= thresholds.max_age
 
 
 @dataclass
@@ -177,15 +194,16 @@ def run_pages(
     states: dict[str, PageState],
     changed_tags: dict[str, int],
     now: dt.datetime,
-    rebuild: Callable[[Page], bool],
+    rebuild: Callable[[Page], PageOutcome],
     thresholds: Thresholds = DEFAULT_THRESHOLDS,
 ) -> RunResult:
-    """Ein Lauf über den Seitenbaum, Ebene für Ebene von unten nach oben.
+    """Ein Lauf über den Seitenbaum, Hierarchiestufe für Hierarchiestufe von unten nach oben.
 
     changed_tags: neue, geänderte oder aus dem Zeitfenster gefallene Geschäfte je Tag.
-    rebuild(page) erzeugt die Zusammenfassung und meldet, ob sie sich inhaltlich geändert hat
-    (Inhalts-Hash). Nur dann erhält die Eltern-Seite eine Änderung. Kennzahlen und Linklisten
-    entstehen unabhängig davon bei jedem Lauf.
+    rebuild(page) erzeugt die Zusammenfassung und meldet changed (Inhalts-Hash neu), unchanged
+    oder failed. Nur changed gibt eine Änderung an die Eltern-Seite weiter. Ein Fehler setzt nur
+    diese Seite auf failed; der Lauf geht mit den übrigen Seiten weiter. Kennzahlen und
+    Linklisten entstehen unabhängig davon bei jedem Lauf.
     """
     result = RunResult(states={pid: replace(state) for pid, state in states.items()})
     current = result.states
@@ -196,6 +214,10 @@ def run_pages(
     def level(page: Page) -> int:
         return len(ancestors(pages, page.page_id))
 
+    def move(page: Page, state: PageState, to_status: PageStatus) -> None:
+        result.events.append(RunEvent(page.page_id, state.status, to_status))
+        state.status = to_status
+
     for depth in sorted({level(page) for page in pages.values()}, reverse=True):
         for page in sorted(
             (p for p in pages.values() if level(p) == depth), key=lambda p: sort_key(p.page_id)
@@ -203,12 +225,21 @@ def run_pages(
             state = current.setdefault(page.page_id, PageState())
             if not should_open(page, state, now, thresholds):
                 continue
-            result.events.append(RunEvent(page.page_id, state.status, "open"))
-            result.events.append(RunEvent(page.page_id, "open", "done"))
-            changed = rebuild(page)
-            state.status, state.pending_changes = "done", 0
-            state.cited_label_removed, state.built_at = False, now
-            if changed and page.parent_id is not None:
+            if state.status != "open":
+                move(page, state, "open")
+            move(page, state, "pending")
+            try:
+                outcome = rebuild(page)
+            except Exception as error:  # Modell- oder Datenfehler: nur diese Seite scheitert
+                outcome, state.last_error = "failed", str(error)
+            if outcome == "failed":
+                move(page, state, "failed")
+                state.pending_changes = 0
+                continue
+            move(page, state, "done")
+            state.pending_changes, state.cited_label_removed = 0, False
+            state.built_at, state.last_error = now, None
+            if outcome == "changed" and page.parent_id is not None:
                 current.setdefault(page.parent_id, PageState()).pending_changes += 1
     return result
 

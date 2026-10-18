@@ -2,13 +2,14 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Language = Literal["de", "fr", "it", "rm", "other"]
 
 MAX_CHAPTERS = 3
 MAX_TAGS = 5
 MAX_PROPOSALS = 2
+SUMMARY_MAX = 300
 
 
 class OutputError(ValueError):
@@ -45,9 +46,23 @@ class TagProposal(_Output):
 class Stage2Output(_Output):
     affair_id: int
     language: Language
-    summary_de: str = Field(min_length=1, max_length=300)
+    summary_de: str | None = None
     tags: list[TagAssignment] = Field(default_factory=list)
     proposed_tags: list[TagProposal] = Field(default_factory=list)
+
+    @field_validator("summary_de", mode="before")
+    @classmethod
+    def _summary(cls, value: object) -> str | None:
+        """Kurzzusammenfassung für die Tag-Seiten. Fehlt sie oder ist sie zu lang, bleiben die
+        Tags trotzdem gültig: leer wird None, zu lang wird gekürzt (PRD 7.3, Anhang B)."""
+        if not isinstance(value, str):
+            return None
+        text = " ".join(value.split())
+        if not text:
+            return None
+        if len(text) > SUMMARY_MAX:
+            text = text[: SUMMARY_MAX - 1].rsplit(" ", 1)[0] + "…"
+        return text
 
 
 def _by_confidence(items: list, limit: int) -> list:

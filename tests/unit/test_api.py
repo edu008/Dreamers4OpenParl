@@ -96,3 +96,7 @@ def test_page_tree_reports_a_broken_registry(tmp_path):
     response = client_for(tmp_path, registry=broken).get("/v1/pages")
     assert response.status_code == 503
     assert "Seitenbaum nicht verfügbar" in response.json()["detail"]
+
+
+def test_invalid_path_is_404_not_500(built):
+    assert client_for(built).get("/%00").status_code == 404

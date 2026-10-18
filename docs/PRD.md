@@ -22,7 +22,7 @@
 - Datenmodell: Migration `0002_wiki_skos.sql` mit sieben neuen Tabellen (10.1, Anhang C).
 - Neu: Anhang F „Forschungsbezug“; Diagramme 09 und 10 (Anhang E).
 - Begriff: „Hierarchiestufe“ meint Bereich, Kapitel und Thema. „Ebene“ bleibt Bund, Kanton und Gemeinde.
-- Abweichungen vom Konzepttext, weil das PRD oder ein Entscheid vom 18.10.2026 gilt: Die Registry bleibt `registry/tags.yaml` statt `tags.md` (ADR 0001). Im Air-Gap-Betrieb bleibt ein interner Endpunkt statt Keera vorgesehen (10.3). Geschäftsseiten gibt es nur in der Web-App, nicht als Markdown-Datei (F14). Die Web-App ist eine React-SPA statt serverseitig gerendert.
+- Abweichungen vom Konzepttext, weil das PRD oder ein Entscheid vom 18.10.2026 gilt: Die Registry bleibt `registry/tags.yaml` statt `tags.md` (ADR 0001). Im Air-Gap-Betrieb bleibt ein interner Endpunkt statt Keera vorgesehen (10.3). Geschäftsseiten gibt es nur in der Web-App, nicht als Markdown-Datei (F14). Die Web-App ist eine React-SPA statt serverseitig gerendert. Alle Ad-hoc-Tags sind Querschnittsseiten unter Heart, auch mit nur einem `broader` (7.9, offene Frage 15).
 
 **Änderungen in 0.3**
 
@@ -46,7 +46,7 @@ ParlTopics labelt alle Geschäfte in OpenParlData (326'396 Geschäfte aus 97 Par
 
 ParlTopics nutzt zwei Arten von KI-Komponenten. Deterministische **Worker** klassifizieren den Bestand Geschäft für Geschäft. Der Code steuert Reihenfolge und Status, Apertus bekommt immer genau ein Geschäft. Ein **Agent** mit Apertus 70B beantwortet Suchanfragen und hilft beim Anlegen von Ad-hoc-Themen. Er ruft nur lesende Werkzeuge auf und belegt jede Aussage mit Geschäfts-IDs.
 
-Drei Nutzungen: Themenfilter in OpenParlData (Sidecar-API und Export), ParlWiki mit Themen- und Geschäftsseiten, Review direkt auf der Seite und Graph der Verlinkungen, automatische DVS-Liste zu Digitalisierung.
+Drei Nutzungen: Themenfilter in OpenParlData (Sidecar-API und Export), ParlWiki mit Tag- und Geschäftsseiten, Review direkt auf der Seite und Graph der Verlinkungen, automatische DVS-Liste zu Digitalisierung.
 
 Das ParlWiki ordnet die Themen als Baum. Für jedes Tag gibt es eine generierte Tag-Seite, darüber Kapitel- und Bereichsseiten und als Wurzel die Heart-Seite. Zusammenfassungen entstehen von unten nach oben, und jede Aussage verweist auf Geschäfte oder Unterseiten. Die Suche steigt durch diesen Baum ab, ohne Embeddings (7.9, 7.10).
 
@@ -181,7 +181,7 @@ Download (separat, online)      → Import-Bündel (NDJSON.gz, CSV, XLSX)
   - `exact_match`, `close_match`, `broad_match`: Curia-Vista-Sachbereiche als `curia:<id>` (`skos:exactMatch`, `skos:closeMatch`, `skos:broadMatch`).
   - `slug`, nur bei APS: fester Teil des Dateinamens der Tag-Seite (7.9).
   - Herkunft (erstellt von/am oder Vorschlag) und die Liste ungeprüfter Übersetzungen.
-- **Hierarchie:** Bei APS-Tags ist `broader` genau der Eltern-Code aus der ID (`aps:6.1.9` → `aps:6.1`). Ad-hoc-Tags dürfen mehrere `broader` haben, aber nur APS-Kapitel oder -Themen. `skos:narrower` wird nicht gespeichert, sondern aus `broader` abgeleitet. `related` und `broader` überschneiden sich nicht, Selbstbezüge sind ungültig.
+- **Hierarchie:** Bei APS-Tags ist `broader` genau der Eltern-Code aus der ID (`aps:6.1.9` → `aps:6.1`). Ad-hoc-Tags dürfen mehrere `broader` haben, aber nur APS-Kapitel oder -Themen. `skos:narrower` wird nicht gespeichert, sondern aus `broader` abgeleitet. `related` zeigt nie in die eigene Hierarchie, also weder auf Vorfahren noch auf Nachfahren; Selbstbezüge sind ungültig. APS-IDs sind numerisch.
 - **Mapping zu Curia Vista:** Es steht in der Registry selbst (`exact_match`, `close_match`, `broad_match`) und ersetzt die Datei `data/gold/aps_curia_mapping.csv` aus Abschnitt 13. Ein Sachbereich steht je Tag in höchstens einem Mapping.
 - **Pflege:** Apertus wählt Tags anhand von Namen, Synonymen und Definitionen. Diese Texte bestimmen die Trefferqualität direkt und werden sorgfältig gepflegt (TELEClass, Anhang F).
 - **Tag-Seiten sind keine Registry:** Die Seiten im ParlWiki (7.9) entstehen aus der Datenbank und werden nie von Hand bearbeitet. Definitionen stehen nur in `registry/tags.yaml`, eine zweite Quelle entsteht nicht.
@@ -190,7 +190,7 @@ Download (separat, online)      → Import-Bündel (NDJSON.gz, CSV, XLSX)
 - **Schreibweg:** Nur Aktionen eines Menschen schreiben die Datei: Freigabe oder Zusammenlegen im Review und das bestätigte Anlegen eines Ad-hoc-Themas (Web-App, Agent-Dialog oder CLI). Die App schreibt atomar (temporäre Datei, dann Umbenennen), unter Dateisperre und mit erhöhter `registry_version`. Worker und Agent schreiben nie. Im Container liegt die Datei als Bind-Mount; ein Mensch prüft die Änderung (`git diff registry/tags.yaml`) und committet sie.
 - **Versionen:**
   - `registry_version` (Feld in der Datei, Format `JJJJ-MM-TT.N`) steigt bei jeder inhaltlichen Änderung. `registry sync` lehnt eine geänderte Datei mit unveränderter Version ab. Jedes Label speichert die Version als Protokollfeld.
-  - `scheme_hash` (berechnet, nicht in der Datei) ist der SHA-256 über die kanonische Form aller aktiven Einträge, die eine Aufgabe nutzt (Felder `tag_id`, `broader`, `pref_label`, `alt_labels`, `definition`; `hidden_labels`, `related` und die Mappings stehen nicht im Prompt und zählen nicht): für `classify:aps` alle aktiven APS-Einträge, für `classify:adhoc:<tag>` und `reclassify:<tag_id>` nur dieses eine Tag. Jobs hängen am `scheme_hash`, nicht an der `registry_version` (ADR 0004). Ein neues oder geändertes Ad-hoc-Tag öffnet also nur seine eigenen Jobs, nie den APS-Volllauf.
+  - `scheme_hash` (berechnet, nicht in der Datei) ist der SHA-256 über die kanonische Form aller aktiven Einträge, die eine Aufgabe nutzt (nur was die Prompts zeigen: `tag_id`, `pref_label` DE/FR/IT, `definition` DE und `alt_labels`; `broader`, `hidden_labels`, `related`, die Mappings und Definitionen in anderen Sprachen zählen nicht): für `classify:aps` alle aktiven APS-Einträge, für `classify:adhoc:<tag>` und `reclassify:<tag_id>` nur dieses eine Tag. Jobs hängen am `scheme_hash`, nicht an der `registry_version` (ADR 0004). Ein neues oder geändertes Ad-hoc-Tag öffnet also nur seine eigenen Jobs, nie den APS-Volllauf.
 
 Format siehe Anhang A.
 
@@ -201,7 +201,7 @@ Format siehe Anhang A.
   - Stufe 2: Systemprompt + Themen der gewählten Kapitel + alle aktiven Ad-hoc-Tags (kompakt: ID, `pref_label`, `definition` DE, `alt_labels`) + Klassifikationstext → Tags mit Konfidenz und Beleg, eine Kurzzusammenfassung des Geschäfts, optional Vorschläge. Sind mehr als 10 Ad-hoc-Tags aktiv, wählt Stufe 1 auch die Querschnittsthemen vor; das braucht eine neue Prompt-Version.
   - Begründung: Die volle Registry (165 Themen mit Beschreibungen in drei Sprachen) ergäbe pro Anfrage grob 15'000–25'000 Tokens. Das wäre nur mit Prefix-Caching bei Keera tragbar, und ob es das gibt, ist offen (15). Zweistufig bleiben beide Anfragen klein. Einstufig läuft nur noch als Vergleich in der Evaluation (F16). Die Forschung stützt das: Informationen in der Mitte langer Kontexte werden schlechter genutzt (Lost in the Middle), und reines Zero-shot-Prompting ist bei grossen hierarchischen Label-Mengen schwach (TELEClass, Anhang F).
 - **Aufbau der Nachrichten:** Systemprompt und Registry-Ausschnitt stehen in der System-Nachricht, der Geschäftstext in der User-Nachricht. So bleibt der Anfang über viele Anfragen gleich und Prefix-Caching kann greifen, falls vorhanden.
-- **Ausgabe (JSON, Anhang B):** Stufe 2 liefert Tags mit `confidence` (0–1) und `evidence` (Textstelle, max. 300 Zeichen), optional `proposed_tags` mit Name, Beschreibung, Begründung. Dazu kommt `summary_de`: ein Satz, höchstens 300 Zeichen, worum es im Geschäft geht. Er ist die Grundlage der Tag-Seiten (7.9), kostet keinen zusätzlichen Aufruf, nur einige Ausgabe-Token, und wird in `affair_summaries` gespeichert. Ungültiges JSON wird einmal mit Fehlerhinweis wiederholt, dann an 70B eskaliert, dann als `failed` markiert (7.7). `response_format` bzw. JSON-Schema werden genutzt, falls der Endpunkt sie unterstützt.
+- **Ausgabe (JSON, Anhang B):** Stufe 2 liefert Tags mit `confidence` (0–1) und `evidence` (Textstelle, max. 300 Zeichen), optional `proposed_tags` mit Name, Beschreibung, Begründung. Dazu kommt `summary_de`: ein Satz, höchstens 300 Zeichen, worum es im Geschäft geht. Er ist die Grundlage der Tag-Seiten (7.9), kostet keinen zusätzlichen Aufruf, nur einige Ausgabe-Token, und wird in `affair_summaries` gespeichert. Fehlt `summary_de` oder ist er zu lang, bleibt die Ausgabe gültig: Der Code lässt ihn leer oder kürzt ihn, die Tags gehen nicht verloren. Ungültiges JSON wird einmal mit Fehlerhinweis wiederholt, dann an 70B eskaliert, dann als `failed` markiert (7.7). `response_format` bzw. JSON-Schema werden genutzt, falls der Endpunkt sie unterstützt.
 - **Validierung:** nur `tag_id`s aus dem angebotenen Registry-Ausschnitt; Konfidenz in [0, 1]; höchstens 5 Tags und 2 Vorschläge. Der Beleg wird unscharf geprüft: Trigramm-Ähnlichkeit (`word_similarity` aus `pg_trgm`) zum Klassifikationstext ≥ 0.9. Darunter wird die Konfidenz halbiert und das Label mit `evidence_verified = false` markiert. Ein wörtlicher Abgleich wäre zu streng, weil Modelle Anführungszeichen, Umlaute und Leerzeichen normalisieren.
 - **Konfidenz:** Die selbstberichtete Konfidenz eines 8B-Modells ist schwach kalibriert. Die Schwelle 0.6 ist ein Startwert. Die Evaluation misst die Präzision je Konfidenzband, und die Schwelle wird so gesetzt, dass das Präzisionsziel (13) hält. Liefert der Endpunkt Logprobs, ersetzen sie die selbstberichtete Konfidenz.
 - **Eskalation an 70B:** Konfidenz unter Schwelle, Tag-Vorschlag vorhanden, Text ohne erkennbare Sprache oder länger als Limit, sowie eine Zufallsstichprobe (2 %) zur Qualitätskontrolle und Kalibrierung. Das 70B-Ergebnis ersetzt das 8B-Ergebnis; beide werden gespeichert (8B als `superseded`).
@@ -218,7 +218,7 @@ Ein neues Ad-hoc-Thema (Name + Beschreibung) soll zeitnah über 326k Geschäfte 
 
 1. Apertus 70B erzeugt aus der Beschreibung eine Suchdefinition: Stichwörter und Phrasen in DE/FR/IT. Im Dialog übernimmt das der Agent (7.8) mit dem Werkzeug `generate_keywords`; die Redaktion prüft die Liste vor dem Start.
 2. PostgreSQL-Volltextsuche liefert Kandidaten (Titel + Text, Trigramm für Schreibvarianten).
-3. Für jeden Kandidaten und für eine Zufallsstichprobe von 2 % der übrigen Geschäfte entsteht ein Job `classify:adhoc:<tag>`. Apertus 8B prüft jedes Geschäft gegen das Thema (Label, Konfidenz, Beleg). Nicht-Treffer werden protokolliert, damit die Stichwortliste lernt.
+3. Für jeden Kandidaten und für eine Zufallsstichprobe von 2 % der übrigen Geschäfte entsteht ein Job `classify:adhoc:<tag>`. Apertus 8B prüft jedes Geschäft gegen das Thema (Label, Konfidenz, Beleg) und liefert `summary_de` mit, wenn das Geschäft noch keine Kurzzusammenfassung hat. Nicht-Treffer werden protokolliert, damit die Stichwortliste lernt.
 4. Ergebnisse sind sofort als vorläufige Treffer sichtbar (Tag-Status `proposed`, Labels markiert). Bewährt sich das Thema, aktiviert ein Reviewer es; danach läuft es in Stufe 2 des täglichen Laufs mit.
 
 Die Stichprobe ausserhalb der Kandidaten schätzt, wie viele Treffer die Stichwortsuche verpasst (Kandidaten-Recall, 13). Geschäfte ohne Stichworttreffer werden sonst erst beim nächsten Volllauf erfasst. Embeddings (pgvector ist vorbereitet) sind der spätere Weg, falls das nicht reicht oder die Registry zu gross für den Prompt wird. Diagramm: [06-adhoc-thema](architecture/06-adhoc-thema.html).
@@ -237,6 +237,7 @@ Die Stichprobe ausserhalb der Kandidaten schätzt, wie viele Treffer die Stichwo
 - Volltext: PostgreSQL `tsvector` mit Konfigurationen `german`, `french`, `italian`, `simple`, über Titel und Klassifikationstext; Filter Tag, Ebene, Parlament, Jahr, Typ. Funktioniert ohne LLM.
 - Natürlichsprachige Anfragen laufen als Navigationssuche durch den Seitenbaum (7.10): von Heart über Bereich und Kapitel zur Tag-Seite und erst dann zu den Geschäften, mit Rückweg und Schrittgrenze. Findet sie nichts, greift die Volltextsuche. Die Antwort zeigt den Suchweg.
 - Natürlichsprachige Anfragen mit mehreren Schritten (zum Beispiel Zählen oder Vergleichen) und den Ad-hoc-Dialog beantwortet der Agent (7.8). Er leitet Tags, Filter und Suchbegriffe ab, ruft die Navigationssuche (`navigate_tree`) oder die Volltextsuche auf und fasst die Treffer zu einer Kurzantwort mit Verweisen (OpenParlData-ID) zusammen. Keine Antwort ohne Treffer als Beleg.
+- **Aufteilung:** Die Suchseite ruft zuerst die Navigationssuche auf (`POST /v1/search/navigate`). Den Agenten (`POST /v1/agent/search`) startet der Nutzer ausdrücklich als Dialog, für Fragen mit mehreren Schritten und für den Ad-hoc-Dialog.
 
 ### 7.7 Status und parallele Verarbeitung
 
@@ -276,7 +277,7 @@ Diagramme: [03-job-lifecycle](architecture/03-job-lifecycle.html), [04-worker-se
 
 ### 7.8 Suche und Ad-hoc-Themen als Tool-Calling-Agent
 
-Massenklassifikation und Dialog stellen verschiedene Anforderungen (ADR 0005). Die Worker (7.3, 7.7) sind deterministisch, günstig pro Geschäft und reproduzierbar. Suche und das Anlegen von Ad-hoc-Themen brauchen dagegen mehrere Schritte, deren Reihenfolge von der Anfrage abhängt. Das übernimmt ein Agent mit Apertus 70B, der Werkzeuge über Tool-Calling aufruft. Er läuft im Prozess der Web-App.
+Massenklassifikation und Dialog stellen verschiedene Anforderungen (ADR 0005). Die Worker (7.3, 7.7) sind deterministisch, günstig pro Geschäft und reproduzierbar. Suche und das Anlegen von Ad-hoc-Themen brauchen dagegen mehrere Schritte, deren Reihenfolge von der Anfrage abhängt. Das übernimmt ein Agent mit Apertus 70B, der Werkzeuge über Tool-Calling aufruft. Er läuft im Prozess der API (FastAPI), nicht im Browser.
 
 - **Schleife:** Anfrage → Modell wählt ein Werkzeug → Ergebnis zurück ans Modell → … → Antwort. Höchstens 6 Werkzeugaufrufe; danach erzwingt der Code eine Antwort aus den bisherigen Ergebnissen. Gesamt-Timeout 60 s.
 - **Werkzeuge** (Argumente als Pydantic-Modelle in `src/parltopics/agent/tools.py`):
@@ -311,22 +312,22 @@ HEART.md                                             Wurzel: Gesamtüberblick, v
 ├── bereiche/aps-6-infrastruktur-umwelt.md           fasst die Kapitel darunter zusammen
 │   └── kapitel/aps-6.1-verkehr-kommunikation.md     fasst die Tag-Seiten darunter zusammen
 │       └── tags/aps-6.1.9-digitalisierung.md        hierher verlinken die Geschäftsseiten der Web-App
-│           └── tags/aps-6.1.9-digitalisierung/2025.md   Geschäftsliste eines Jahres, ab 1'000 Geschäften
+│           └── tags/aps-6.1.9-digitalisierung/2025.md   Geschäftsliste eines Jahres, über 1'000 Geschäften
 └── querschnitt/adhoc-digitalisierung-breit.md       Ad-hoc-Thema über mehrere Kapitel
 ```
 
 - **Seiten-ID und Dateiname:** Die Seiten-ID ist die `tag_id`, die Wurzel heisst `heart`. Der Dateiname enthält die Tag-ID und bei APS den festen `slug` aus der Registry (7.2); Ad-hoc-Tags tragen den Namen schon in der ID. Ändert sich der Name eines Tags, bleiben Datei und Links gültig. Zusammengelegte oder zurückgezogene Tags erhalten eine Weiterleitungsseite.
-- **Querschnittsthemen:** Ad-hoc-Tags hängen direkt unter Heart. Ihre `broader` (APS-Kapitel oder -Themen) bestimmen, aus welchen Seiten sie verlinkt werden; sie haben also mehrere Eltern. Kapitelseiten verlinken sie, fassen sie aber nicht mit zusammen, damit Heart nichts doppelt zählt.
+- **Querschnittsthemen:** Alle Ad-hoc-Tags hängen direkt unter Heart, auch solche mit nur einem `broader`; so bleibt ihr Dateiname gleich, wenn ein weiteres `broader` dazukommt. Das verallgemeinert das Konzept, das Querschnittsthemen für Ad-hoc-Tags über mehrere Kapitel vorsieht (offene Frage 15). Ihre `broader` (APS-Kapitel oder -Themen) bestimmen, welche Seiten sie verlinken; sie haben also mehrere Eltern. Diese Seiten verlinken sie, fassen sie aber nicht mit zusammen, damit Heart nichts doppelt zählt.
 - **Geschäfte** stehen auf den Tag-Seiten, nicht auf Heart oder den Eltern-Seiten. Geschäftsseiten gibt es nur in der Web-App (7.5).
 
 **Inhalt einer Tag-Seite**
 
-- Frontmatter: `tag_id`, `parents`, `children`, `n_affairs`, `page_status`, `input_hash`, `model_version`, `prompt_version`, `updated_at`, dazu `scheme` und `registry_version` (F14). Das Feld heisst `page_status` statt `status`, damit der Seitenstatus nicht mit dem Status des Tags in der Registry verwechselt wird. `parents` nennt die Eltern-Seite im Baum und bei Querschnittsthemen zusätzlich die verlinkenden Kapitel.
+- Frontmatter: `tag_id`, `parents`, `children`, `n_affairs`, `page_status`, `input_hash`, `model_version`, `prompt_version`, `updated_at`, dazu `scheme` und `registry_version` (F14). Das Feld heisst `page_status` statt `status`, damit der Seitenstatus nicht mit dem Status des Tags in der Registry verwechselt wird. `parents` nennt die Eltern-Seite im Baum und bei Querschnittsthemen zusätzlich die verlinkenden Seiten.
 - Beschreibung aus der Registry (`definition`), Links zu Eltern- und Unterseiten.
 - **Kurzzusammenfassung** (1 Satz) für die Navigation.
 - **Zusammenfassung** (1 Absatz, aktueller Stand, letzte 12 Monate). Jede Aussage verweist auf die Geschäfte (OpenParlData-ID) oder Unterseiten, auf die sie sich stützt.
 - Kennzahlen nach Ebene, Kanton, Jahr und Typ; „verwandt“ aus `related` der Registry und getrennt davon „häufig zusammen mit“ nach gemeinsamem Vorkommen.
-- Links auf alle Geschäfte. Ab 1'000 Geschäften wird die Liste nach Jahr aufgeteilt (`tags/<tag-id>-<slug>/<jahr>.md`); die Seite selbst behält ihren Namen.
+- Links auf alle Geschäfte. Über 1'000 Geschäften wird die Liste nach Jahr aufgeteilt (`tags/<tag-id>-<slug>/<jahr>.md`); die Seite selbst behält ihren Namen.
 - Datenbasis der Seite (Parlamente und Zeitraum), weil Phase 1 vor allem Bundesgeschäfte ab 2024 enthält.
 
 Kapitel- und Bereichsseiten sind gleich aufgebaut; ihre Aussagen stützen sich vor allem auf Unterseiten. Die **Heart-Seite** enthält je Bereich und je Querschnittsthema die Kurzzusammenfassung, dazu einen Gesamtüberblick. Sie ist der Einstieg für Leser und für Apertus, vergleichbar mit der `index.md` im LLM-Wiki-Muster (Anhang F).
@@ -334,13 +335,13 @@ Kapitel- und Bereichsseiten sind gleich aufgebaut; ihre Aussagen stützen sich v
 **Regeln**
 
 1. **Tag-Seiten sind keine Registry.** `registry/tags.yaml` bleibt die einzige Quelle für Definitionen (7.2). Seiten entstehen aus der Datenbank und werden nie von Hand bearbeitet.
-2. **Zusammenfassungen von unten nach oben.** Eine Tag-Seite entsteht aus den Kurzzusammenfassungen ihrer Geschäfte (`summary_de`, 7.3) und ihren Kennzahlen. Eine Kapitelseite entsteht aus den Zusammenfassungen ihrer Tag-Seiten plus wenigen Stichproben, nicht aus allen Geschäften. Ein Bereich entsteht aus seinen Kapiteln, Heart aus den Bereichen und Querschnittsthemen. So bleibt jeder Prompt klein:
+2. **Zusammenfassungen von unten nach oben.** Eine Tag-Seite entsteht aus den Kurzzusammenfassungen ihrer Geschäfte (`summary_de`, 7.3) und ihren Kennzahlen. Fehlt einem Geschäft die Kurzzusammenfassung, steht sein Titel an ihrer Stelle. Eine Kapitelseite entsteht aus den Zusammenfassungen ihrer Tag-Seiten plus wenigen Stichproben, nicht aus allen Geschäften. Ein Bereich entsteht aus seinen Kapiteln, Heart aus den Bereichen und Querschnittsthemen. So bleibt jeder Prompt klein:
    - höchstens `PAGE_MAX_AFFAIRS` Geschäfte je Tag-Seite (Start 80, die neuesten), `PAGE_SAMPLES` Stichproben je Eltern-Seite (Start 12) und `PAGE_PROMPT_MAX_TOKENS` je Prompt (Start 24'000, vorsichtig über die Zeichenzahl geschätzt);
    - unter `PAGE_MIN_AFFAIRS` Geschäften (Start 3) schreibt das Modell keine Zusammenfassung, die Seite zeigt nur Kennzahlen und Liste;
    - Tag- und Querschnittsseiten mit 8B, Kapitel, Bereiche und Heart mit 70B (wenige Seiten, mehr Verdichtung);
    - die Zusammenfassungen sind in Phase 1 deutsch.
-3. **Seitenstatus mit Weitergabe nach oben.** Seiten haben dieselben Status wie Jobs: `open` → `pending` → `done`, dazu `failed` (7.7). Neue, geänderte und aus dem Zeitfenster gefallene Geschäfte unter einem Tag zählen als Änderungen seiner Seite. Eine Seite wird `open`, wenn ihre Änderungen eine Schwelle erreichen: Tag-Seite ab `PAGE_TAG_CHANGES` Geschäften (Start 5), Eltern-Seite ab `PAGE_PARENT_CHANGES` geänderten Unterseiten (Start 1), sonst spätestens nach `PAGE_MAX_AGE_DAYS` Tagen (Start 7). Unterhalb der Schwelle bleibt die Seite `done`, und die Änderungen werden weiter gezählt. Ändert sich eine Zusammenfassung inhaltlich (`summary_hash`), zählt das als Änderung der Eltern-Seite, und so weiter bis Heart. Ein Lauf baut die offenen Seiten Hierarchiestufe für Hierarchiestufe von unten nach oben; eine Änderung erreicht Heart deshalb im selben Lauf. Fällt ein zitiertes Label weg (Review), wird die Seite unabhängig von der Schwelle `open`. Kennzahlen und Linklisten entstehen bei jedem Lauf neu, nur die Zusammenfassungen hängen an den Schwellen.
-4. **Belege.** Das Modell liefert Aussagen mit `affair_ids` und `page_ids` (Anhang B). Der Code prüft jede Aussage: Verweise nur auf mitgelieferte Geschäfte und Unterseiten, Zahlen nur aus den mitgelieferten Kennzahlen. Unbelegte Aussagen werden einmal neu angefordert und dann verworfen. Bleibt keine belegte Aussage, wird die Seite `failed`. Ohne Beleg keine Aussage.
+3. **Seitenstatus mit Weitergabe nach oben.** Seiten haben dieselben Status wie Jobs: `open` → `pending` → `done`, dazu `failed` (7.7). Neue Seiten beginnen als `open`. Eine `failed`-Seite gibt nichts nach oben weiter und wird erst wieder gebaut, wenn neue Änderungen eintreffen oder ein Mensch sie öffnet; ein Fehler stoppt den Lauf für die übrigen Seiten nicht. Neue, geänderte und aus dem Zeitfenster gefallene Geschäfte unter einem Tag zählen als Änderungen seiner Seite. Eine Seite wird `open`, wenn ihre Änderungen eine Schwelle erreichen: Tag-Seite ab `PAGE_TAG_CHANGES` Geschäften (Start 5), Eltern-Seite ab `PAGE_PARENT_CHANGES` geänderten Unterseiten (Start 1), sonst spätestens nach `PAGE_MAX_AGE_DAYS` Tagen (Start 7). Unterhalb der Schwelle bleibt die Seite `done`, und die Änderungen werden weiter gezählt. Ändert sich eine Zusammenfassung inhaltlich (`summary_hash`), zählt das als Änderung der Eltern-Seite, und so weiter bis Heart. Ein Lauf baut die offenen Seiten Hierarchiestufe für Hierarchiestufe von unten nach oben; eine Änderung erreicht Heart deshalb im selben Lauf. Fällt ein zitiertes Label weg (Review), wird die Seite unabhängig von der Schwelle `open`. Kennzahlen und Linklisten entstehen bei jedem Lauf neu, nur die Zusammenfassungen hängen an den Schwellen.
+4. **Belege.** Das Modell liefert Aussagen mit `affair_ids` und `page_ids` (Anhang B). Der Code prüft jede Aussage: Verweise nur auf mitgelieferte Geschäfte und Unterseiten, Zahlen nur aus den mitgelieferten Kennzahlen; IDs, Seitencodes und das Zeitfenster zählen nicht als Zahlen. Unbelegte Aussagen werden einmal neu angefordert und dann verworfen. Enthält die Kurzzusammenfassung eine Zahl ohne Kennzahl, wird die Seite einmal neu angefordert. Bleibt keine belegte Aussage, wird die Seite `failed`. Ohne Beleg keine Aussage.
 5. **Stabile Dateinamen** mit Tag-ID, wie oben beschrieben.
 6. **Nachvollziehbarkeit:** Der `input_hash` einer Seite umfasst Registry-Eintrag, Labels im Zeitfenster, `summary_hash` der Unterseiten, Stichproben, Prompt-Version und Ende des Zeitfensters. Bei gleichem Input entsteht keine neue Zusammenfassung. Jede Seite trägt Modell- und Prompt-Version, Statuswechsel stehen in `wiki_page_events`.
 7. **Neutralität:** Zusammenfassungen und Antworten beschreiben, was Geschäfte verlangen und wo sie stehen, ohne politische Positionen zu werten. Die Challenge verlangt das ausdrücklich ([CHALLENGE.md](CHALLENGE.md), Ethical Guidelines). Die Prompts schreiben es vor, das Stichproben-Review prüft es.
@@ -352,8 +353,8 @@ Code: Seitenbaum, Dateinamen, Schwellen und Weitergabe in `src/parltopics/wiki/t
 Die Suche findet Geschäfte, indem Apertus durch den Seitenbaum absteigt, ohne Embeddings. Vorbilder sind MemWalker (Abstieg mit nachvollziehbarem Suchweg), LATTICE (Vergleich über Geschwister und Rückweg), PageIndex (Baum statt Vektorsuche) und RAPTOR (zweiter Suchmodus als Fallback), siehe Anhang F. Diagramm: [10-navigationssuche](architecture/10-navigationssuche.html).
 
 - **Ablauf:** Heart → Bereich(e) → Kapitel → Tag-Seite → Geschäfte. An jedem Knoten bekommt Apertus 8B alle Kinder in einem Prompt (Seiten-ID, Titel, Kurzzusammenfassung) und bewertet sie im Vergleich mit einer Relevanz zwischen 0 und 1, weil Einzelbewertungen je Ast unzuverlässig sind. Der erste Schritt liest auch Filter aus der Frage ab: Jahr, Parlament, Ebene, Geschäftstyp.
-- **Abstieg und Rückweg:** Der Code steigt in die besten Kinder ab, höchstens `NAVIGATE_MAX_BRANCHES` je Knoten (Start 2) und nur ab `NAVIGATE_MIN_RELEVANCE` (Start 0.3). An der Tag-Seite erhält Apertus 70B bis zu `NAVIGATE_MAX_CANDIDATES` Geschäfte (Start 20) mit Kurzzusammenfassung, nach den Filtern ausgewählt, und wählt die passenden aus. Liefert ein Ast nichts, weil kein Kind die Mindestrelevanz erreicht oder am Blatt nichts gewählt wird, geht die Suche zum nächstbesten Geschwister zurück.
-- **Grenze und Fallback:** höchstens `NAVIGATE_MAX_STEPS` Modellaufrufe (Start 8). Findet der Baum bis dahin nichts, greift die Volltextsuche (7.6) mit denselben Filtern, und Apertus 70B wählt aus ihren Treffern.
+- **Abstieg und Rückweg:** Der Code steigt in die besten Kinder ab, höchstens `NAVIGATE_MAX_BRANCHES` je Knoten (Start 2) und nur ab `NAVIGATE_MIN_RELEVANCE` (Start 0.3). An der Tag-Seite erhält Apertus 70B bis zu `NAVIGATE_MAX_CANDIDATES` Geschäfte (Start 20) mit Kurzzusammenfassung (sonst Titel), nach den Filtern ausgewählt, und wählt die passenden aus. Liefert ein Ast nichts, weil kein Kind die Mindestrelevanz erreicht oder am Blatt nichts gewählt wird, geht die Suche zum nächstbesten Geschwister zurück.
+- **Grenze und Fallback:** höchstens `NAVIGATE_MAX_STEPS` Modellaufrufe je Suche (Start 8), der Fallback eingeschlossen; der Baum nutzt höchstens einen weniger. Findet der Baum nichts, greift die Volltextsuche (7.6) mit denselben Filtern, und Apertus 70B wählt aus ihren Treffern.
 - **Antwort:** Der Aufruf am Blatt liefert die Auswahl und eine Kurzantwort aus Aussagen, jede mit den IDs ihrer Geschäfte. Der Code prüft, dass nur angebotene IDs vorkommen. Die Antwort zeigt den Suchweg, zum Beispiel „Heart › Infrastruktur und Umwelt › Verkehr und Kommunikation › Digitalisierung“ oder „Volltext“. Ohne Treffer gibt es keine Antwort, nur „Keine passenden Geschäfte gefunden“ mit Suchweg und Filtern.
 - **Steuerung:** Die Schleife steuert der Code, nicht das Modell, wie bei den Workern (ADR 0005). Pydantic prüft jeden Schritt; unbekannte Seiten-IDs gelten als erfunden und werden verworfen. Ziel: Antwort in unter 30 s.
 - **Agent:** Der Agent (7.8) nutzt die Navigationssuche als Werkzeug `navigate_tree`. Für seine Grenze von 6 Werkzeugaufrufen zählt sie als ein Aufruf.
@@ -374,16 +375,16 @@ Jede Anforderung hat eine prüfbare Abnahme.
 | F5 | **Klassifikation**: Worker rufen Apertus 8B zweistufig über die OpenAI-kompatible API auf (7.3), validieren die Ausgabe und speichern Tags mit Konfidenz, Beleg, `model_version`, `prompt_version`, `registry_version`, `input_hash`; parallelisiert und wiederaufnehmbar über den Status je Geschäft (7.7), Fehler protokolliert. | Lauf über CHE 2024–2026 vollständig; Abbruch und Neustart führt kein Geschäft doppelt aus; JSON-Fehlerquote < 1 %. |
 | F6 | **Eskalation** an 70B nach Regeln in 7.3; das 70B-Label ist aktiv, das 8B-Label bleibt als `superseded` gespeichert. | Fälle unter Schwelle erscheinen mit `model_version` 70B; das 8B-Label ist abrufbar. |
 | F7 | **Tag-Vorschläge** werden roh erfasst, nach dem Lauf gruppiert, auf Duplikate geprüft (Trigramm + 70B) und mit Empfehlung und betroffenen Geschäften gespeichert. Annahme im Review schreibt das Tag in `tags.yaml` (neue Version). | Vorschlag „E-Government“ wird als Duplikat/Kind von „Digitalisierung“ erkannt; angenommener Vorschlag erscheint in `tags.yaml`. |
-| F8 | **Ad-hoc-Thema** per CLI, Web-App oder Agent-Dialog anlegen; Pipeline nach 7.4 läuft nur über Kandidaten und Stichprobe und zeigt vorläufige Treffer. | Thema „Digitalisierung (breit)“ liefert Treffer; Kandidatenzahl und Laufzeit protokolliert; Kandidaten-Recall aus der Stichprobe ausgewiesen. |
+| F8 | **Ad-hoc-Thema** per CLI, Web-App oder Agent-Dialog anlegen; Pipeline nach 7.4 läuft nur über Kandidaten und Stichprobe und zeigt vorläufige Treffer; die Prüfung liefert fehlende Kurzzusammenfassungen mit (7.3). | Thema „Digitalisierung (breit)“ liefert Treffer; Kandidatenzahl und Laufzeit protokolliert; Kandidaten-Recall aus der Stichprobe ausgewiesen. |
 | F9 | **Review** direkt auf Geschäfts- und Tag-Seite und in der Warteschlange: Label bestätigen/verwerfen, Tag ersetzen oder ergänzen, Vorschlag annehmen/zusammenlegen/ablehnen; mit Benutzer und Zeit; Korrekturen exportierbar als Gold-Set; verworfene Tags kehren ohne Textänderung nicht zurück (7.3). | Korrigiertes Label ist in API und Wiki sichtbar und im Gold-Set-Export enthalten; nach Neuklassifikation bleibt ein verworfenes Tag verworfen. |
 | F10 | **Sidecar-API**, JSON, paginiert. Lesend: `GET /v1/affairs/{id}/topics`, `GET /v1/topics`, `GET /v1/topics/{id}/affairs?body_key=&from=&to=&min_confidence=`, `GET /v1/search?q=&topic=&body_key=`, `GET /v1/graph/topics/{id}`, `GET /v1/graph/affairs/{id}`, `GET /v1/graph/topics`, `GET /v1/jobs/summary`, `GET /v1/pages`, `GET /v1/pages/{page_id}`, `GET /v1/pages/{page_id}/affairs`. Agent und Navigationssuche (mit Rate-Limit): `POST /v1/agent/search`, `POST /v1/search/navigate`. Schreibend (mit Anmeldung): `POST /v1/topics/proposals`, `POST /v1/reviews`, `POST /v1/adhoc`. | Antworten < 200 ms bei Filterabfragen auf 326k Geschäften (Index); OpenAPI-Schema vorhanden; schreibende Endpunkte ohne Anmeldung abgewiesen. |
 | F11 | **Export** `affair_topics.ndjson.gz` im OpenParlData-Stil (snake_case, `id`, `affair_id`, `body_key`, `topic_external_id`, `topic_de/fr/it/rm`, `scheme`, `confidence`, `model_version`, `updated_at`) plus `index.json`-Eintrag. | Datei validiert gegen Schema; Zeilenzahl = aktive Labels. |
 | F12 | **DVS-Liste**: Sicht „Digitalisierung, Bund + Kantone, laufende Geschäfte“ als API-Abfrage, Wiki-Seite und CSV. | Enthält ≥ 29 der 30 Geschäfte aus `dvs_digitalisierung.csv`. |
 | F13 | **ParlWiki Web-App** (React-SPA) nach 7.5: Heart mit Seitenbaum, Geschäft, Tag-Seite, Parlament, Suche, Review-Warteschlange, Graph, Statusübersicht. | Geschäftsseite zeigt Text mit hervorgehobenem Beleg und verlinkten Tags; Tag-Seite zeigt Zusammenfassung mit Verweisen; alle Assets lokal (Netzwerk-Log ohne externe Hosts, Prüfung des Builds in CI); jede Route lädt auch direkt. |
 | F14 | **Markdown-Export** nach 7.5 und 7.9: Heart, Bereiche, Kapitel, Tag-Seiten, Querschnittsthemen und Parlamente. | Export läuft zweimal ohne Diff; Frontmatter enthält `tag_id`, `scheme`, `registry_version` und die Zahl der Geschäfte; keine Datei pro Geschäft; Dateinamen bleiben bei einer Namensänderung des Tags gleich. |
-| F15 | **Suche** nach 7.6: Volltext mit Filtern ohne LLM; natürlichsprachige Anfrage über die Navigationssuche (7.10, F26) und den Agenten (7.8). | Anfrage in DE und FR liefert Treffer mit Kurzantwort und Verweisen; ohne Treffer keine erfundene Antwort. |
+| F15 | **Suche** nach 7.6: Volltext mit Filtern ohne LLM; natürlichsprachige Anfrage zuerst über die Navigationssuche (7.10, F26), im Dialog über den Agenten (7.8). | Anfrage in DE und FR liefert Treffer mit Kurzantwort und Verweisen; ohne Treffer keine erfundene Antwort. |
 | F16 | **Evaluation** als Kommando: Präzision/Recall gegen Gold-Set, nach Sprache, Ebene und Hierarchiestufe (Bereich, Kapitel, Thema; falsches Thema im richtigen Kapitel zählt als Teiltreffer); Baseline Keyword-Suche; Präzision je Konfidenzband; Vergleich einstufig/zweistufig; bei Ad-hoc Kandidaten-Recall und Klassifikator-Recall getrennt; Bericht als Markdown. | Bericht enthält Tabellen je Sprache/Ebene und je Hierarchiestufe, Baseline-Vergleich, Konfidenzbänder und beide Prompt-Varianten. |
-| F17 | **Täglicher Lauf**: ein Kommando führt Ingest → Input → Klassifikation (nur neu/geändert) → Export → Wiki aus; Laufprotokoll in `classification_runs`. | Lauf mit Tagesdelta < 1 h; Protokoll zeigt Anzahl neu/geändert/fehlgeschlagen. |
+| F17 | **Täglicher Lauf**: ein Kommando führt Ingest → Input → Klassifikation (nur neu/geändert) → Seiten → Export → Wiki aus; Laufprotokoll in `classification_runs`. | Lauf mit Tagesdelta < 1 h; Protokoll zeigt Anzahl neu/geändert/fehlgeschlagen. |
 | F18 | **Status pro Geschäft und Aufgabe** (`open`, `pending`, `done`, `failed`) nach 7.7, inkl. automatischem Zurücksetzen auf `open` bei geändertem Text, neuer Prompt-Version, neuem `scheme_hash` der Aufgabe oder neu freigegebenem Tag; Statusübersicht in API (`GET /v1/jobs/summary`) und Web-App. | Geändertes Geschäft im Tagesimport steht danach auf `open`, nach dem Lauf auf `done`; Job eines abgebrochenen Workers steht nach dem Timeout wieder auf `open`; ein neues Ad-hoc-Tag öffnet keinen `classify:aps`-Job; Übersicht zeigt die Zählung je Status. |
 | F19 | **Parallele Verarbeitung** mit Job-Übernahme per `SKIP LOCKED`, Heartbeat, Besitzprüfung beim Schreiben, Lauf-Lock pro Aufgabe, adaptiver Drosselung und Gruppierung paralleler Tag-Vorschläge nach 7.7. | Zwei gleichzeitig gestartete Worker-Prozesse bearbeiten kein Geschäft doppelt; ein Worker, dessen Job nach Timeout neu vergeben wurde, schreibt nichts; ein zweiter Start desselben Laufs wird abgelehnt; derselbe Vorschlag aus 5 Workern ergibt einen Eintrag mit 5 Geschäften. |
 | F20 | **Graph-Ansicht** nach 7.5: Thema mit Geschäften, Geschäft mit Nachbarn, Themen untereinander; Klick öffnet die Seite. | Jede Sicht bleibt unter ihrer Knotengrenze und lädt in < 1 s; Bibliothek lokal ausgeliefert. |
@@ -393,7 +394,7 @@ Jede Anforderung hat eine prüfbare Abnahme.
 | F24 | **Hierarchische Zusammenfassungen** von unten nach oben nach 7.9: Tag-Seite aus den Kurzzusammenfassungen ihrer Geschäfte, Eltern-Seiten aus den Zusammenfassungen ihrer Kinder plus Stichproben, Belegprüfung im Code. | Jede Aussage hat einen Verweis; Kapitel-, Bereichs- und Heart-Seiten nutzen nur die Zusammenfassungen ihrer Kinder plus Stichproben; kein Prompt überschreitet das konfigurierte Limit. |
 | F25 | **Seitenstatus mit Weitergabe nach oben** nach 7.9: `open`, `pending`, `done`, `failed`, konfigurierbare Schwellen, Protokoll in `wiki_page_events`. | Ein neues Geschäft unter `aps:6.1.9` setzt nacheinander Tag-Seite, Kapitel 6.1, Bereich 6 und Heart auf `open` und nach dem Lauf auf `done` (Schwelle 1); unterhalb der Schwelle bleibt die Seite `done`. |
 | F26 | **Navigationssuche** nach 7.10 mit Rückweg, Schrittgrenze, Volltext-Fallback, Suchweg in der Antwort und Protokoll in `search_runs`; Endpunkt `POST /v1/search/navigate`, Werkzeug `navigate_tree`. | Testfragen auf DE und FR liefern Treffer mit sichtbarem Suchweg; ohne Treffer im Baum greift die Volltextsuche; ohne Treffer gibt es keine erfundene Antwort; keine Suche mit mehr als 8 Schritten. |
-| F27 | **Registry nach SKOS** nach 7.2 und Anhang A: Felder, Validierung, Sync in `tags`, `tag_labels`, `tag_relations` und `tag_mappings`; `narrower` wird abgeleitet. | Validierung weist Selbstbezug, unbekannte Verweise, Überschneidung von `related` und `broader`, falsches APS-`broader`, einen `slug` bei Ad-hoc-Tags und Mappings ohne `curia:` ab; Änderungen an `hidden_labels`, `related` oder Mappings ändern den `scheme_hash` nicht. |
+| F27 | **Registry nach SKOS** nach 7.2 und Anhang A: Felder, Validierung, Sync in `tags`, `tag_labels`, `tag_relations` und `tag_mappings`; `narrower` wird abgeleitet. | Validierung weist Selbstbezug, unbekannte Verweise, `related` in die eigene Hierarchie, falsches APS-`broader`, nicht numerische APS-IDs, einen `slug` bei Ad-hoc-Tags und Mappings ohne `curia:` ab; Änderungen an `broader`, `hidden_labels`, `related`, Mappings oder Definitionen ausser DE ändern den `scheme_hash` nicht. |
 
 ## 9. Nicht-funktionale Anforderungen
 
@@ -401,11 +402,11 @@ Jede Anforderung hat eine prüfbare Abnahme.
 |---|---|
 | Offline / Air-Gap | Startet und arbeitet ohne Internet. Einziger erlaubter Netzwerkzugriff: der Host aus `LLM_BASE_URL`; der HTTP-Client verweigert alle anderen Hosts (Allowlist im Code, Unit-Test). Docker-Images enthalten alle Abhängigkeiten und werden aus mitgelieferten Wheels gebaut. Spracherkennung mit `lingua-language-detector` (Modelle im Wheel). Graph-Bibliothek und CSS lokal, Systemschriften statt Web-Fonts. Die Web-App ist ein statischer Build im Image; Node und npm braucht nur der Build, CI prüft den Build auf externe URLs. Keine Telemetrie. |
 | Reproduzierbarkeit | Jedes Label trägt `model_version` (Modellname + Antwort des Endpunkts), `prompt_version` (mit Inhalts-Hash), `registry_version`, `input_hash`. Jede Seite trägt `model_version`, `prompt_version` und `input_hash`. Prompts liegen als Dateien im Repo. Temperatur 0. Abhängigkeiten über `uv.lock` gepinnt. |
-| Leistung | Volllauf APS über 326k Geschäfte mit 8B < 24 h. Annahme: ≥ 16 parallele Anfragen; zweistufig sind es rund 2 Anfragen je Geschäft. Am ersten Tag mit 200 Anfragen messen, ob das hält. Tagesdelta < 1 h. Ad-hoc-Thema: Kandidaten < 1 min, Prüfung von 10k Kandidaten < 1 h. Agent-Antwort: Dauer wird protokolliert, Ziel < 30 s. Navigationssuche: höchstens 8 Modellschritte, Ziel < 30 s. Seitenlauf im täglichen Lauf: nur offene Seiten, Ziel < 1 h. |
+| Leistung | Volllauf APS über 326k Geschäfte mit 8B < 24 h. Annahme: ≥ 16 parallele Anfragen; zweistufig sind es rund 2 Anfragen je Geschäft. Am ersten Tag mit 200 Anfragen messen, ob das hält. Tagesdelta < 1 h. Ad-hoc-Thema: Kandidaten < 1 min, Prüfung von 10k Kandidaten < 1 h. Agent-Antwort: Dauer wird protokolliert, Ziel < 30 s. Navigationssuche: höchstens 8 Modellschritte, Ziel < 30 s. Seitenlauf: nur offene Seiten, innerhalb des Tagesdeltas von < 1 h (F17). |
 | Robustheit | Wiederaufnahme nach Abbruch über den Status je Geschäft (Heartbeat, Timeout, Besitzprüfung); Retry mit Backoff bei 429/5xx; adaptive Drosselung; Fehlerfälle als `failed` mit Grund gespeichert, nicht verworfen. |
 | Sprachen | DE/FR/IT vollständig; RM-Titel werden mitgeführt. Tags und UI mindestens DE, Tag-Namen DE/FR/IT. |
 | Datenschutz | Nur öffentliche Parlamentsdaten. Keine Personendaten in Prompts ausser den im Geschäftstext enthaltenen. Review-Benutzer lokal verwaltet. |
-| Sicherheit | API hinter Reverse-Proxy; Ports im Compose nur an `127.0.0.1` gebunden; schreibende Endpunkte mit Authentifizierung (Basic Auth oder lokaler Token); Agent-Endpunkt mit Rate-Limit. Keine Secrets im Repo (`.env`). **Prompt-Injection:** Geschäftstexte und Werkzeug-Ergebnisse sind Daten, keine Anweisungen, und im Prompt abgegrenzt. Die Ausgabe der Worker akzeptiert nur Registry-IDs. Vorschläge sind auf 2 je Geschäft und auf Name, Beschreibung und Begründung begrenzt und werden nie automatisch aktiv. Der Agent hat nur lesende Werkzeuge. |
+| Sicherheit | API hinter Reverse-Proxy; Ports im Compose nur an `127.0.0.1` gebunden; schreibende Endpunkte mit Authentifizierung (Basic Auth oder lokaler Token); Agent- und Such-Endpunkt mit Rate-Limit. Keine Secrets im Repo (`.env`). **Prompt-Injection:** Geschäftstexte und Werkzeug-Ergebnisse sind Daten, keine Anweisungen, und im Prompt abgegrenzt. Die Ausgabe der Worker akzeptiert nur Registry-IDs. Vorschläge sind auf 2 je Geschäft und auf Name, Beschreibung und Begründung begrenzt und werden nie automatisch aktiv. Der Agent hat nur lesende Werkzeuge. |
 | Betrieb | Docker Compose: `db` (PostgreSQL 16 mit pgvector und pg_trgm), `api`, `worker`. Logs strukturiert auf stdout, Docker schreibt sie in Dateien. Backup = `pg_dump` + `registry/tags.yaml` in Git. |
 
 ## 10. Architektur und Tech-Stack
@@ -477,7 +478,7 @@ Der Umfang dieses PRD bleibt vollständig. Er wird in drei Phasen umgesetzt, der
 - Registry: APS (165) + Ad-hoc „Digitalisierung (breit)“ (Definition entlang PolitMonitor: E-Government, Cybersicherheit, KI, Datenschutz, digitale Medien, Breitband). Format nach SKOS (F27).
 - Klassifikation: Worker mit Status, Parallelität und Eskalation (F5–F7, F18, F19). Digitalisierung über alle Geschäfte (Volllauf, falls Durchsatz reicht; sonst Kandidaten per FTS + Zufallsstichprobe); APS für CHE ab 2024 und Stichprobe anderer Ebenen.
 - Web-App (React-SPA): Seitenbaum mit Heart, Bereichen, Kapiteln und Tag-Seiten (F23–F25), Geschäfts- und Tag-Seiten mit Belegen und Verlinkungen, Review direkt auf der Seite, Graph-Ansicht, Navigationssuche und Agent-Kurzantwort (F26), Statusübersicht. 3–5 Tag-Seiten im Fokus (Digitalisierung plus z. B. Energie, Gesundheit, Migration, Verkehr).
-- Ausgabe: Sidecar-API, Exportdatei, DVS-Sicht, Markdown-Export für Themen und Parlamente, Evaluationsbericht.
+- Ausgabe: Sidecar-API, Exportdatei, DVS-Sicht, Markdown-Export des Seitenbaums und der Parlamente, Evaluationsbericht.
 - Betrieb: Docker Compose, Air-Gap-Bundle und Offline-Test (F22).
 - Abgabe: technischer Bericht (PDF, max. 6 Seiten), Demo-Video (max. 2 min), öffentliches Repo.
 
@@ -557,6 +558,8 @@ Der Umfang dieses PRD bleibt vollständig. Er wird in drei Phasen umgesetzt, der
 12. Werden Heart- und Bereichs-Zusammenfassungen vor der Veröffentlichung von einer Person geprüft? Das Feld `review_status` in `wiki_pages` ist dafür vorbereitet.
 13. Endgültiger Name der Wurzelseite („Heart“).
 14. Passt ein später trainierter Klassifikator nach TnT-LLM (Phase 3) zum Nicht-Ziel „Kein Training“ (3)? Die Challenge verlangt, dass Ad-hoc-Themen ohne neues Training dazukommen ([CHALLENGE.md](CHALLENGE.md)); ein solcher Klassifikator käme deshalb nur für das feste APS-Schema in Frage.
+15. Sollen Ad-hoc-Tags mit nur einem `broader` (z. B. `adhoc:ki-verwaltung` unter `aps:6.1.9`) als Unterseite dieses Tags erscheinen statt als Querschnitt unter Heart? Im Moment hängen alle Ad-hoc-Tags unter Heart, damit ihr Dateiname gleich bleibt, wenn ein weiteres `broader` dazukommt.
+16. Welche APS-Kapitel oder -Themen bekommt `adhoc:digitalisierung-breit` als `broader` (Vorschlag: `aps:6.1.9` Digitalisierung und `aps:4.4.4` Digitale Medien)? Das entscheidet ein Mensch im Review (7.2).
 
 ## 16. Meilensteine
 
@@ -643,17 +646,17 @@ tags:
 
 Regeln:
 
-- `tag_id` ist eindeutig und stabil, das Präfix entspricht dem Schema.
+- `tag_id` ist eindeutig und stabil, das Präfix entspricht dem Schema. APS-IDs sind numerisch (`aps:6`, `aps:6.1`, `aps:6.1.9`).
 - APS-Bereiche (`aps:6`), -Kapitel (`aps:6.1`) und -Themen (`aps:6.1.9`) stehen alle in der Registry; die Hierarchiestufe ergibt sich aus der ID. Stufe 1 bietet Kapitel an, Labels vergeben die Worker nur auf Thema-Stufe.
 - Pflicht: `tag_id`, `scheme`, `status`, `pref_label.de`, `definition.de`; bei APS zusätzlich `slug`.
-- `broader`: bei APS genau der Eltern-Code; bei Ad-hoc nur APS-Kapitel oder -Themen, mehrere erlaubt. `related` überschneidet sich nicht mit `broader`. Keine Selbstbezüge und keine doppelten Einträge.
+- `broader`: bei APS genau der Eltern-Code; bei Ad-hoc nur APS-Kapitel oder -Themen, mehrere erlaubt. `related` zeigt nie in die eigene Hierarchie (weder auf Vorfahren noch auf Nachfahren). Keine Selbstbezüge und keine doppelten Einträge.
 - `broader`, `related` und `merged_into` müssen auf vorhandene Tags zeigen; `status: merged` verlangt `merged_into`.
 - Mappings haben die Form `curia:<id>`; ein Sachbereich steht je Tag in höchstens einem Mapping.
 - `slug` ist nur bei APS erlaubt und bleibt nach dem ersten Export unverändert, weil er im Dateinamen der Tag-Seite steht. Eindeutig muss er nicht sein, weil der Dateiname auch die Tag-ID enthält (APS nennt zum Beispiel Bereich 3 und Kapitel 3.1 gleich).
 - `narrower` steht nicht in der Datei, sondern wird aus `broader` abgeleitet.
 - Tags werden nie gelöscht, nur im Status geändert.
 - Jede inhaltliche Änderung erhöht `registry_version`.
-- `scheme_hash` steht nicht in der Datei. Er wird beim Laden über die kanonische Form der aktiven Einträge berechnet (`tag_id`, `broader`, `pref_label`, `alt_labels`, `definition`).
+- `scheme_hash` steht nicht in der Datei. Er wird beim Laden über die kanonische Form der aktiven Einträge berechnet (`tag_id`, `pref_label` DE/FR/IT, `definition` DE, `alt_labels`, also nur, was die Prompts zeigen).
 
 Das Pydantic-Modell dazu liegt in `src/parltopics/registry/models.py`.
 
@@ -693,7 +696,7 @@ Validierung:
 - Stufe 1: 1 bis 3 Kapitel, nur IDs aus der angebotenen Kapitelliste.
 - Stufe 2: höchstens 5 Tags und 2 Vorschläge; `tag_id` muss im angebotenen Ausschnitt aktiv sein; `confidence` in [0, 1]; `evidence` höchstens 300 Zeichen.
 - Beleg: Trigramm-Ähnlichkeit zum Klassifikationstext ≥ 0.9, sonst Konfidenz halbieren und `evidence_verified = false` (7.3).
-- `summary_de`: ein Satz, 1 bis 300 Zeichen (7.3).
+- `summary_de`: ein Satz. Fehlt er oder ist er leer, bleibt die Ausgabe gültig; längere Texte kürzt der Code auf 300 Zeichen (7.3).
 
 Die Pydantic-Modelle dazu liegen in `src/parltopics/classify/schemas.py`.
 
@@ -723,7 +726,7 @@ Validierung: `summary_short` höchstens 200 Zeichen; mindestens eine Aussage, je
 }
 ```
 
-`filters` gibt es nur im ersten Schritt. Am Blatt antwortet Apertus 70B mit `{"selected_ids": [...], "statements": [...]}`, die Aussagen im Format der Seitenzusammenfassung. Validierung: Relevanz in [0, 1]; unbekannte Seiten- und Geschäfts-IDs werden verworfen; bleibt keine bewertete Seite übrig, ist der Schritt ungültig. Modelle in `src/parltopics/search/navigate.py`.
+`filters` gibt es nur im ersten Schritt. Am Blatt antwortet Apertus 70B mit `{"selected_ids": [...], "statements": [...]}`, die Aussagen im Format der Seitenzusammenfassung; sie dürfen nur gewählte Geschäfte nennen, ohne Auswahl gibt es keine Aussage. Validierung: Relevanz in [0, 1]; unbekannte Seiten- und Geschäfts-IDs werden verworfen; bleibt keine bewertete Seite übrig, ist der Schritt ungültig. Modelle in `src/parltopics/search/navigate.py`.
 
 ## Anhang C: Datenmodell (Skizze)
 
@@ -780,7 +783,7 @@ agent_runs(id pk, kind, query, tool_calls jsonb, answer, cited_affair_ids bigint
 tag_labels(id pk, tag_id → tags, kind,             -- pref | alt | hidden
            language, label)                        -- hidden ohne Sprache, ein pref je Sprache
 tag_relations(tag_id → tags, target_id → tags, relation,     -- broader | related
-              primary key (tag_id, target_id))              -- pro Paar eine Beziehung, kein Selbstbezug
+              primary key (tag_id, target_id))              -- je Richtung eine Beziehung, kein Selbstbezug
 tag_mappings(tag_id → tags, target, match_type,    -- curia:<id>; exact | close | broad
              primary key (tag_id, target))
 
@@ -810,7 +813,7 @@ search_runs(id pk, query, language, filters jsonb, path text[], visits jsonb, st
 
 Indizes: aktive Labels `affair_tags(tag_id, affair_id)`, `affairs(body_key, begin_date)`, Warteschlange `classification_jobs(task, status, priority)` und offene Jobs, hängende Jobs `classification_jobs(locked_at)`, GIN auf `search_documents.document`, GIN `pg_trgm` auf `tags.match_text` (Namen und Aliasse). Neu in 0002: GIN `pg_trgm` auf `tag_labels.label`, GIN auf `wiki_pages.cited_affair_ids` (Seiten, die ein Geschäft zitieren), offene und hängende Seiten.
 
-Regeln aus 0002: genau eine Seite `heart` ohne Tag und ohne Eltern; jede andere Seite gehört zu genau einem Tag, ihre `page_id` ist die `tag_id`; eine Seite im Status `pending` trägt `worker_id` und `locked_at`; eine Suche ohne Treffer speichert keine Antwort. Das Konzept skizzierte `wiki_pages` mit `parent_ids`. Das Modell trennt die Eltern-Seite im Baum (`parent_id`) von den Kapiteln, die eine Querschnittsseite verlinken (`linked_from`). `summary_long` ist der Absatz aus den belegten Aussagen in `statements`.
+Regeln aus 0002: genau eine Seite `heart` ohne Tag und ohne Eltern; jede andere Seite gehört zu genau einem Tag, ihre `page_id` ist die `tag_id`; eine Seite im Status `pending` trägt `worker_id` und `locked_at`; eine Suche ohne Treffer speichert keine Antwort. Dass `related` nicht in die eigene Hierarchie zeigt, prüft die Registry (7.2). Das Konzept skizzierte `wiki_pages` mit `parent_ids`. Das Modell trennt die Eltern-Seite im Baum (`parent_id`) von den Kapiteln, die eine Querschnittsseite verlinken (`linked_from`). `summary_long` ist der Absatz aus den belegten Aussagen in `statements`.
 
 ## Anhang D: Projektstruktur (Monorepo)
 

@@ -238,7 +238,7 @@
       "dot": "amber",
       "title": "Grenzen und Rückweg",
       "items": [
-        "Höchstens 8 Modellaufrufe, höchstens 2 Äste je Knoten, Mindestrelevanz 0.3",
+        "Höchstens 8 Modellaufrufe samt Fallback, höchstens 2 Äste je Knoten, Mindestrelevanz 0.3",
         "Liefert ein Ast nichts, geht die Suche zum nächstbesten Geschwister zurück",
         "Findet der Baum nichts, greift die Volltextsuche"
       ]

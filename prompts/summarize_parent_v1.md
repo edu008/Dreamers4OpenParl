@@ -11,7 +11,7 @@ Du schreibst die Zusammenfassung einer übergeordneten Seite im ParlWiki ({{ kin
 
 Regeln:
 1. summary_short: ein Satz für die Navigation, höchstens 200 Zeichen, ohne neue Fakten.
-2. statements: 3 bis 8 Aussagen über Schwerpunkte und Verbindungen zwischen den Unterseiten. Jede Aussage nennt in page_ids die Unterseiten oder in affair_ids die Stichproben, auf die sie sich stützt.
+2. statements: 3 bis 8 Aussagen über Schwerpunkte und Verbindungen zwischen den Unterseiten. Jede Aussage nennt in page_ids die Unterseiten oder in affair_ids die Stichproben, auf die sie sich stützt. IDs stehen nur in page_ids und affair_ids, nicht im Text.
 3. Zahlen nur aus dem Block „Kennzahlen“.
 4. Querschnittsthemen werden auf Kapitelseiten nur verlinkt, nicht zusammengefasst.
 5. Sachlich, ohne Wertung politischer Positionen, auf Deutsch.

@@ -96,7 +96,7 @@ CARDS = [
             "Ein Job oder eine Seite im Status pending trägt immer worker_id und locked_at",
             "Genau eine Seite heart ohne Tag und ohne Eltern; jede andere Seite gehört zu "
             "genau einem Tag",
-            "Pro Tag-Paar nur broader oder related",
+            "Pro Tag-Paar und Richtung nur broader oder related",
             "Eine Suche ohne Treffer speichert keine Antwort",
         ],
     },

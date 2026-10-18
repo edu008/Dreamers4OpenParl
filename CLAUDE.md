@@ -52,7 +52,7 @@ uv run parltopics --help   # CLI; nicht umgesetzte Kommandos enden mit Exit-Code
 - Doku auf Deutsch in Schweizer Schreibweise (ss statt ß), Bezeichner im Code auf Englisch.
 - Das Template-Layout bleibt: `README.md`, `technical_report.md`, `LICENSE` und `src/` nicht verschieben.
 - Worker sind deterministisch, ein Geschäft pro Modellaufruf. Der Agent nutzt Tool-Calling und liest nur.
-- Bestehende Migrationen nie ändern, neue Datei anlegen. Geänderte Prompts bekommen eine neue Datei mit höherer Version.
+- Bestehende Migrationen nie ändern, neue Datei anlegen. Geänderte Prompts bekommen ab dem ersten Lauf (M1) eine neue Datei mit höherer Version; bis dahin sind die v1-Dateien Entwürfe (`prompts/README.md`).
 - Ändern sich Komponenten oder Abläufe: Quelle in `docs/architecture/src/` anpassen und `make diagrams` ausführen (Skill `archify`).
 - Die Web-App lädt nichts von aussen: keine externen Skripte, Schriften oder Stylesheets. shadcn-Komponenten über die CLI hinzufügen (`npx shadcn add`), Systemschriften.
 - Tag-Seiten im ParlWiki werden aus der Datenbank erzeugt; Tag-Definitionen stehen nur in `registry/tags.yaml`.

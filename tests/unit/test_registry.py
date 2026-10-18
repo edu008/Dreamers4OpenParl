@@ -134,6 +134,9 @@ INVALID = {
     "Ziel ohne merged": mutate("adhoc:ki-verwaltung.merged_into", "adhoc:digitalisierung-breit"),
     "Präfix": mutate("adhoc:digitalisierung-breit.scheme", "aps"),
     "ID-Format": mutate("aps:6.tag_id", "APS:6"),
+    "APS-ID nicht numerisch": mutate("aps:6.1.10.tag_id", "aps:6.1.x"),
+    "related zu einem Vorfahren": mutate("aps:6.1.9.related", ["aps:6"]),
+    "related zu einem Nachfahren": mutate("aps:6.1.9.related", ["adhoc:ki-verwaltung"]),
     "unbekanntes Feld": mutate("aps:6.colour", "rot"),
     "prefLabel ohne de": mutate("aps:6.pref_label", {"fr": "Infrastructure"}),
 }
@@ -167,3 +170,13 @@ def test_slug_may_repeat_because_the_file_name_contains_the_tag_id(data):
     tag(data, "aps:2.4.1")["slug"] = "digitalisierung"
     registry = build(data)
     assert registry.get("aps:2.4.1").slug == registry.get("aps:6.1.9").slug
+
+
+def test_broader_and_other_languages_do_not_change_the_hash(data):
+    """Nur was die Prompts zeigen, zählt: broader und Definitionen ausser DE öffnen keine Jobs."""
+    reference = {scheme: scheme_hash(build(data), scheme) for scheme in ("aps", "adhoc")}
+    changed = copy.deepcopy(data)
+    tag(changed, "adhoc:digitalisierung-breit")["broader"] = ["aps:6.1"]
+    tag(changed, "adhoc:digitalisierung-breit")["definition"]["fr"] = "Autre définition"
+    tag(changed, "aps:6.1.9")["definition"]["it"] = "Altra definizione"
+    assert {scheme: scheme_hash(build(changed), scheme) for scheme in reference} == reference

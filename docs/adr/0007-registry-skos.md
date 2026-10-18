@@ -11,10 +11,10 @@ Die Registry hatte die Felder `names`, `descriptions`, `aliases` und `parent`. S
 ## Entscheid
 
 - Felder nach SKOS: `pref_label` (ein Name je Sprache), `alt_labels` (Synonyme), `hidden_labels` (Schreibvarianten und Tippfehler), `definition`, `broader`, `related`, `exact_match`, `close_match`, `broad_match` (Curia-Vista-Sachbereiche als `curia:<id>`).
-- `narrower` wird nicht gespeichert, sondern aus `broader` abgeleitet. Bei APS ist `broader` genau der Eltern-Code, Ad-hoc-Tags dürfen mehrere APS-Kapitel oder -Themen als `broader` haben. `related` und `broader` überschneiden sich nicht.
+- `narrower` wird nicht gespeichert, sondern aus `broader` abgeleitet. Bei APS ist `broader` genau der Eltern-Code, Ad-hoc-Tags dürfen mehrere APS-Kapitel oder -Themen als `broader` haben. `related` zeigt nie in die eigene Hierarchie.
 - APS-Tags erhalten einen festen `slug` für den Dateinamen ihrer Tag-Seite.
 - Die Datei bleibt `registry/tags.yaml` mit Pydantic-Validierung (ADR 0001).
-- Der `scheme_hash` umfasst `tag_id`, `broader`, `pref_label`, `alt_labels` und `definition`. `hidden_labels`, `related` und die Mappings stehen nicht im Prompt und ändern ihn nicht; ADR 0004 gilt weiter.
+- Der `scheme_hash` umfasst nur, was die Prompts zeigen: `tag_id`, `pref_label` DE/FR/IT, `definition` DE und `alt_labels`. `broader`, `hidden_labels`, `related`, die Mappings und Definitionen in anderen Sprachen ändern ihn nicht; ADR 0004 gilt weiter.
 - In der Datenbank bleibt die Tabelle `tags` aus 0001 bestehen. Labels, Beziehungen und Mappings stehen vollständig in `tag_labels`, `tag_relations` und `tag_mappings` (Migration 0002).
 
 ## Folgen
