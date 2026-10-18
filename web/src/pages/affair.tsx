@@ -141,11 +141,7 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
           </Link>
           {!review.active && (
             <span className="text-muted-foreground">
-              Zum Entscheiden zuerst{" "}
-              <Link to="/review" className="underline underline-offset-2">
-                auf der Seite Review anmelden
-              </Link>
-              .
+              Zum Entscheiden oben rechts die Ansicht «Reviewer» wählen.
             </span>
           )}
         </nav>
