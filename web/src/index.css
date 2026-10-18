@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (@media (prefers-color-scheme: dark));
+@custom-variant dark (&:is([data-theme="dark"] *));
 
 @theme inline {
   --font-heading: var(--font-sans);
@@ -100,49 +100,47 @@
   --level-low: #9b2c2c;
 }
 
-/* Dunkle Ansicht folgt der Geräteeinstellung, es gibt keinen Schalter. Gleiche Rollen wie oben:
+/* Dunkle Ansicht: data-theme="dark" setzt das Skript in index.html nach Wahl oder Geräteeinstellung. Gleiche Rollen wie oben:
    grünliches Schwarz, helle Tinte, Gelb nur für den Beleg. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --background: #171918;
-    --foreground: #e4e6e5;
-    --card: #1e2120;
-    --card-foreground: #e4e6e5;
-    --popover: #1e2120;
-    --popover-foreground: #e4e6e5;
-    --primary: #a9bfb5;
-    --primary-foreground: #171918;
-    --secondary: #242827;
-    --secondary-foreground: #e4e6e5;
-    --muted: #242827;
-    --muted-foreground: #a4aaa7;
-    --accent: #2c302f;
-    --accent-foreground: #e4e6e5;
-    --destructive: #e08a8a;
-    --border: #34383a;
-    --input: #7d8481;
-    --ring: #a9bfb5;
-    --chart-1: #a9bfb5;
-    --chart-2: #a4aaa7;
-    --chart-3: #e0b25a;
-    --chart-4: #34383a;
-    --chart-5: #e4e6e5;
-    --sidebar: #242827;
-    --sidebar-foreground: #e4e6e5;
-    --sidebar-primary: #a9bfb5;
-    --sidebar-primary-foreground: #171918;
-    --sidebar-accent: #2c302f;
-    --sidebar-accent-foreground: #e4e6e5;
-    --sidebar-border: #34383a;
-    --sidebar-ring: #a9bfb5;
-    --margin-tint: #1e2120;
-    --evidence: #4a4020;
-    --evidence-line: #d9b43a;
-    --level-high: #a9bfb5;
-    --level-medium: #e0b25a;
-    --level-low: #e08a8a;
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #171918;
+  --foreground: #e4e6e5;
+  --card: #1e2120;
+  --card-foreground: #e4e6e5;
+  --popover: #1e2120;
+  --popover-foreground: #e4e6e5;
+  --primary: #a9bfb5;
+  --primary-foreground: #171918;
+  --secondary: #242827;
+  --secondary-foreground: #e4e6e5;
+  --muted: #242827;
+  --muted-foreground: #a4aaa7;
+  --accent: #2c302f;
+  --accent-foreground: #e4e6e5;
+  --destructive: #e08a8a;
+  --border: #34383a;
+  --input: #7d8481;
+  --ring: #a9bfb5;
+  --chart-1: #a9bfb5;
+  --chart-2: #a4aaa7;
+  --chart-3: #e0b25a;
+  --chart-4: #34383a;
+  --chart-5: #e4e6e5;
+  --sidebar: #242827;
+  --sidebar-foreground: #e4e6e5;
+  --sidebar-primary: #a9bfb5;
+  --sidebar-primary-foreground: #171918;
+  --sidebar-accent: #2c302f;
+  --sidebar-accent-foreground: #e4e6e5;
+  --sidebar-border: #34383a;
+  --sidebar-ring: #a9bfb5;
+  --margin-tint: #1e2120;
+  --evidence: #4a4020;
+  --evidence-line: #d9b43a;
+  --level-high: #a9bfb5;
+  --level-medium: #e0b25a;
+  --level-low: #e08a8a;
 }
 
 @layer base {

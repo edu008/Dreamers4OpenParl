@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router"
 
 import { RoleSwitch } from "@/components/role-switch"
 import { SearchForm } from "@/components/search-form"
+import { ThemeSwitch } from "@/components/theme-switch"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { usePageTitle } from "@/hooks/use-page-title"
@@ -89,6 +90,9 @@ export function Layout() {
       >
         <Outlet />
       </main>
+      <footer className="border-t border-border px-6 py-3 text-xs">
+        <ThemeSwitch />
+      </footer>
     </div>
   )
 }
