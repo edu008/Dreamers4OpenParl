@@ -31,8 +31,14 @@ export function AffairTable({ rows }: { rows: TopicRow[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-collapse text-sm">
+      <table className="w-full min-w-[38rem] table-fixed border-collapse text-sm">
         <caption className="sr-only">Geschäfte zu diesem Thema</caption>
+        <colgroup>
+          <col style={{ width: "42%" }} />
+          <col style={{ width: "22%" }} />
+          <col style={{ width: "16%" }} />
+          <col style={{ width: "20%" }} />
+        </colgroup>
         <thead className="border-b border-border bg-margin-tint">
           <tr>
             <PlainHeader>Geschäft</PlainHeader>
