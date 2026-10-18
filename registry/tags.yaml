@@ -1,49 +1,2379 @@
 # ParlTopics Tag-Registry: einzige Quelle aller Tags (PRD 7.2, Anhang A, ADR 0001).
-# APS-Einträge erzeugt `parltopics registry import-aps <aps_topics.xlsx>` (Meilenstein M0).
-# Jede inhaltliche Änderung erhöht registry_version. Neue Tags nur über Vorschläge und Review.
-# Schreibt die Web-App die Datei neu, gehen diese Kommentare verloren (ADR 0001).
-registry_version: "2026-10-18.1"
-
+# APS-Einträge erzeugt `parltopics registry import-aps <aps_topics.xlsx>`.
+# Jede inhaltliche Änderung erhöht registry_version.
+# Neue Tags nur über Vorschläge und Review.
+# Schreibt ein Werkzeug die Datei neu, gehen diese Kommentare verloren (ADR 0001).
+registry_version: 2026-10-18.3
 schemes:
   aps:
-    label: "Année Politique Suisse"
-    source: "aps_topics.xlsx (hackapertus, Stand 18.10.2026)"
+    label: Année Politique Suisse
+    source: aps_topics.xlsx (hackapertus, Stand 18.10.2026)
     fixed: true
   adhoc:
-    label: "Ad-hoc-Themen"
-    source: "ParlTopics-Team"
+    label: Ad-hoc-Themen
+    source: ParlTopics-Team
     fixed: false
-
 tags:
-  - tag_id: "adhoc:digitalisierung-breit"
-    scheme: adhoc
-    status: active
-    names:
-      de: "Digitalisierung (breit)"
-      fr: "Numérisation (large)"
-      it: "Digitalizzazione (ampia)"
-    descriptions:
-      de: >-
-        Breite Definition entlang PolitMonitor: Geschäfte zu E-Government und digitaler
-        Verwaltung, Cybersicherheit, künstlicher Intelligenz, Datenschutz und Datenpolitik,
-        digitalen Medien und Plattformen sowie Breitband und digitaler Infrastruktur.
-      fr: >-
-        Définition large selon PolitMonitor : objets portant sur la cyberadministration et
-        l'administration numérique, la cybersécurité, l'intelligence artificielle, la protection
-        et la politique des données, les médias et plateformes numériques ainsi que le haut débit
-        et l'infrastructure numérique.
-      it: >-
-        Definizione ampia secondo PolitMonitor: oggetti relativi all'amministrazione digitale,
-        alla cibersicurezza, all'intelligenza artificiale, alla protezione e alla politica dei
-        dati, ai media e alle piattaforme digitali, nonché alla banda larga e all'infrastruttura
-        digitale.
-    aliases:
-      - "Breitband"
-      - "Cybersicherheit"
-      - "Datenschutz"
-      - "digitale Medien"
-      - "E-Government"
-      - "KI"
-      - "künstliche Intelligenz"
-    unreviewed_translations: [fr, it]
-    created: {at: "2026-10-18", by: "team"}
+- tag_id: aps:1
+  scheme: aps
+  status: active
+  names:
+    de: Akteure und Institutionen
+    fr: Institutions et acteurs
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Akteure und Institutionen» (Pfad: Akteure und Institutionen). Umfasst:
+      Politische Grundfragen; Institutionen.'
+    fr: 'Objets relatifs au thème APS « Institutions et acteurs » (chemin : Institutions et acteurs).
+      Comprend : Problèmes politiques fondamentaux; Institutions.'
+- tag_id: aps:1.1
+  scheme: aps
+  status: active
+  parent: aps:1
+  names:
+    de: Politische Grundfragen
+    fr: Problèmes politiques fondamentaux
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Politische Grundfragen» (Pfad: Akteure und Institutionen > Politische
+      Grundfragen). Umfasst: Nationale Identität; Verfassungsfragen; Territorialfragen; Jurafrage.'
+    fr: 'Objets relatifs au thème APS « Problèmes politiques fondamentaux » (chemin : Institutions et
+      acteurs > Problèmes politiques fondamentaux). Comprend : Identité nationale; Questions constitutionnelles;
+      Questions territoriales; Question jurassienne.'
+- tag_id: aps:1.1.1
+  scheme: aps
+  status: active
+  parent: aps:1.1
+  names:
+    de: Nationale Identität
+    fr: Identité nationale
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Nationale Identität» (Pfad: Akteure und Institutionen > Politische Grundfragen
+      > Nationale Identität).'
+    fr: 'Objets relatifs au thème APS « Identité nationale » (chemin : Institutions et acteurs > Problèmes
+      politiques fondamentaux > Identité nationale).'
+- tag_id: aps:1.1.2
+  scheme: aps
+  status: active
+  parent: aps:1.1
+  names:
+    de: Verfassungsfragen
+    fr: Questions constitutionnelles
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Verfassungsfragen» (Pfad: Akteure und Institutionen > Politische Grundfragen
+      > Verfassungsfragen).'
+    fr: 'Objets relatifs au thème APS « Questions constitutionnelles » (chemin : Institutions et acteurs
+      > Problèmes politiques fondamentaux > Questions constitutionnelles).'
+- tag_id: aps:1.1.3
+  scheme: aps
+  status: active
+  parent: aps:1.1
+  names:
+    de: Territorialfragen
+    fr: Questions territoriales
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Territorialfragen» (Pfad: Akteure und Institutionen > Politische Grundfragen
+      > Territorialfragen).'
+    fr: 'Objets relatifs au thème APS « Questions territoriales » (chemin : Institutions et acteurs >
+      Problèmes politiques fondamentaux > Questions territoriales).'
+- tag_id: aps:1.1.4
+  scheme: aps
+  status: active
+  parent: aps:1.1
+  names:
+    de: Jurafrage
+    fr: Question jurassienne
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Jurafrage» (Pfad: Akteure und Institutionen > Politische Grundfragen
+      > Jurafrage).'
+    fr: 'Objets relatifs au thème APS « Question jurassienne » (chemin : Institutions et acteurs > Problèmes
+      politiques fondamentaux > Question jurassienne).'
+- tag_id: aps:1.2
+  scheme: aps
+  status: active
+  parent: aps:1
+  names:
+    de: Institutionen
+    fr: Institutions
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Institutionen» (Pfad: Akteure und Institutionen > Institutionen). Umfasst:
+      Bundesrat; Verwaltung; Konkordanz; Parlament; Lobbyismus; Judikative; Föderalismus; Kantone; Städte,
+      Regionen, Gemeinden; Parteiensystem; Parteien; Verbände.'
+    fr: 'Objets relatifs au thème APS « Institutions » (chemin : Institutions et acteurs > Institutions).
+      Comprend : Conseil fédéral; Administration; Concordance; Parlement; Lobbyisme; Tribunaux; Fédéralisme;
+      Cantons; Villes, régions, communes; Système des partis; Partis; Associations.'
+- tag_id: aps:1.2.1
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Bundesrat
+    fr: Conseil fédéral
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Bundesrat» (Pfad: Akteure und Institutionen > Institutionen > Bundesrat).'
+    fr: 'Objets relatifs au thème APS « Conseil fédéral » (chemin : Institutions et acteurs > Institutions
+      > Conseil fédéral).'
+- tag_id: aps:1.2.2
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Verwaltung
+    fr: Administration
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Verwaltung» (Pfad: Akteure und Institutionen > Institutionen > Verwaltung).'
+    fr: 'Objets relatifs au thème APS « Administration » (chemin : Institutions et acteurs > Institutions
+      > Administration).'
+- tag_id: aps:1.2.3
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Konkordanz
+    fr: Concordance
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Konkordanz» (Pfad: Akteure und Institutionen > Institutionen > Konkordanz).'
+    fr: 'Objets relatifs au thème APS « Concordance » (chemin : Institutions et acteurs > Institutions
+      > Concordance).'
+- tag_id: aps:1.2.4
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Parlament
+    fr: Parlement
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Parlament» (Pfad: Akteure und Institutionen > Institutionen > Parlament).'
+    fr: 'Objets relatifs au thème APS « Parlement » (chemin : Institutions et acteurs > Institutions >
+      Parlement).'
+- tag_id: aps:1.2.5
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Lobbyismus
+    fr: Lobbyisme
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Lobbyismus» (Pfad: Akteure und Institutionen > Institutionen > Lobbyismus).'
+    fr: 'Objets relatifs au thème APS « Lobbyisme » (chemin : Institutions et acteurs > Institutions >
+      Lobbyisme).'
+- tag_id: aps:1.2.6
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Judikative
+    fr: Tribunaux
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Judikative» (Pfad: Akteure und Institutionen > Institutionen > Judikative).'
+    fr: 'Objets relatifs au thème APS « Tribunaux » (chemin : Institutions et acteurs > Institutions >
+      Tribunaux).'
+- tag_id: aps:1.2.7
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Föderalismus
+    fr: Fédéralisme
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Föderalismus» (Pfad: Akteure und Institutionen > Institutionen > Föderalismus).'
+    fr: 'Objets relatifs au thème APS « Fédéralisme » (chemin : Institutions et acteurs > Institutions
+      > Fédéralisme).'
+- tag_id: aps:1.2.8
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Kantone
+    fr: Cantons
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Kantone» (Pfad: Akteure und Institutionen > Institutionen > Kantone).'
+    fr: 'Objets relatifs au thème APS « Cantons » (chemin : Institutions et acteurs > Institutions > Cantons).'
+- tag_id: aps:1.2.9
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Städte, Regionen, Gemeinden
+    fr: Villes, régions, communes
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Städte, Regionen, Gemeinden» (Pfad: Akteure und Institutionen > Institutionen
+      > Städte, Regionen, Gemeinden).'
+    fr: 'Objets relatifs au thème APS « Villes, régions, communes » (chemin : Institutions et acteurs
+      > Institutions > Villes, régions, communes).'
+- tag_id: aps:1.2.10
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Parteiensystem
+    fr: Système des partis
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Parteiensystem» (Pfad: Akteure und Institutionen > Institutionen > Parteiensystem).'
+    fr: 'Objets relatifs au thème APS « Système des partis » (chemin : Institutions et acteurs > Institutions
+      > Système des partis).'
+- tag_id: aps:1.2.11
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Parteien
+    fr: Partis
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Parteien» (Pfad: Akteure und Institutionen > Institutionen > Parteien).'
+    fr: 'Objets relatifs au thème APS « Partis » (chemin : Institutions et acteurs > Institutions > Partis).'
+- tag_id: aps:1.2.12
+  scheme: aps
+  status: active
+  parent: aps:1.2
+  names:
+    de: Verbände
+    fr: Associations
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Verbände» (Pfad: Akteure und Institutionen > Institutionen > Verbände).'
+    fr: 'Objets relatifs au thème APS « Associations » (chemin : Institutions et acteurs > Institutions
+      > Associations).'
+- tag_id: aps:2
+  scheme: aps
+  status: active
+  names:
+    de: Direkte Demokratie und Wahlen
+    fr: Démocratie directe et élections
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Direkte Demokratie und Wahlen» (Pfad: Direkte Demokratie und Wahlen).
+      Umfasst: Direkte Demokratie; Wahlen.'
+    fr: 'Objets relatifs au thème APS « Démocratie directe et élections » (chemin : Démocratie directe
+      et élections). Comprend : Démocratie directe; Elections.'
+- tag_id: aps:2.1
+  scheme: aps
+  status: active
+  parent: aps:2
+  names:
+    de: Direkte Demokratie
+    fr: Démocratie directe
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Direkte Demokratie» (Pfad: Direkte Demokratie und Wahlen > Direkte Demokratie).
+      Umfasst: Volksabstimmung; Referendum; Volksinitiative; Landsgemeinde; Wahl- und Abstimmungsverfahren;
+      Stimm- und Wahlrecht; Politische Beteiligung; Politische Kampagnen; Politikfinanzierung.'
+    fr: 'Objets relatifs au thème APS « Démocratie directe » (chemin : Démocratie directe et élections
+      > Démocratie directe). Comprend : Votation populaire; Référendum; Initiative populaire; Landsgemeinde;
+      Procédure de vote et d''élection; Droit de vote et d''éligibilité; Participation politique; Campagnes
+      politiques; Financement de la politique.'
+- tag_id: aps:2.1.1
+  scheme: aps
+  status: active
+  parent: aps:2.1
+  names:
+    de: Volksabstimmung
+    fr: Votation populaire
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Volksabstimmung» (Pfad: Direkte Demokratie und Wahlen > Direkte Demokratie
+      > Volksabstimmung).'
+    fr: 'Objets relatifs au thème APS « Votation populaire » (chemin : Démocratie directe et élections
+      > Démocratie directe > Votation populaire).'
+- tag_id: aps:2.1.2
+  scheme: aps
+  status: active
+  parent: aps:2.1
+  names:
+    de: Referendum
+    fr: Référendum
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Referendum» (Pfad: Direkte Demokratie und Wahlen > Direkte Demokratie
+      > Referendum).'
+    fr: 'Objets relatifs au thème APS « Référendum » (chemin : Démocratie directe et élections > Démocratie
+      directe > Référendum).'
+- tag_id: aps:2.1.3
+  scheme: aps
+  status: active
+  parent: aps:2.1
+  names:
+    de: Volksinitiative
+    fr: Initiative populaire
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Volksinitiative» (Pfad: Direkte Demokratie und Wahlen > Direkte Demokratie
+      > Volksinitiative).'
+    fr: 'Objets relatifs au thème APS « Initiative populaire » (chemin : Démocratie directe et élections
+      > Démocratie directe > Initiative populaire).'
+- tag_id: aps:2.1.4
+  scheme: aps
+  status: active
+  parent: aps:2.1
+  names:
+    de: Landsgemeinde
+    fr: Landsgemeinde
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Landsgemeinde» (Pfad: Direkte Demokratie und Wahlen > Direkte Demokratie
+      > Landsgemeinde).'
+    fr: 'Objets relatifs au thème APS « Landsgemeinde » (chemin : Démocratie directe et élections > Démocratie
+      directe > Landsgemeinde).'
+- tag_id: aps:2.1.5
+  scheme: aps
+  status: active
+  parent: aps:2.1
+  names:
+    de: Wahl- und Abstimmungsverfahren
+    fr: Procédure de vote et d'élection
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Wahl- und Abstimmungsverfahren» (Pfad: Direkte Demokratie und Wahlen
+      > Direkte Demokratie > Wahl- und Abstimmungsverfahren).'
+    fr: 'Objets relatifs au thème APS « Procédure de vote et d''élection » (chemin : Démocratie directe
+      et élections > Démocratie directe > Procédure de vote et d''élection).'
+- tag_id: aps:2.1.6
+  scheme: aps
+  status: active
+  parent: aps:2.1
+  names:
+    de: Stimm- und Wahlrecht
+    fr: Droit de vote et d'éligibilité
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Stimm- und Wahlrecht» (Pfad: Direkte Demokratie und Wahlen > Direkte
+      Demokratie > Stimm- und Wahlrecht).'
+    fr: 'Objets relatifs au thème APS « Droit de vote et d''éligibilité » (chemin : Démocratie directe
+      et élections > Démocratie directe > Droit de vote et d''éligibilité).'
+- tag_id: aps:2.1.7
+  scheme: aps
+  status: active
+  parent: aps:2.1
+  names:
+    de: Politische Beteiligung
+    fr: Participation politique
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Politische Beteiligung» (Pfad: Direkte Demokratie und Wahlen > Direkte
+      Demokratie > Politische Beteiligung).'
+    fr: 'Objets relatifs au thème APS « Participation politique » (chemin : Démocratie directe et élections
+      > Démocratie directe > Participation politique).'
+- tag_id: aps:2.1.8
+  scheme: aps
+  status: active
+  parent: aps:2.1
+  names:
+    de: Politische Kampagnen
+    fr: Campagnes politiques
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Politische Kampagnen» (Pfad: Direkte Demokratie und Wahlen > Direkte
+      Demokratie > Politische Kampagnen).'
+    fr: 'Objets relatifs au thème APS « Campagnes politiques » (chemin : Démocratie directe et élections
+      > Démocratie directe > Campagnes politiques).'
+- tag_id: aps:2.1.9
+  scheme: aps
+  status: active
+  parent: aps:2.1
+  names:
+    de: Politikfinanzierung
+    fr: Financement de la politique
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Politikfinanzierung» (Pfad: Direkte Demokratie und Wahlen > Direkte
+      Demokratie > Politikfinanzierung).'
+    fr: 'Objets relatifs au thème APS « Financement de la politique » (chemin : Démocratie directe et
+      élections > Démocratie directe > Financement de la politique).'
+- tag_id: aps:2.2
+  scheme: aps
+  status: active
+  parent: aps:2
+  names:
+    de: Wahlen
+    fr: Elections
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Wahlen» (Pfad: Direkte Demokratie und Wahlen > Wahlen). Umfasst: National-
+      und Ständeratswahlen; Wahlen in kantonale Regierungen; Wahlen in kantonale Parlamente; Kommunale
+      Wahlen.'
+    fr: 'Objets relatifs au thème APS « Elections » (chemin : Démocratie directe et élections > Elections).
+      Comprend : Elections du Conseil national et du Conseil des Etats; Elections des gouvernements cantonaux;
+      Elections des parlements cantonaux; Elections communales.'
+- tag_id: aps:2.2.1
+  scheme: aps
+  status: active
+  parent: aps:2.2
+  names:
+    de: National- und Ständeratswahlen
+    fr: Elections du Conseil national et du Conseil des Etats
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «National- und Ständeratswahlen» (Pfad: Direkte Demokratie und Wahlen
+      > Wahlen > National- und Ständeratswahlen).'
+    fr: 'Objets relatifs au thème APS « Elections du Conseil national et du Conseil des Etats » (chemin
+      : Démocratie directe et élections > Elections > Elections du Conseil national et du Conseil des
+      Etats).'
+- tag_id: aps:2.2.2
+  scheme: aps
+  status: active
+  parent: aps:2.2
+  names:
+    de: Wahlen in kantonale Regierungen
+    fr: Elections des gouvernements cantonaux
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Wahlen in kantonale Regierungen» (Pfad: Direkte Demokratie und Wahlen
+      > Wahlen > Wahlen in kantonale Regierungen).'
+    fr: 'Objets relatifs au thème APS « Elections des gouvernements cantonaux » (chemin : Démocratie directe
+      et élections > Elections > Elections des gouvernements cantonaux).'
+- tag_id: aps:2.2.3
+  scheme: aps
+  status: active
+  parent: aps:2.2
+  names:
+    de: Wahlen in kantonale Parlamente
+    fr: Elections des parlements cantonaux
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Wahlen in kantonale Parlamente» (Pfad: Direkte Demokratie und Wahlen
+      > Wahlen > Wahlen in kantonale Parlamente).'
+    fr: 'Objets relatifs au thème APS « Elections des parlements cantonaux » (chemin : Démocratie directe
+      et élections > Elections > Elections des parlements cantonaux).'
+- tag_id: aps:2.2.4
+  scheme: aps
+  status: active
+  parent: aps:2.2
+  names:
+    de: Kommunale Wahlen
+    fr: Elections communales
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Kommunale Wahlen» (Pfad: Direkte Demokratie und Wahlen > Wahlen > Kommunale
+      Wahlen).'
+    fr: 'Objets relatifs au thème APS « Elections communales » (chemin : Démocratie directe et élections
+      > Elections > Elections communales).'
+- tag_id: aps:3
+  scheme: aps
+  status: active
+  names:
+    de: Europa- und Aussenpolitik
+    fr: Politique européenne et étrangère
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Europa- und Aussenpolitik» (Pfad: Europa- und Aussenpolitik). Umfasst:
+      Europa- und Aussenpolitik.'
+    fr: 'Objets relatifs au thème APS « Politique européenne et étrangère » (chemin : Politique européenne
+      et étrangère). Comprend : Politique européenne et étrangère.'
+- tag_id: aps:3.1
+  scheme: aps
+  status: active
+  parent: aps:3
+  names:
+    de: Europa- und Aussenpolitik
+    fr: Politique européenne et étrangère
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Europa- und Aussenpolitik» (Pfad: Europa- und Aussenpolitik > Europa-
+      und Aussenpolitik). Umfasst: Beziehungen zur EU; Zwischenstaatliche Beziehungen; Beziehungen zu
+      internationalen Organisationen; Neutralität; Gute Dienste; Aussenwirtschaftspolitik; Entwicklungspolitik;
+      Auslandschweizerinnen und -schweizer.'
+    fr: 'Objets relatifs au thème APS « Politique européenne et étrangère » (chemin : Politique européenne
+      et étrangère > Politique européenne et étrangère). Comprend : Relations avec l''Union européenne
+      (UE); Relations avec d''autres Etats; Relations avec des organisations internationales; Neutralité;
+      Bons offices; Politique économique extérieure; Politique de développement; Suisses de l''étranger.'
+- tag_id: aps:3.1.1
+  scheme: aps
+  status: active
+  parent: aps:3.1
+  names:
+    de: Beziehungen zur EU
+    fr: Relations avec l'Union européenne (UE)
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Beziehungen zur EU» (Pfad: Europa- und Aussenpolitik > Europa- und Aussenpolitik
+      > Beziehungen zur EU).'
+    fr: 'Objets relatifs au thème APS « Relations avec l''Union européenne (UE) » (chemin : Politique
+      européenne et étrangère > Politique européenne et étrangère > Relations avec l''Union européenne
+      (UE)).'
+- tag_id: aps:3.1.2
+  scheme: aps
+  status: active
+  parent: aps:3.1
+  names:
+    de: Zwischenstaatliche Beziehungen
+    fr: Relations avec d'autres Etats
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Zwischenstaatliche Beziehungen» (Pfad: Europa- und Aussenpolitik > Europa-
+      und Aussenpolitik > Zwischenstaatliche Beziehungen).'
+    fr: 'Objets relatifs au thème APS « Relations avec d''autres Etats » (chemin : Politique européenne
+      et étrangère > Politique européenne et étrangère > Relations avec d''autres Etats).'
+- tag_id: aps:3.1.3
+  scheme: aps
+  status: active
+  parent: aps:3.1
+  names:
+    de: Beziehungen zu internationalen Organisationen
+    fr: Relations avec des organisations internationales
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Beziehungen zu internationalen Organisationen» (Pfad: Europa- und Aussenpolitik
+      > Europa- und Aussenpolitik > Beziehungen zu internationalen Organisationen).'
+    fr: 'Objets relatifs au thème APS « Relations avec des organisations internationales » (chemin : Politique
+      européenne et étrangère > Politique européenne et étrangère > Relations avec des organisations internationales).'
+- tag_id: aps:3.1.4
+  scheme: aps
+  status: active
+  parent: aps:3.1
+  names:
+    de: Neutralität
+    fr: Neutralité
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Neutralität» (Pfad: Europa- und Aussenpolitik > Europa- und Aussenpolitik
+      > Neutralität).'
+    fr: 'Objets relatifs au thème APS « Neutralité » (chemin : Politique européenne et étrangère > Politique
+      européenne et étrangère > Neutralité).'
+- tag_id: aps:3.1.5
+  scheme: aps
+  status: active
+  parent: aps:3.1
+  names:
+    de: Gute Dienste
+    fr: Bons offices
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Gute Dienste» (Pfad: Europa- und Aussenpolitik > Europa- und Aussenpolitik
+      > Gute Dienste).'
+    fr: 'Objets relatifs au thème APS « Bons offices » (chemin : Politique européenne et étrangère > Politique
+      européenne et étrangère > Bons offices).'
+- tag_id: aps:3.1.6
+  scheme: aps
+  status: active
+  parent: aps:3.1
+  names:
+    de: Aussenwirtschaftspolitik
+    fr: Politique économique extérieure
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Aussenwirtschaftspolitik» (Pfad: Europa- und Aussenpolitik > Europa-
+      und Aussenpolitik > Aussenwirtschaftspolitik).'
+    fr: 'Objets relatifs au thème APS « Politique économique extérieure » (chemin : Politique européenne
+      et étrangère > Politique européenne et étrangère > Politique économique extérieure).'
+- tag_id: aps:3.1.7
+  scheme: aps
+  status: active
+  parent: aps:3.1
+  names:
+    de: Entwicklungspolitik
+    fr: Politique de développement
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Entwicklungspolitik» (Pfad: Europa- und Aussenpolitik > Europa- und
+      Aussenpolitik > Entwicklungspolitik).'
+    fr: 'Objets relatifs au thème APS « Politique de développement » (chemin : Politique européenne et
+      étrangère > Politique européenne et étrangère > Politique de développement).'
+- tag_id: aps:3.1.8
+  scheme: aps
+  status: active
+  parent: aps:3.1
+  names:
+    de: Auslandschweizerinnen und -schweizer
+    fr: Suisses de l'étranger
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Auslandschweizerinnen und -schweizer» (Pfad: Europa- und Aussenpolitik
+      > Europa- und Aussenpolitik > Auslandschweizerinnen und -schweizer).'
+    fr: 'Objets relatifs au thème APS « Suisses de l''étranger » (chemin : Politique européenne et étrangère
+      > Politique européenne et étrangère > Suisses de l''étranger).'
+- tag_id: aps:4
+  scheme: aps
+  status: active
+  names:
+    de: Gesellschaft und Kultur
+    fr: Société et culture
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Gesellschaft und Kultur» (Pfad: Gesellschaft und Kultur). Umfasst: Soziale
+      Gruppen; Bildung und Forschung; Kultur, Sprache, Kirchen; Medien.'
+    fr: 'Objets relatifs au thème APS « Société et culture » (chemin : Société et culture). Comprend :
+      Groupes sociaux; Enseignement et recherche; Culture, langues, églises; Médias.'
+- tag_id: aps:4.1
+  scheme: aps
+  status: active
+  parent: aps:4
+  names:
+    de: Soziale Gruppen
+    fr: Groupes sociaux
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Soziale Gruppen» (Pfad: Gesellschaft und Kultur > Soziale Gruppen).
+      Umfasst: Bevölkerungsentwicklung; Migration; Asylwesen; Frauen- und Gleichstellungsfragen; Familien;
+      Kinder und Jugendliche; Altersfragen; LGBTQIA+; Menschen mit Behinderungen; Fahrende.'
+    fr: 'Objets relatifs au thème APS « Groupes sociaux » (chemin : Société et culture > Groupes sociaux).
+      Comprend : Evolution de la population; Migration; Asile; Femmes et égalité des sexes; Familles;
+      Enfants et adolescents; Questions relatives à l''âge; LGBTQIA+; Personnes en situation de handicap;
+      Gens du voyage.'
+- tag_id: aps:4.1.1
+  scheme: aps
+  status: active
+  parent: aps:4.1
+  names:
+    de: Bevölkerungsentwicklung
+    fr: Evolution de la population
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Bevölkerungsentwicklung» (Pfad: Gesellschaft und Kultur > Soziale Gruppen
+      > Bevölkerungsentwicklung).'
+    fr: 'Objets relatifs au thème APS « Evolution de la population » (chemin : Société et culture > Groupes
+      sociaux > Evolution de la population).'
+- tag_id: aps:4.1.2
+  scheme: aps
+  status: active
+  parent: aps:4.1
+  names:
+    de: Migration
+    fr: Migration
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Migration» (Pfad: Gesellschaft und Kultur > Soziale Gruppen > Migration).'
+    fr: 'Objets relatifs au thème APS « Migration » (chemin : Société et culture > Groupes sociaux > Migration).'
+- tag_id: aps:4.1.3
+  scheme: aps
+  status: active
+  parent: aps:4.1
+  names:
+    de: Asylwesen
+    fr: Asile
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Asylwesen» (Pfad: Gesellschaft und Kultur > Soziale Gruppen > Asylwesen).'
+    fr: 'Objets relatifs au thème APS « Asile » (chemin : Société et culture > Groupes sociaux > Asile).'
+- tag_id: aps:4.1.4
+  scheme: aps
+  status: active
+  parent: aps:4.1
+  names:
+    de: Frauen- und Gleichstellungsfragen
+    fr: Femmes et égalité des sexes
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Frauen- und Gleichstellungsfragen» (Pfad: Gesellschaft und Kultur >
+      Soziale Gruppen > Frauen- und Gleichstellungsfragen).'
+    fr: 'Objets relatifs au thème APS « Femmes et égalité des sexes » (chemin : Société et culture > Groupes
+      sociaux > Femmes et égalité des sexes).'
+- tag_id: aps:4.1.5
+  scheme: aps
+  status: active
+  parent: aps:4.1
+  names:
+    de: Familien
+    fr: Familles
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Familien» (Pfad: Gesellschaft und Kultur > Soziale Gruppen > Familien).'
+    fr: 'Objets relatifs au thème APS « Familles » (chemin : Société et culture > Groupes sociaux > Familles).'
+- tag_id: aps:4.1.6
+  scheme: aps
+  status: active
+  parent: aps:4.1
+  names:
+    de: Kinder und Jugendliche
+    fr: Enfants et adolescents
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Kinder und Jugendliche» (Pfad: Gesellschaft und Kultur > Soziale Gruppen
+      > Kinder und Jugendliche).'
+    fr: 'Objets relatifs au thème APS « Enfants et adolescents » (chemin : Société et culture > Groupes
+      sociaux > Enfants et adolescents).'
+- tag_id: aps:4.1.7
+  scheme: aps
+  status: active
+  parent: aps:4.1
+  names:
+    de: Altersfragen
+    fr: Questions relatives à l'âge
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Altersfragen» (Pfad: Gesellschaft und Kultur > Soziale Gruppen > Altersfragen).'
+    fr: 'Objets relatifs au thème APS « Questions relatives à l''âge » (chemin : Société et culture >
+      Groupes sociaux > Questions relatives à l''âge).'
+- tag_id: aps:4.1.8
+  scheme: aps
+  status: active
+  parent: aps:4.1
+  names:
+    de: LGBTQIA+
+    fr: LGBTQIA+
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «LGBTQIA+» (Pfad: Gesellschaft und Kultur > Soziale Gruppen > LGBTQIA+).'
+    fr: 'Objets relatifs au thème APS « LGBTQIA+ » (chemin : Société et culture > Groupes sociaux > LGBTQIA+).'
+- tag_id: aps:4.1.9
+  scheme: aps
+  status: active
+  parent: aps:4.1
+  names:
+    de: Menschen mit Behinderungen
+    fr: Personnes en situation de handicap
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Menschen mit Behinderungen» (Pfad: Gesellschaft und Kultur > Soziale
+      Gruppen > Menschen mit Behinderungen).'
+    fr: 'Objets relatifs au thème APS « Personnes en situation de handicap » (chemin : Société et culture
+      > Groupes sociaux > Personnes en situation de handicap).'
+- tag_id: aps:4.1.10
+  scheme: aps
+  status: active
+  parent: aps:4.1
+  names:
+    de: Fahrende
+    fr: Gens du voyage
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Fahrende» (Pfad: Gesellschaft und Kultur > Soziale Gruppen > Fahrende).'
+    fr: 'Objets relatifs au thème APS « Gens du voyage » (chemin : Société et culture > Groupes sociaux
+      > Gens du voyage).'
+- tag_id: aps:4.2
+  scheme: aps
+  status: active
+  parent: aps:4
+  names:
+    de: Bildung und Forschung
+    fr: Enseignement et recherche
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Bildung und Forschung» (Pfad: Gesellschaft und Kultur > Bildung und
+      Forschung). Umfasst: Grundschulen; Berufsbildung; Mittelschulen; Hochschulen; Forschung.'
+    fr: 'Objets relatifs au thème APS « Enseignement et recherche » (chemin : Société et culture > Enseignement
+      et recherche). Comprend : Ecole obligatoire; Formation professionnelle; Enseignement secondaire
+      supérieur; Hautes écoles; Recherche.'
+- tag_id: aps:4.2.1
+  scheme: aps
+  status: active
+  parent: aps:4.2
+  names:
+    de: Grundschulen
+    fr: Ecole obligatoire
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Grundschulen» (Pfad: Gesellschaft und Kultur > Bildung und Forschung
+      > Grundschulen).'
+    fr: 'Objets relatifs au thème APS « Ecole obligatoire » (chemin : Société et culture > Enseignement
+      et recherche > Ecole obligatoire).'
+- tag_id: aps:4.2.2
+  scheme: aps
+  status: active
+  parent: aps:4.2
+  names:
+    de: Berufsbildung
+    fr: Formation professionnelle
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Berufsbildung» (Pfad: Gesellschaft und Kultur > Bildung und Forschung
+      > Berufsbildung).'
+    fr: 'Objets relatifs au thème APS « Formation professionnelle » (chemin : Société et culture > Enseignement
+      et recherche > Formation professionnelle).'
+- tag_id: aps:4.2.3
+  scheme: aps
+  status: active
+  parent: aps:4.2
+  names:
+    de: Mittelschulen
+    fr: Enseignement secondaire supérieur
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Mittelschulen» (Pfad: Gesellschaft und Kultur > Bildung und Forschung
+      > Mittelschulen).'
+    fr: 'Objets relatifs au thème APS « Enseignement secondaire supérieur » (chemin : Société et culture
+      > Enseignement et recherche > Enseignement secondaire supérieur).'
+- tag_id: aps:4.2.4
+  scheme: aps
+  status: active
+  parent: aps:4.2
+  names:
+    de: Hochschulen
+    fr: Hautes écoles
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Hochschulen» (Pfad: Gesellschaft und Kultur > Bildung und Forschung
+      > Hochschulen).'
+    fr: 'Objets relatifs au thème APS « Hautes écoles » (chemin : Société et culture > Enseignement et
+      recherche > Hautes écoles).'
+- tag_id: aps:4.2.5
+  scheme: aps
+  status: active
+  parent: aps:4.2
+  names:
+    de: Forschung
+    fr: Recherche
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Forschung» (Pfad: Gesellschaft und Kultur > Bildung und Forschung >
+      Forschung).'
+    fr: 'Objets relatifs au thème APS « Recherche » (chemin : Société et culture > Enseignement et recherche
+      > Recherche).'
+- tag_id: aps:4.3
+  scheme: aps
+  status: active
+  parent: aps:4
+  names:
+    de: Kultur, Sprache, Kirchen
+    fr: Culture, langues, églises
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Kultur, Sprache, Kirchen» (Pfad: Gesellschaft und Kultur > Kultur, Sprache,
+      Kirchen). Umfasst: Kultur; Sprachfragen; Religion und Kirchen; Heimatschutz und Denkmalpflege; Urheberrecht.'
+    fr: 'Objets relatifs au thème APS « Culture, langues, églises » (chemin : Société et culture > Culture,
+      langues, églises). Comprend : Culture; Questions linguistiques; Religion et Eglises; Protection
+      des sites et du patrimoine; Droit d''auteur.'
+- tag_id: aps:4.3.1
+  scheme: aps
+  status: active
+  parent: aps:4.3
+  names:
+    de: Kultur
+    fr: Culture
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Kultur» (Pfad: Gesellschaft und Kultur > Kultur, Sprache, Kirchen >
+      Kultur).'
+    fr: 'Objets relatifs au thème APS « Culture » (chemin : Société et culture > Culture, langues, églises
+      > Culture).'
+- tag_id: aps:4.3.2
+  scheme: aps
+  status: active
+  parent: aps:4.3
+  names:
+    de: Sprachfragen
+    fr: Questions linguistiques
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Sprachfragen» (Pfad: Gesellschaft und Kultur > Kultur, Sprache, Kirchen
+      > Sprachfragen).'
+    fr: 'Objets relatifs au thème APS « Questions linguistiques » (chemin : Société et culture > Culture,
+      langues, églises > Questions linguistiques).'
+- tag_id: aps:4.3.3
+  scheme: aps
+  status: active
+  parent: aps:4.3
+  names:
+    de: Religion und Kirchen
+    fr: Religion et Eglises
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Religion und Kirchen» (Pfad: Gesellschaft und Kultur > Kultur, Sprache,
+      Kirchen > Religion und Kirchen).'
+    fr: 'Objets relatifs au thème APS « Religion et Eglises » (chemin : Société et culture > Culture,
+      langues, églises > Religion et Eglises).'
+- tag_id: aps:4.3.4
+  scheme: aps
+  status: active
+  parent: aps:4.3
+  names:
+    de: Heimatschutz und Denkmalpflege
+    fr: Protection des sites et du patrimoine
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Heimatschutz und Denkmalpflege» (Pfad: Gesellschaft und Kultur > Kultur,
+      Sprache, Kirchen > Heimatschutz und Denkmalpflege).'
+    fr: 'Objets relatifs au thème APS « Protection des sites et du patrimoine » (chemin : Société et culture
+      > Culture, langues, églises > Protection des sites et du patrimoine).'
+- tag_id: aps:4.3.5
+  scheme: aps
+  status: active
+  parent: aps:4.3
+  names:
+    de: Urheberrecht
+    fr: Droit d'auteur
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Urheberrecht» (Pfad: Gesellschaft und Kultur > Kultur, Sprache, Kirchen
+      > Urheberrecht).'
+    fr: 'Objets relatifs au thème APS « Droit d''auteur » (chemin : Société et culture > Culture, langues,
+      églises > Droit d''auteur).'
+- tag_id: aps:4.4
+  scheme: aps
+  status: active
+  parent: aps:4
+  names:
+    de: Medien
+    fr: Médias
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Medien» (Pfad: Gesellschaft und Kultur > Medien). Umfasst: Medienpolitische
+      Grundfragen; Presse; Radio und Fernsehen; Digitale Medien; Meinungsforschung.'
+    fr: 'Objets relatifs au thème APS « Médias » (chemin : Société et culture > Médias). Comprend : Aspects
+      généraux de la politique médiatique; Presse; Radio et télévision; Médias numériques; Sondages.'
+- tag_id: aps:4.4.1
+  scheme: aps
+  status: active
+  parent: aps:4.4
+  names:
+    de: Medienpolitische Grundfragen
+    fr: Aspects généraux de la politique médiatique
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Medienpolitische Grundfragen» (Pfad: Gesellschaft und Kultur > Medien
+      > Medienpolitische Grundfragen).'
+    fr: 'Objets relatifs au thème APS « Aspects généraux de la politique médiatique » (chemin : Société
+      et culture > Médias > Aspects généraux de la politique médiatique).'
+- tag_id: aps:4.4.2
+  scheme: aps
+  status: active
+  parent: aps:4.4
+  names:
+    de: Presse
+    fr: Presse
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Presse» (Pfad: Gesellschaft und Kultur > Medien > Presse).'
+    fr: 'Objets relatifs au thème APS « Presse » (chemin : Société et culture > Médias > Presse).'
+- tag_id: aps:4.4.3
+  scheme: aps
+  status: active
+  parent: aps:4.4
+  names:
+    de: Radio und Fernsehen
+    fr: Radio et télévision
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Radio und Fernsehen» (Pfad: Gesellschaft und Kultur > Medien > Radio
+      und Fernsehen).'
+    fr: 'Objets relatifs au thème APS « Radio et télévision » (chemin : Société et culture > Médias >
+      Radio et télévision).'
+- tag_id: aps:4.4.4
+  scheme: aps
+  status: active
+  parent: aps:4.4
+  names:
+    de: Digitale Medien
+    fr: Médias numériques
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Digitale Medien» (Pfad: Gesellschaft und Kultur > Medien > Digitale
+      Medien).'
+    fr: 'Objets relatifs au thème APS « Médias numériques » (chemin : Société et culture > Médias > Médias
+      numériques).'
+- tag_id: aps:4.4.5
+  scheme: aps
+  status: active
+  parent: aps:4.4
+  names:
+    de: Meinungsforschung
+    fr: Sondages
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Meinungsforschung» (Pfad: Gesellschaft und Kultur > Medien > Meinungsforschung).'
+    fr: 'Objets relatifs au thème APS « Sondages » (chemin : Société et culture > Médias > Sondages).'
+- tag_id: aps:5
+  scheme: aps
+  status: active
+  names:
+    de: Gesundheit und Sozialsystem
+    fr: Santé et système social
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Gesundheit und Sozialsystem» (Pfad: Gesundheit und Sozialsystem). Umfasst:
+      Gesundheit, Sozialhilfe, Sport; Sozialversicherungen.'
+    fr: 'Objets relatifs au thème APS « Santé et système social » (chemin : Santé et système social).
+      Comprend : Santé, assistance sociale, sport; Assurances sociales.'
+- tag_id: aps:5.1
+  scheme: aps
+  status: active
+  parent: aps:5
+  names:
+    de: Gesundheit, Sozialhilfe, Sport
+    fr: Santé, assistance sociale, sport
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Gesundheit, Sozialhilfe, Sport» (Pfad: Gesundheit und Sozialsystem >
+      Gesundheit, Sozialhilfe, Sport). Umfasst: Gesundheitspolitik; Ärzte und Pflegepersonal; Spitäler;
+      Medikamente; Suchtmittel; Medizinische Forschung; Fortpflanzungsmedizin; Epidemien und Pandemien;
+      Sozialhilfe; Sport.'
+    fr: 'Objets relatifs au thème APS « Santé, assistance sociale, sport » (chemin : Santé et système
+      social > Santé, assistance sociale, sport). Comprend : Politique de la santé; Médecins et personnel
+      soignant; Hôpitaux; Médicaments; Stupéfiants; Recherche médicale; Procréation médicalement assistée;
+      Epidémies et pandémies; Assistance sociale; Sport.'
+- tag_id: aps:5.1.1
+  scheme: aps
+  status: active
+  parent: aps:5.1
+  names:
+    de: Gesundheitspolitik
+    fr: Politique de la santé
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Gesundheitspolitik» (Pfad: Gesundheit und Sozialsystem > Gesundheit,
+      Sozialhilfe, Sport > Gesundheitspolitik).'
+    fr: 'Objets relatifs au thème APS « Politique de la santé » (chemin : Santé et système social > Santé,
+      assistance sociale, sport > Politique de la santé).'
+- tag_id: aps:5.1.2
+  scheme: aps
+  status: active
+  parent: aps:5.1
+  names:
+    de: Ärzte und Pflegepersonal
+    fr: Médecins et personnel soignant
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Ärzte und Pflegepersonal» (Pfad: Gesundheit und Sozialsystem > Gesundheit,
+      Sozialhilfe, Sport > Ärzte und Pflegepersonal).'
+    fr: 'Objets relatifs au thème APS « Médecins et personnel soignant » (chemin : Santé et système social
+      > Santé, assistance sociale, sport > Médecins et personnel soignant).'
+- tag_id: aps:5.1.3
+  scheme: aps
+  status: active
+  parent: aps:5.1
+  names:
+    de: Spitäler
+    fr: Hôpitaux
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Spitäler» (Pfad: Gesundheit und Sozialsystem > Gesundheit, Sozialhilfe,
+      Sport > Spitäler).'
+    fr: 'Objets relatifs au thème APS « Hôpitaux » (chemin : Santé et système social > Santé, assistance
+      sociale, sport > Hôpitaux).'
+- tag_id: aps:5.1.4
+  scheme: aps
+  status: active
+  parent: aps:5.1
+  names:
+    de: Medikamente
+    fr: Médicaments
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Medikamente» (Pfad: Gesundheit und Sozialsystem > Gesundheit, Sozialhilfe,
+      Sport > Medikamente).'
+    fr: 'Objets relatifs au thème APS « Médicaments » (chemin : Santé et système social > Santé, assistance
+      sociale, sport > Médicaments).'
+- tag_id: aps:5.1.5
+  scheme: aps
+  status: active
+  parent: aps:5.1
+  names:
+    de: Suchtmittel
+    fr: Stupéfiants
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Suchtmittel» (Pfad: Gesundheit und Sozialsystem > Gesundheit, Sozialhilfe,
+      Sport > Suchtmittel).'
+    fr: 'Objets relatifs au thème APS « Stupéfiants » (chemin : Santé et système social > Santé, assistance
+      sociale, sport > Stupéfiants).'
+- tag_id: aps:5.1.6
+  scheme: aps
+  status: active
+  parent: aps:5.1
+  names:
+    de: Medizinische Forschung
+    fr: Recherche médicale
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Medizinische Forschung» (Pfad: Gesundheit und Sozialsystem > Gesundheit,
+      Sozialhilfe, Sport > Medizinische Forschung).'
+    fr: 'Objets relatifs au thème APS « Recherche médicale » (chemin : Santé et système social > Santé,
+      assistance sociale, sport > Recherche médicale).'
+- tag_id: aps:5.1.7
+  scheme: aps
+  status: active
+  parent: aps:5.1
+  names:
+    de: Fortpflanzungsmedizin
+    fr: Procréation médicalement assistée
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Fortpflanzungsmedizin» (Pfad: Gesundheit und Sozialsystem > Gesundheit,
+      Sozialhilfe, Sport > Fortpflanzungsmedizin).'
+    fr: 'Objets relatifs au thème APS « Procréation médicalement assistée » (chemin : Santé et système
+      social > Santé, assistance sociale, sport > Procréation médicalement assistée).'
+- tag_id: aps:5.1.8
+  scheme: aps
+  status: active
+  parent: aps:5.1
+  names:
+    de: Epidemien und Pandemien
+    fr: Epidémies et pandémies
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Epidemien und Pandemien» (Pfad: Gesundheit und Sozialsystem > Gesundheit,
+      Sozialhilfe, Sport > Epidemien und Pandemien).'
+    fr: 'Objets relatifs au thème APS « Epidémies et pandémies » (chemin : Santé et système social > Santé,
+      assistance sociale, sport > Epidémies et pandémies).'
+- tag_id: aps:5.1.9
+  scheme: aps
+  status: active
+  parent: aps:5.1
+  names:
+    de: Sozialhilfe
+    fr: Assistance sociale
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Sozialhilfe» (Pfad: Gesundheit und Sozialsystem > Gesundheit, Sozialhilfe,
+      Sport > Sozialhilfe).'
+    fr: 'Objets relatifs au thème APS « Assistance sociale » (chemin : Santé et système social > Santé,
+      assistance sociale, sport > Assistance sociale).'
+- tag_id: aps:5.1.10
+  scheme: aps
+  status: active
+  parent: aps:5.1
+  names:
+    de: Sport
+    fr: Sport
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Sport» (Pfad: Gesundheit und Sozialsystem > Gesundheit, Sozialhilfe,
+      Sport > Sport).'
+    fr: 'Objets relatifs au thème APS « Sport » (chemin : Santé et système social > Santé, assistance
+      sociale, sport > Sport).'
+- tag_id: aps:5.2
+  scheme: aps
+  status: active
+  parent: aps:5
+  names:
+    de: Sozialversicherungen
+    fr: Assurances sociales
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Sozialversicherungen» (Pfad: Gesundheit und Sozialsystem > Sozialversicherungen).
+      Umfasst: Sozialversicherungen allgemein; Alters- und Hinterlassenenversicherung (AHV); Invalidenversicherung
+      (IV); Krankenversicherung; Unfallversicherung; Arbeitslosenversicherung (ALV); Mutterschaftsversicherung;
+      Erwerbsersatzordnung (EO); Berufliche Vorsorge; Private Vorsorge; Ergänzungsleistungen (EL).'
+    fr: 'Objets relatifs au thème APS « Assurances sociales » (chemin : Santé et système social > Assurances
+      sociales). Comprend : Assurances sociales en général; Assurance-vieillesse et survivants (AVS);
+      Assurance-invalidité (AI); Assurance-maladie; Assurance-accidents; Assurance-chômage; Assurance-maternité;
+      Allocations pour perte de gain (APG); Prévoyance professionnelle; Prévoyance privée; Prestations
+      complémentaires (PC).'
+- tag_id: aps:5.2.1
+  scheme: aps
+  status: active
+  parent: aps:5.2
+  names:
+    de: Sozialversicherungen allgemein
+    fr: Assurances sociales en général
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Sozialversicherungen allgemein» (Pfad: Gesundheit und Sozialsystem >
+      Sozialversicherungen > Sozialversicherungen allgemein).'
+    fr: 'Objets relatifs au thème APS « Assurances sociales en général » (chemin : Santé et système social
+      > Assurances sociales > Assurances sociales en général).'
+- tag_id: aps:5.2.2
+  scheme: aps
+  status: active
+  parent: aps:5.2
+  names:
+    de: Alters- und Hinterlassenenversicherung (AHV)
+    fr: Assurance-vieillesse et survivants (AVS)
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Alters- und Hinterlassenenversicherung (AHV)» (Pfad: Gesundheit und
+      Sozialsystem > Sozialversicherungen > Alters- und Hinterlassenenversicherung (AHV)).'
+    fr: 'Objets relatifs au thème APS « Assurance-vieillesse et survivants (AVS) » (chemin : Santé et
+      système social > Assurances sociales > Assurance-vieillesse et survivants (AVS)).'
+- tag_id: aps:5.2.3
+  scheme: aps
+  status: active
+  parent: aps:5.2
+  names:
+    de: Invalidenversicherung (IV)
+    fr: Assurance-invalidité (AI)
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Invalidenversicherung (IV)» (Pfad: Gesundheit und Sozialsystem > Sozialversicherungen
+      > Invalidenversicherung (IV)).'
+    fr: 'Objets relatifs au thème APS « Assurance-invalidité (AI) » (chemin : Santé et système social
+      > Assurances sociales > Assurance-invalidité (AI)).'
+- tag_id: aps:5.2.4
+  scheme: aps
+  status: active
+  parent: aps:5.2
+  names:
+    de: Krankenversicherung
+    fr: Assurance-maladie
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Krankenversicherung» (Pfad: Gesundheit und Sozialsystem > Sozialversicherungen
+      > Krankenversicherung).'
+    fr: 'Objets relatifs au thème APS « Assurance-maladie » (chemin : Santé et système social > Assurances
+      sociales > Assurance-maladie).'
+- tag_id: aps:5.2.5
+  scheme: aps
+  status: active
+  parent: aps:5.2
+  names:
+    de: Unfallversicherung
+    fr: Assurance-accidents
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Unfallversicherung» (Pfad: Gesundheit und Sozialsystem > Sozialversicherungen
+      > Unfallversicherung).'
+    fr: 'Objets relatifs au thème APS « Assurance-accidents » (chemin : Santé et système social > Assurances
+      sociales > Assurance-accidents).'
+- tag_id: aps:5.2.6
+  scheme: aps
+  status: active
+  parent: aps:5.2
+  names:
+    de: Arbeitslosenversicherung (ALV)
+    fr: Assurance-chômage
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Arbeitslosenversicherung (ALV)» (Pfad: Gesundheit und Sozialsystem >
+      Sozialversicherungen > Arbeitslosenversicherung (ALV)).'
+    fr: 'Objets relatifs au thème APS « Assurance-chômage » (chemin : Santé et système social > Assurances
+      sociales > Assurance-chômage).'
+- tag_id: aps:5.2.7
+  scheme: aps
+  status: active
+  parent: aps:5.2
+  names:
+    de: Mutterschaftsversicherung
+    fr: Assurance-maternité
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Mutterschaftsversicherung» (Pfad: Gesundheit und Sozialsystem > Sozialversicherungen
+      > Mutterschaftsversicherung).'
+    fr: 'Objets relatifs au thème APS « Assurance-maternité » (chemin : Santé et système social > Assurances
+      sociales > Assurance-maternité).'
+- tag_id: aps:5.2.8
+  scheme: aps
+  status: active
+  parent: aps:5.2
+  names:
+    de: Erwerbsersatzordnung (EO)
+    fr: Allocations pour perte de gain (APG)
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Erwerbsersatzordnung (EO)» (Pfad: Gesundheit und Sozialsystem > Sozialversicherungen
+      > Erwerbsersatzordnung (EO)).'
+    fr: 'Objets relatifs au thème APS « Allocations pour perte de gain (APG) » (chemin : Santé et système
+      social > Assurances sociales > Allocations pour perte de gain (APG)).'
+- tag_id: aps:5.2.9
+  scheme: aps
+  status: active
+  parent: aps:5.2
+  names:
+    de: Berufliche Vorsorge
+    fr: Prévoyance professionnelle
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Berufliche Vorsorge» (Pfad: Gesundheit und Sozialsystem > Sozialversicherungen
+      > Berufliche Vorsorge).'
+    fr: 'Objets relatifs au thème APS « Prévoyance professionnelle » (chemin : Santé et système social
+      > Assurances sociales > Prévoyance professionnelle).'
+- tag_id: aps:5.2.10
+  scheme: aps
+  status: active
+  parent: aps:5.2
+  names:
+    de: Private Vorsorge
+    fr: Prévoyance privée
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Private Vorsorge» (Pfad: Gesundheit und Sozialsystem > Sozialversicherungen
+      > Private Vorsorge).'
+    fr: 'Objets relatifs au thème APS « Prévoyance privée » (chemin : Santé et système social > Assurances
+      sociales > Prévoyance privée).'
+- tag_id: aps:5.2.11
+  scheme: aps
+  status: active
+  parent: aps:5.2
+  names:
+    de: Ergänzungsleistungen (EL)
+    fr: Prestations complémentaires (PC)
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Ergänzungsleistungen (EL)» (Pfad: Gesundheit und Sozialsystem > Sozialversicherungen
+      > Ergänzungsleistungen (EL)).'
+    fr: 'Objets relatifs au thème APS « Prestations complémentaires (PC) » (chemin : Santé et système
+      social > Assurances sociales > Prestations complémentaires (PC)).'
+- tag_id: aps:6
+  scheme: aps
+  status: active
+  names:
+    de: Infrastruktur und Umwelt
+    fr: Infrastructures et environnement
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Infrastruktur und Umwelt» (Pfad: Infrastruktur und Umwelt). Umfasst:
+      Verkehr und Kommunikation; Energie; Raumplanung und Wohnungswesen; Umweltschutz.'
+    fr: 'Objets relatifs au thème APS « Infrastructures et environnement » (chemin : Infrastructures et
+      environnement). Comprend : Transports et communications; Energie; Aménagement du territoire et logement;
+      Protection de l''environnement.'
+- tag_id: aps:6.1
+  scheme: aps
+  status: active
+  parent: aps:6
+  names:
+    de: Verkehr und Kommunikation
+    fr: Transports et communications
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Verkehr und Kommunikation» (Pfad: Infrastruktur und Umwelt > Verkehr
+      und Kommunikation). Umfasst: Verkehrspolitik; Öffentlicher Verkehr; Strassenverkehr; Eisenbahn;
+      Luftfahrt; Schifffahrt; Post; Telekommunikation; Digitalisierung.'
+    fr: 'Objets relatifs au thème APS « Transports et communications » (chemin : Infrastructures et environnement
+      > Transports et communications). Comprend : Politique des transports; Transport public; Trafic routier;
+      Chemin de fer; Trafic aérien; Navigation; Poste; Télécommunication; Numérisation.'
+- tag_id: aps:6.1.1
+  scheme: aps
+  status: active
+  parent: aps:6.1
+  names:
+    de: Verkehrspolitik
+    fr: Politique des transports
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Verkehrspolitik» (Pfad: Infrastruktur und Umwelt > Verkehr und Kommunikation
+      > Verkehrspolitik).'
+    fr: 'Objets relatifs au thème APS « Politique des transports » (chemin : Infrastructures et environnement
+      > Transports et communications > Politique des transports).'
+- tag_id: aps:6.1.2
+  scheme: aps
+  status: active
+  parent: aps:6.1
+  names:
+    de: Öffentlicher Verkehr
+    fr: Transport public
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Öffentlicher Verkehr» (Pfad: Infrastruktur und Umwelt > Verkehr und
+      Kommunikation > Öffentlicher Verkehr).'
+    fr: 'Objets relatifs au thème APS « Transport public » (chemin : Infrastructures et environnement
+      > Transports et communications > Transport public).'
+- tag_id: aps:6.1.3
+  scheme: aps
+  status: active
+  parent: aps:6.1
+  names:
+    de: Strassenverkehr
+    fr: Trafic routier
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Strassenverkehr» (Pfad: Infrastruktur und Umwelt > Verkehr und Kommunikation
+      > Strassenverkehr).'
+    fr: 'Objets relatifs au thème APS « Trafic routier » (chemin : Infrastructures et environnement >
+      Transports et communications > Trafic routier).'
+- tag_id: aps:6.1.4
+  scheme: aps
+  status: active
+  parent: aps:6.1
+  names:
+    de: Eisenbahn
+    fr: Chemin de fer
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Eisenbahn» (Pfad: Infrastruktur und Umwelt > Verkehr und Kommunikation
+      > Eisenbahn).'
+    fr: 'Objets relatifs au thème APS « Chemin de fer » (chemin : Infrastructures et environnement > Transports
+      et communications > Chemin de fer).'
+- tag_id: aps:6.1.5
+  scheme: aps
+  status: active
+  parent: aps:6.1
+  names:
+    de: Luftfahrt
+    fr: Trafic aérien
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Luftfahrt» (Pfad: Infrastruktur und Umwelt > Verkehr und Kommunikation
+      > Luftfahrt).'
+    fr: 'Objets relatifs au thème APS « Trafic aérien » (chemin : Infrastructures et environnement > Transports
+      et communications > Trafic aérien).'
+- tag_id: aps:6.1.6
+  scheme: aps
+  status: active
+  parent: aps:6.1
+  names:
+    de: Schifffahrt
+    fr: Navigation
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Schifffahrt» (Pfad: Infrastruktur und Umwelt > Verkehr und Kommunikation
+      > Schifffahrt).'
+    fr: 'Objets relatifs au thème APS « Navigation » (chemin : Infrastructures et environnement > Transports
+      et communications > Navigation).'
+- tag_id: aps:6.1.7
+  scheme: aps
+  status: active
+  parent: aps:6.1
+  names:
+    de: Post
+    fr: Poste
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Post» (Pfad: Infrastruktur und Umwelt > Verkehr und Kommunikation >
+      Post).'
+    fr: 'Objets relatifs au thème APS « Poste » (chemin : Infrastructures et environnement > Transports
+      et communications > Poste).'
+- tag_id: aps:6.1.8
+  scheme: aps
+  status: active
+  parent: aps:6.1
+  names:
+    de: Telekommunikation
+    fr: Télécommunication
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Telekommunikation» (Pfad: Infrastruktur und Umwelt > Verkehr und Kommunikation
+      > Telekommunikation).'
+    fr: 'Objets relatifs au thème APS « Télécommunication » (chemin : Infrastructures et environnement
+      > Transports et communications > Télécommunication).'
+- tag_id: aps:6.1.9
+  scheme: aps
+  status: active
+  parent: aps:6.1
+  names:
+    de: Digitalisierung
+    fr: Numérisation
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Digitalisierung» (Pfad: Infrastruktur und Umwelt > Verkehr und Kommunikation
+      > Digitalisierung).'
+    fr: 'Objets relatifs au thème APS « Numérisation » (chemin : Infrastructures et environnement > Transports
+      et communications > Numérisation).'
+- tag_id: aps:6.2
+  scheme: aps
+  status: active
+  parent: aps:6
+  names:
+    de: Energie
+    fr: Energie
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Energie» (Pfad: Infrastruktur und Umwelt > Energie). Umfasst: Energiepolitik;
+      Stromnetz und -vertrieb; Erdöl und Erdgas; Wasserkraft; Erneuerbare Energien; Kernenergie.'
+    fr: 'Objets relatifs au thème APS « Energie » (chemin : Infrastructures et environnement > Energie).
+      Comprend : Politique énergétique; Réseau et distribution d''électricité; Produits pétroliers et
+      gaz; Force hydraulique; Energies renouvelables; Energie nucléaire.'
+- tag_id: aps:6.2.1
+  scheme: aps
+  status: active
+  parent: aps:6.2
+  names:
+    de: Energiepolitik
+    fr: Politique énergétique
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Energiepolitik» (Pfad: Infrastruktur und Umwelt > Energie > Energiepolitik).'
+    fr: 'Objets relatifs au thème APS « Politique énergétique » (chemin : Infrastructures et environnement
+      > Energie > Politique énergétique).'
+- tag_id: aps:6.2.2
+  scheme: aps
+  status: active
+  parent: aps:6.2
+  names:
+    de: Stromnetz und -vertrieb
+    fr: Réseau et distribution d'électricité
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Stromnetz und -vertrieb» (Pfad: Infrastruktur und Umwelt > Energie >
+      Stromnetz und -vertrieb).'
+    fr: 'Objets relatifs au thème APS « Réseau et distribution d''électricité » (chemin : Infrastructures
+      et environnement > Energie > Réseau et distribution d''électricité).'
+- tag_id: aps:6.2.3
+  scheme: aps
+  status: active
+  parent: aps:6.2
+  names:
+    de: Erdöl und Erdgas
+    fr: Produits pétroliers et gaz
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Erdöl und Erdgas» (Pfad: Infrastruktur und Umwelt > Energie > Erdöl
+      und Erdgas).'
+    fr: 'Objets relatifs au thème APS « Produits pétroliers et gaz » (chemin : Infrastructures et environnement
+      > Energie > Produits pétroliers et gaz).'
+- tag_id: aps:6.2.4
+  scheme: aps
+  status: active
+  parent: aps:6.2
+  names:
+    de: Wasserkraft
+    fr: Force hydraulique
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Wasserkraft» (Pfad: Infrastruktur und Umwelt > Energie > Wasserkraft).'
+    fr: 'Objets relatifs au thème APS « Force hydraulique » (chemin : Infrastructures et environnement
+      > Energie > Force hydraulique).'
+- tag_id: aps:6.2.5
+  scheme: aps
+  status: active
+  parent: aps:6.2
+  names:
+    de: Erneuerbare Energien
+    fr: Energies renouvelables
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Erneuerbare Energien» (Pfad: Infrastruktur und Umwelt > Energie > Erneuerbare
+      Energien).'
+    fr: 'Objets relatifs au thème APS « Energies renouvelables » (chemin : Infrastructures et environnement
+      > Energie > Energies renouvelables).'
+- tag_id: aps:6.2.6
+  scheme: aps
+  status: active
+  parent: aps:6.2
+  names:
+    de: Kernenergie
+    fr: Energie nucléaire
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Kernenergie» (Pfad: Infrastruktur und Umwelt > Energie > Kernenergie).'
+    fr: 'Objets relatifs au thème APS « Energie nucléaire » (chemin : Infrastructures et environnement
+      > Energie > Energie nucléaire).'
+- tag_id: aps:6.3
+  scheme: aps
+  status: active
+  parent: aps:6
+  names:
+    de: Raumplanung und Wohnungswesen
+    fr: Aménagement du territoire et logement
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Raumplanung und Wohnungswesen» (Pfad: Infrastruktur und Umwelt > Raumplanung
+      und Wohnungswesen). Umfasst: Raumplanung; Wohnungsbau und -eigentum; Mietwesen; Bodenrecht.'
+    fr: 'Objets relatifs au thème APS « Aménagement du territoire et logement » (chemin : Infrastructures
+      et environnement > Aménagement du territoire et logement). Comprend : Aménagement du territoire;
+      Construction de logements et propriété; Logement et loyer; Droit foncier.'
+- tag_id: aps:6.3.1
+  scheme: aps
+  status: active
+  parent: aps:6.3
+  names:
+    de: Raumplanung
+    fr: Aménagement du territoire
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Raumplanung» (Pfad: Infrastruktur und Umwelt > Raumplanung und Wohnungswesen
+      > Raumplanung).'
+    fr: 'Objets relatifs au thème APS « Aménagement du territoire » (chemin : Infrastructures et environnement
+      > Aménagement du territoire et logement > Aménagement du territoire).'
+- tag_id: aps:6.3.2
+  scheme: aps
+  status: active
+  parent: aps:6.3
+  names:
+    de: Wohnungsbau und -eigentum
+    fr: Construction de logements et propriété
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Wohnungsbau und -eigentum» (Pfad: Infrastruktur und Umwelt > Raumplanung
+      und Wohnungswesen > Wohnungsbau und -eigentum).'
+    fr: 'Objets relatifs au thème APS « Construction de logements et propriété » (chemin : Infrastructures
+      et environnement > Aménagement du territoire et logement > Construction de logements et propriété).'
+- tag_id: aps:6.3.3
+  scheme: aps
+  status: active
+  parent: aps:6.3
+  names:
+    de: Mietwesen
+    fr: Logement et loyer
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Mietwesen» (Pfad: Infrastruktur und Umwelt > Raumplanung und Wohnungswesen
+      > Mietwesen).'
+    fr: 'Objets relatifs au thème APS « Logement et loyer » (chemin : Infrastructures et environnement
+      > Aménagement du territoire et logement > Logement et loyer).'
+- tag_id: aps:6.3.4
+  scheme: aps
+  status: active
+  parent: aps:6.3
+  names:
+    de: Bodenrecht
+    fr: Droit foncier
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Bodenrecht» (Pfad: Infrastruktur und Umwelt > Raumplanung und Wohnungswesen
+      > Bodenrecht).'
+    fr: 'Objets relatifs au thème APS « Droit foncier » (chemin : Infrastructures et environnement > Aménagement
+      du territoire et logement > Droit foncier).'
+- tag_id: aps:6.4
+  scheme: aps
+  status: active
+  parent: aps:6
+  names:
+    de: Umweltschutz
+    fr: Protection de l'environnement
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Umweltschutz» (Pfad: Infrastruktur und Umwelt > Umweltschutz). Umfasst:
+      Allgemeiner Umweltschutz; Naturschutz; Bodenschutz; Gewässerschutz; Luftreinhaltung; Klimapolitik;
+      Lärmschutz; Abfälle und Recycling; Schutz vor Naturgefahren.'
+    fr: 'Objets relatifs au thème APS « Protection de l''environnement » (chemin : Infrastructures et
+      environnement > Protection de l''environnement). Comprend : Politique de protection de l''environnement;
+      Protection de la nature; Protection des sols; Protection des eaux; Gestion de la qualité de l''air;
+      Politique climatique; Mesures contre le bruit; Déchets et recyclage; Protection contre les forces
+      naturelles.'
+- tag_id: aps:6.4.1
+  scheme: aps
+  status: active
+  parent: aps:6.4
+  names:
+    de: Allgemeiner Umweltschutz
+    fr: Politique de protection de l'environnement
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Allgemeiner Umweltschutz» (Pfad: Infrastruktur und Umwelt > Umweltschutz
+      > Allgemeiner Umweltschutz).'
+    fr: 'Objets relatifs au thème APS « Politique de protection de l''environnement » (chemin : Infrastructures
+      et environnement > Protection de l''environnement > Politique de protection de l''environnement).'
+- tag_id: aps:6.4.2
+  scheme: aps
+  status: active
+  parent: aps:6.4
+  names:
+    de: Naturschutz
+    fr: Protection de la nature
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Naturschutz» (Pfad: Infrastruktur und Umwelt > Umweltschutz > Naturschutz).'
+    fr: 'Objets relatifs au thème APS « Protection de la nature » (chemin : Infrastructures et environnement
+      > Protection de l''environnement > Protection de la nature).'
+- tag_id: aps:6.4.3
+  scheme: aps
+  status: active
+  parent: aps:6.4
+  names:
+    de: Bodenschutz
+    fr: Protection des sols
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Bodenschutz» (Pfad: Infrastruktur und Umwelt > Umweltschutz > Bodenschutz).'
+    fr: 'Objets relatifs au thème APS « Protection des sols » (chemin : Infrastructures et environnement
+      > Protection de l''environnement > Protection des sols).'
+- tag_id: aps:6.4.4
+  scheme: aps
+  status: active
+  parent: aps:6.4
+  names:
+    de: Gewässerschutz
+    fr: Protection des eaux
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Gewässerschutz» (Pfad: Infrastruktur und Umwelt > Umweltschutz > Gewässerschutz).'
+    fr: 'Objets relatifs au thème APS « Protection des eaux » (chemin : Infrastructures et environnement
+      > Protection de l''environnement > Protection des eaux).'
+- tag_id: aps:6.4.5
+  scheme: aps
+  status: active
+  parent: aps:6.4
+  names:
+    de: Luftreinhaltung
+    fr: Gestion de la qualité de l'air
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Luftreinhaltung» (Pfad: Infrastruktur und Umwelt > Umweltschutz > Luftreinhaltung).'
+    fr: 'Objets relatifs au thème APS « Gestion de la qualité de l''air » (chemin : Infrastructures et
+      environnement > Protection de l''environnement > Gestion de la qualité de l''air).'
+- tag_id: aps:6.4.6
+  scheme: aps
+  status: active
+  parent: aps:6.4
+  names:
+    de: Klimapolitik
+    fr: Politique climatique
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Klimapolitik» (Pfad: Infrastruktur und Umwelt > Umweltschutz > Klimapolitik).'
+    fr: 'Objets relatifs au thème APS « Politique climatique » (chemin : Infrastructures et environnement
+      > Protection de l''environnement > Politique climatique).'
+- tag_id: aps:6.4.7
+  scheme: aps
+  status: active
+  parent: aps:6.4
+  names:
+    de: Lärmschutz
+    fr: Mesures contre le bruit
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Lärmschutz» (Pfad: Infrastruktur und Umwelt > Umweltschutz > Lärmschutz).'
+    fr: 'Objets relatifs au thème APS « Mesures contre le bruit » (chemin : Infrastructures et environnement
+      > Protection de l''environnement > Mesures contre le bruit).'
+- tag_id: aps:6.4.8
+  scheme: aps
+  status: active
+  parent: aps:6.4
+  names:
+    de: Abfälle und Recycling
+    fr: Déchets et recyclage
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Abfälle und Recycling» (Pfad: Infrastruktur und Umwelt > Umweltschutz
+      > Abfälle und Recycling).'
+    fr: 'Objets relatifs au thème APS « Déchets et recyclage » (chemin : Infrastructures et environnement
+      > Protection de l''environnement > Déchets et recyclage).'
+- tag_id: aps:6.4.9
+  scheme: aps
+  status: active
+  parent: aps:6.4
+  names:
+    de: Schutz vor Naturgefahren
+    fr: Protection contre les forces naturelles
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Schutz vor Naturgefahren» (Pfad: Infrastruktur und Umwelt > Umweltschutz
+      > Schutz vor Naturgefahren).'
+    fr: 'Objets relatifs au thème APS « Protection contre les forces naturelles » (chemin : Infrastructures
+      et environnement > Protection de l''environnement > Protection contre les forces naturelles).'
+- tag_id: aps:7
+  scheme: aps
+  status: active
+  names:
+    de: Rechts- und Sicherheitspolitik
+    fr: Politique juridique et de sécurité
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Rechts- und Sicherheitspolitik» (Pfad: Rechts- und Sicherheitspolitik).
+      Umfasst: Rechtsordnung; Sicherheitspolitik.'
+    fr: 'Objets relatifs au thème APS « Politique juridique et de sécurité » (chemin : Politique juridique
+      et de sécurité). Comprend : Ordre juridique; Politique de sécurité.'
+- tag_id: aps:7.1
+  scheme: aps
+  status: active
+  parent: aps:7
+  names:
+    de: Rechtsordnung
+    fr: Ordre juridique
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Rechtsordnung» (Pfad: Rechts- und Sicherheitspolitik > Rechtsordnung).
+      Umfasst: Grundrechte; Strafrecht; Zivilrecht; Internationales Recht; Staatsangehörigkeit; Rechtshilfe;
+      Datenschutz.'
+    fr: 'Objets relatifs au thème APS « Ordre juridique » (chemin : Politique juridique et de sécurité
+      > Ordre juridique). Comprend : Droits fondamentaux; Droit pénal; Droit civil; Droit international;
+      Nationalité; Entraide judiciaire; Protection des données.'
+- tag_id: aps:7.1.1
+  scheme: aps
+  status: active
+  parent: aps:7.1
+  names:
+    de: Grundrechte
+    fr: Droits fondamentaux
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Grundrechte» (Pfad: Rechts- und Sicherheitspolitik > Rechtsordnung >
+      Grundrechte).'
+    fr: 'Objets relatifs au thème APS « Droits fondamentaux » (chemin : Politique juridique et de sécurité
+      > Ordre juridique > Droits fondamentaux).'
+- tag_id: aps:7.1.2
+  scheme: aps
+  status: active
+  parent: aps:7.1
+  names:
+    de: Strafrecht
+    fr: Droit pénal
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Strafrecht» (Pfad: Rechts- und Sicherheitspolitik > Rechtsordnung >
+      Strafrecht).'
+    fr: 'Objets relatifs au thème APS « Droit pénal » (chemin : Politique juridique et de sécurité > Ordre
+      juridique > Droit pénal).'
+- tag_id: aps:7.1.3
+  scheme: aps
+  status: active
+  parent: aps:7.1
+  names:
+    de: Zivilrecht
+    fr: Droit civil
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Zivilrecht» (Pfad: Rechts- und Sicherheitspolitik > Rechtsordnung >
+      Zivilrecht).'
+    fr: 'Objets relatifs au thème APS « Droit civil » (chemin : Politique juridique et de sécurité > Ordre
+      juridique > Droit civil).'
+- tag_id: aps:7.1.4
+  scheme: aps
+  status: active
+  parent: aps:7.1
+  names:
+    de: Internationales Recht
+    fr: Droit international
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Internationales Recht» (Pfad: Rechts- und Sicherheitspolitik > Rechtsordnung
+      > Internationales Recht).'
+    fr: 'Objets relatifs au thème APS « Droit international » (chemin : Politique juridique et de sécurité
+      > Ordre juridique > Droit international).'
+- tag_id: aps:7.1.5
+  scheme: aps
+  status: active
+  parent: aps:7.1
+  names:
+    de: Staatsangehörigkeit
+    fr: Nationalité
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Staatsangehörigkeit» (Pfad: Rechts- und Sicherheitspolitik > Rechtsordnung
+      > Staatsangehörigkeit).'
+    fr: 'Objets relatifs au thème APS « Nationalité » (chemin : Politique juridique et de sécurité > Ordre
+      juridique > Nationalité).'
+- tag_id: aps:7.1.6
+  scheme: aps
+  status: active
+  parent: aps:7.1
+  names:
+    de: Rechtshilfe
+    fr: Entraide judiciaire
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Rechtshilfe» (Pfad: Rechts- und Sicherheitspolitik > Rechtsordnung >
+      Rechtshilfe).'
+    fr: 'Objets relatifs au thème APS « Entraide judiciaire » (chemin : Politique juridique et de sécurité
+      > Ordre juridique > Entraide judiciaire).'
+- tag_id: aps:7.1.7
+  scheme: aps
+  status: active
+  parent: aps:7.1
+  names:
+    de: Datenschutz
+    fr: Protection des données
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Datenschutz» (Pfad: Rechts- und Sicherheitspolitik > Rechtsordnung >
+      Datenschutz).'
+    fr: 'Objets relatifs au thème APS « Protection des données » (chemin : Politique juridique et de sécurité
+      > Ordre juridique > Protection des données).'
+- tag_id: aps:7.2
+  scheme: aps
+  status: active
+  parent: aps:7
+  names:
+    de: Sicherheitspolitik
+    fr: Politique de sécurité
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Sicherheitspolitik» (Pfad: Rechts- und Sicherheitspolitik > Sicherheitspolitik).
+      Umfasst: Grundfragen zur Armee; Militärorganisation; Rüstung; Militäreinsätze; Bevölkerungsschutz;
+      Zivildienst und Dienstverweigerung; Öffentliche Sicherheit; Polizei; Cybersicherheit; Versorgungssicherheit.'
+    fr: 'Objets relatifs au thème APS « Politique de sécurité » (chemin : Politique juridique et de sécurité
+      > Politique de sécurité). Comprend : Questions fondamentales sur l''armée; Organisation militaire;
+      Armement; Engagements militaires; Protection civile; Service civil et refus de servir; Sécurité
+      publique; Police; Cybersécurité; Sécurité d''approvisionnement.'
+- tag_id: aps:7.2.1
+  scheme: aps
+  status: active
+  parent: aps:7.2
+  names:
+    de: Grundfragen zur Armee
+    fr: Questions fondamentales sur l'armée
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Grundfragen zur Armee» (Pfad: Rechts- und Sicherheitspolitik > Sicherheitspolitik
+      > Grundfragen zur Armee).'
+    fr: 'Objets relatifs au thème APS « Questions fondamentales sur l''armée » (chemin : Politique juridique
+      et de sécurité > Politique de sécurité > Questions fondamentales sur l''armée).'
+- tag_id: aps:7.2.2
+  scheme: aps
+  status: active
+  parent: aps:7.2
+  names:
+    de: Militärorganisation
+    fr: Organisation militaire
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Militärorganisation» (Pfad: Rechts- und Sicherheitspolitik > Sicherheitspolitik
+      > Militärorganisation).'
+    fr: 'Objets relatifs au thème APS « Organisation militaire » (chemin : Politique juridique et de sécurité
+      > Politique de sécurité > Organisation militaire).'
+- tag_id: aps:7.2.3
+  scheme: aps
+  status: active
+  parent: aps:7.2
+  names:
+    de: Rüstung
+    fr: Armement
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Rüstung» (Pfad: Rechts- und Sicherheitspolitik > Sicherheitspolitik
+      > Rüstung).'
+    fr: 'Objets relatifs au thème APS « Armement » (chemin : Politique juridique et de sécurité > Politique
+      de sécurité > Armement).'
+- tag_id: aps:7.2.4
+  scheme: aps
+  status: active
+  parent: aps:7.2
+  names:
+    de: Militäreinsätze
+    fr: Engagements militaires
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Militäreinsätze» (Pfad: Rechts- und Sicherheitspolitik > Sicherheitspolitik
+      > Militäreinsätze).'
+    fr: 'Objets relatifs au thème APS « Engagements militaires » (chemin : Politique juridique et de sécurité
+      > Politique de sécurité > Engagements militaires).'
+- tag_id: aps:7.2.5
+  scheme: aps
+  status: active
+  parent: aps:7.2
+  names:
+    de: Bevölkerungsschutz
+    fr: Protection civile
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Bevölkerungsschutz» (Pfad: Rechts- und Sicherheitspolitik > Sicherheitspolitik
+      > Bevölkerungsschutz).'
+    fr: 'Objets relatifs au thème APS « Protection civile » (chemin : Politique juridique et de sécurité
+      > Politique de sécurité > Protection civile).'
+- tag_id: aps:7.2.6
+  scheme: aps
+  status: active
+  parent: aps:7.2
+  names:
+    de: Zivildienst und Dienstverweigerung
+    fr: Service civil et refus de servir
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Zivildienst und Dienstverweigerung» (Pfad: Rechts- und Sicherheitspolitik
+      > Sicherheitspolitik > Zivildienst und Dienstverweigerung).'
+    fr: 'Objets relatifs au thème APS « Service civil et refus de servir » (chemin : Politique juridique
+      et de sécurité > Politique de sécurité > Service civil et refus de servir).'
+- tag_id: aps:7.2.7
+  scheme: aps
+  status: active
+  parent: aps:7.2
+  names:
+    de: Öffentliche Sicherheit
+    fr: Sécurité publique
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Öffentliche Sicherheit» (Pfad: Rechts- und Sicherheitspolitik > Sicherheitspolitik
+      > Öffentliche Sicherheit).'
+    fr: 'Objets relatifs au thème APS « Sécurité publique » (chemin : Politique juridique et de sécurité
+      > Politique de sécurité > Sécurité publique).'
+- tag_id: aps:7.2.8
+  scheme: aps
+  status: active
+  parent: aps:7.2
+  names:
+    de: Polizei
+    fr: Police
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Polizei» (Pfad: Rechts- und Sicherheitspolitik > Sicherheitspolitik
+      > Polizei).'
+    fr: 'Objets relatifs au thème APS « Police » (chemin : Politique juridique et de sécurité > Politique
+      de sécurité > Police).'
+- tag_id: aps:7.2.9
+  scheme: aps
+  status: active
+  parent: aps:7.2
+  names:
+    de: Cybersicherheit
+    fr: Cybersécurité
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Cybersicherheit» (Pfad: Rechts- und Sicherheitspolitik > Sicherheitspolitik
+      > Cybersicherheit).'
+    fr: 'Objets relatifs au thème APS « Cybersécurité » (chemin : Politique juridique et de sécurité >
+      Politique de sécurité > Cybersécurité).'
+- tag_id: aps:7.2.10
+  scheme: aps
+  status: active
+  parent: aps:7.2
+  names:
+    de: Versorgungssicherheit
+    fr: Sécurité d'approvisionnement
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Versorgungssicherheit» (Pfad: Rechts- und Sicherheitspolitik > Sicherheitspolitik
+      > Versorgungssicherheit).'
+    fr: 'Objets relatifs au thème APS « Sécurité d''approvisionnement » (chemin : Politique juridique
+      et de sécurité > Politique de sécurité > Sécurité d''approvisionnement).'
+- tag_id: aps:8
+  scheme: aps
+  status: active
+  names:
+    de: Wirtschaft und Finanzen
+    fr: Economie et finances
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Wirtschaft und Finanzen» (Pfad: Wirtschaft und Finanzen). Umfasst: Wirtschaftspolitik;
+      Öffentliche Finanzen; Geld, Währung und Kredit; Landwirtschaft; Arbeit.'
+    fr: 'Objets relatifs au thème APS « Economie et finances » (chemin : Economie et finances). Comprend
+      : Politique économique; Finances publiques; Credit et monnaie; Agriculture; Travail.'
+- tag_id: aps:8.1
+  scheme: aps
+  status: active
+  parent: aps:8
+  names:
+    de: Wirtschaftspolitik
+    fr: Politique économique
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Wirtschaftspolitik» (Pfad: Wirtschaft und Finanzen > Wirtschaftspolitik).
+      Umfasst: Konjunkturlage und -politik; Strukturpolitik; Gesellschaftsrecht; Wettbewerb; Konsumentinnen-
+      und Konsumentenschutz; Tourismus; Wirtschaftsordnung.'
+    fr: 'Objets relatifs au thème APS « Politique économique » (chemin : Economie et finances > Politique
+      économique). Comprend : Situation et politique conjoncturelle; Politique structurelle; Droit des
+      sociétés; Concurrence; Protection des consommateurs/trices; Tourisme; Ordre économique.'
+- tag_id: aps:8.1.1
+  scheme: aps
+  status: active
+  parent: aps:8.1
+  names:
+    de: Konjunkturlage und -politik
+    fr: Situation et politique conjoncturelle
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Konjunkturlage und -politik» (Pfad: Wirtschaft und Finanzen > Wirtschaftspolitik
+      > Konjunkturlage und -politik).'
+    fr: 'Objets relatifs au thème APS « Situation et politique conjoncturelle » (chemin : Economie et
+      finances > Politique économique > Situation et politique conjoncturelle).'
+- tag_id: aps:8.1.2
+  scheme: aps
+  status: active
+  parent: aps:8.1
+  names:
+    de: Strukturpolitik
+    fr: Politique structurelle
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Strukturpolitik» (Pfad: Wirtschaft und Finanzen > Wirtschaftspolitik
+      > Strukturpolitik).'
+    fr: 'Objets relatifs au thème APS « Politique structurelle » (chemin : Economie et finances > Politique
+      économique > Politique structurelle).'
+- tag_id: aps:8.1.3
+  scheme: aps
+  status: active
+  parent: aps:8.1
+  names:
+    de: Gesellschaftsrecht
+    fr: Droit des sociétés
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Gesellschaftsrecht» (Pfad: Wirtschaft und Finanzen > Wirtschaftspolitik
+      > Gesellschaftsrecht).'
+    fr: 'Objets relatifs au thème APS « Droit des sociétés » (chemin : Economie et finances > Politique
+      économique > Droit des sociétés).'
+- tag_id: aps:8.1.4
+  scheme: aps
+  status: active
+  parent: aps:8.1
+  names:
+    de: Wettbewerb
+    fr: Concurrence
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Wettbewerb» (Pfad: Wirtschaft und Finanzen > Wirtschaftspolitik > Wettbewerb).'
+    fr: 'Objets relatifs au thème APS « Concurrence » (chemin : Economie et finances > Politique économique
+      > Concurrence).'
+- tag_id: aps:8.1.5
+  scheme: aps
+  status: active
+  parent: aps:8.1
+  names:
+    de: Konsumentinnen- und Konsumentenschutz
+    fr: Protection des consommateurs/trices
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Konsumentinnen- und Konsumentenschutz» (Pfad: Wirtschaft und Finanzen
+      > Wirtschaftspolitik > Konsumentinnen- und Konsumentenschutz).'
+    fr: 'Objets relatifs au thème APS « Protection des consommateurs/trices » (chemin : Economie et finances
+      > Politique économique > Protection des consommateurs/trices).'
+- tag_id: aps:8.1.6
+  scheme: aps
+  status: active
+  parent: aps:8.1
+  names:
+    de: Tourismus
+    fr: Tourisme
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Tourismus» (Pfad: Wirtschaft und Finanzen > Wirtschaftspolitik > Tourismus).'
+    fr: 'Objets relatifs au thème APS « Tourisme » (chemin : Economie et finances > Politique économique
+      > Tourisme).'
+- tag_id: aps:8.1.7
+  scheme: aps
+  status: active
+  parent: aps:8.1
+  names:
+    de: Wirtschaftsordnung
+    fr: Ordre économique
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Wirtschaftsordnung» (Pfad: Wirtschaft und Finanzen > Wirtschaftspolitik
+      > Wirtschaftsordnung).'
+    fr: 'Objets relatifs au thème APS « Ordre économique » (chemin : Economie et finances > Politique
+      économique > Ordre économique).'
+- tag_id: aps:8.2
+  scheme: aps
+  status: active
+  parent: aps:8
+  names:
+    de: Öffentliche Finanzen
+    fr: Finances publiques
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Öffentliche Finanzen» (Pfad: Wirtschaft und Finanzen > Öffentliche Finanzen).
+      Umfasst: Budget; Staatsrechnung; Finanzordnung und Sparmassnahmen; Steuern; Finanzausgleich; Finanzhaushalt
+      der Kantone und Gemeinden.'
+    fr: 'Objets relatifs au thème APS « Finances publiques » (chemin : Economie et finances > Finances
+      publiques). Comprend : Budget; Comptes d''Etat; Ordre financier et mesures d’économie; Impôts; Péréquation
+      financière; Budgets des cantons et des communes.'
+- tag_id: aps:8.2.1
+  scheme: aps
+  status: active
+  parent: aps:8.2
+  names:
+    de: Budget
+    fr: Budget
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Budget» (Pfad: Wirtschaft und Finanzen > Öffentliche Finanzen > Budget).'
+    fr: 'Objets relatifs au thème APS « Budget » (chemin : Economie et finances > Finances publiques >
+      Budget).'
+- tag_id: aps:8.2.2
+  scheme: aps
+  status: active
+  parent: aps:8.2
+  names:
+    de: Staatsrechnung
+    fr: Comptes d'Etat
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Staatsrechnung» (Pfad: Wirtschaft und Finanzen > Öffentliche Finanzen
+      > Staatsrechnung).'
+    fr: 'Objets relatifs au thème APS « Comptes d''Etat » (chemin : Economie et finances > Finances publiques
+      > Comptes d''Etat).'
+- tag_id: aps:8.2.3
+  scheme: aps
+  status: active
+  parent: aps:8.2
+  names:
+    de: Finanzordnung und Sparmassnahmen
+    fr: Ordre financier et mesures d’économie
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Finanzordnung und Sparmassnahmen» (Pfad: Wirtschaft und Finanzen > Öffentliche
+      Finanzen > Finanzordnung und Sparmassnahmen).'
+    fr: 'Objets relatifs au thème APS « Ordre financier et mesures d’économie » (chemin : Economie et
+      finances > Finances publiques > Ordre financier et mesures d’économie).'
+- tag_id: aps:8.2.4
+  scheme: aps
+  status: active
+  parent: aps:8.2
+  names:
+    de: Steuern
+    fr: Impôts
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Steuern» (Pfad: Wirtschaft und Finanzen > Öffentliche Finanzen > Steuern).'
+    fr: 'Objets relatifs au thème APS « Impôts » (chemin : Economie et finances > Finances publiques >
+      Impôts).'
+- tag_id: aps:8.2.5
+  scheme: aps
+  status: active
+  parent: aps:8.2
+  names:
+    de: Finanzausgleich
+    fr: Péréquation financière
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Finanzausgleich» (Pfad: Wirtschaft und Finanzen > Öffentliche Finanzen
+      > Finanzausgleich).'
+    fr: 'Objets relatifs au thème APS « Péréquation financière » (chemin : Economie et finances > Finances
+      publiques > Péréquation financière).'
+- tag_id: aps:8.2.6
+  scheme: aps
+  status: active
+  parent: aps:8.2
+  names:
+    de: Finanzhaushalt der Kantone und Gemeinden
+    fr: Budgets des cantons et des communes
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Finanzhaushalt der Kantone und Gemeinden» (Pfad: Wirtschaft und Finanzen
+      > Öffentliche Finanzen > Finanzhaushalt der Kantone und Gemeinden).'
+    fr: 'Objets relatifs au thème APS « Budgets des cantons et des communes » (chemin : Economie et finances
+      > Finances publiques > Budgets des cantons et des communes).'
+- tag_id: aps:8.3
+  scheme: aps
+  status: active
+  parent: aps:8
+  names:
+    de: Geld, Währung und Kredit
+    fr: Credit et monnaie
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Geld, Währung und Kredit» (Pfad: Wirtschaft und Finanzen > Geld, Währung
+      und Kredit). Umfasst: Geld- und Währungspolitik; Finanzwesen; Nationalbank; Banken; Börsen; Versicherungen.'
+    fr: 'Objets relatifs au thème APS « Credit et monnaie » (chemin : Economie et finances > Credit et
+      monnaie). Comprend : Politique monétaire; Affaires financières; Banque nationale; Banques; Bourses;
+      Assurances.'
+- tag_id: aps:8.3.1
+  scheme: aps
+  status: active
+  parent: aps:8.3
+  names:
+    de: Geld- und Währungspolitik
+    fr: Politique monétaire
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Geld- und Währungspolitik» (Pfad: Wirtschaft und Finanzen > Geld, Währung
+      und Kredit > Geld- und Währungspolitik).'
+    fr: 'Objets relatifs au thème APS « Politique monétaire » (chemin : Economie et finances > Credit
+      et monnaie > Politique monétaire).'
+- tag_id: aps:8.3.2
+  scheme: aps
+  status: active
+  parent: aps:8.3
+  names:
+    de: Finanzwesen
+    fr: Affaires financières
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Finanzwesen» (Pfad: Wirtschaft und Finanzen > Geld, Währung und Kredit
+      > Finanzwesen).'
+    fr: 'Objets relatifs au thème APS « Affaires financières » (chemin : Economie et finances > Credit
+      et monnaie > Affaires financières).'
+- tag_id: aps:8.3.3
+  scheme: aps
+  status: active
+  parent: aps:8.3
+  names:
+    de: Nationalbank
+    fr: Banque nationale
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Nationalbank» (Pfad: Wirtschaft und Finanzen > Geld, Währung und Kredit
+      > Nationalbank).'
+    fr: 'Objets relatifs au thème APS « Banque nationale » (chemin : Economie et finances > Credit et
+      monnaie > Banque nationale).'
+- tag_id: aps:8.3.4
+  scheme: aps
+  status: active
+  parent: aps:8.3
+  names:
+    de: Banken
+    fr: Banques
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Banken» (Pfad: Wirtschaft und Finanzen > Geld, Währung und Kredit >
+      Banken).'
+    fr: 'Objets relatifs au thème APS « Banques » (chemin : Economie et finances > Credit et monnaie >
+      Banques).'
+- tag_id: aps:8.3.5
+  scheme: aps
+  status: active
+  parent: aps:8.3
+  names:
+    de: Börsen
+    fr: Bourses
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Börsen» (Pfad: Wirtschaft und Finanzen > Geld, Währung und Kredit >
+      Börsen).'
+    fr: 'Objets relatifs au thème APS « Bourses » (chemin : Economie et finances > Credit et monnaie >
+      Bourses).'
+- tag_id: aps:8.3.6
+  scheme: aps
+  status: active
+  parent: aps:8.3
+  names:
+    de: Versicherungen
+    fr: Assurances
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Versicherungen» (Pfad: Wirtschaft und Finanzen > Geld, Währung und Kredit
+      > Versicherungen).'
+    fr: 'Objets relatifs au thème APS « Assurances » (chemin : Economie et finances > Credit et monnaie
+      > Assurances).'
+- tag_id: aps:8.4
+  scheme: aps
+  status: active
+  parent: aps:8
+  names:
+    de: Landwirtschaft
+    fr: Agriculture
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Landwirtschaft» (Pfad: Wirtschaft und Finanzen > Landwirtschaft). Umfasst:
+      Agrarpolitik; Beschäftigte in der Landwirtschaft; Lebensmittel; Pflanzliche Produktion; Tierische
+      Produktion; Tierhaltung und Tierschutz; Tierversuche; Jagd und Fischerei; Grossraubtiere; Forstwirtschaft;
+      Gentechnologie; Umweltschutz in der Landwirtschaft.'
+    fr: 'Objets relatifs au thème APS « Agriculture » (chemin : Economie et finances > Agriculture). Comprend
+      : Politique agricole; Personnes employées dans l''agriculture; Denrées alimentaires; Production
+      végétale; Production animale; Détention d''animaux et protection des animaux; Expérimentation animale;
+      Chasse et pêche; Grands prédateurs; Sylviculture; Génie génétique; Protection de l''environnement
+      dans l''agriculture.'
+- tag_id: aps:8.4.1
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Agrarpolitik
+    fr: Politique agricole
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Agrarpolitik» (Pfad: Wirtschaft und Finanzen > Landwirtschaft > Agrarpolitik).'
+    fr: 'Objets relatifs au thème APS « Politique agricole » (chemin : Economie et finances > Agriculture
+      > Politique agricole).'
+- tag_id: aps:8.4.2
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Beschäftigte in der Landwirtschaft
+    fr: Personnes employées dans l'agriculture
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Beschäftigte in der Landwirtschaft» (Pfad: Wirtschaft und Finanzen >
+      Landwirtschaft > Beschäftigte in der Landwirtschaft).'
+    fr: 'Objets relatifs au thème APS « Personnes employées dans l''agriculture » (chemin : Economie et
+      finances > Agriculture > Personnes employées dans l''agriculture).'
+- tag_id: aps:8.4.3
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Lebensmittel
+    fr: Denrées alimentaires
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Lebensmittel» (Pfad: Wirtschaft und Finanzen > Landwirtschaft > Lebensmittel).'
+    fr: 'Objets relatifs au thème APS « Denrées alimentaires » (chemin : Economie et finances > Agriculture
+      > Denrées alimentaires).'
+- tag_id: aps:8.4.4
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Pflanzliche Produktion
+    fr: Production végétale
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Pflanzliche Produktion» (Pfad: Wirtschaft und Finanzen > Landwirtschaft
+      > Pflanzliche Produktion).'
+    fr: 'Objets relatifs au thème APS « Production végétale » (chemin : Economie et finances > Agriculture
+      > Production végétale).'
+- tag_id: aps:8.4.5
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Tierische Produktion
+    fr: Production animale
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Tierische Produktion» (Pfad: Wirtschaft und Finanzen > Landwirtschaft
+      > Tierische Produktion).'
+    fr: 'Objets relatifs au thème APS « Production animale » (chemin : Economie et finances > Agriculture
+      > Production animale).'
+- tag_id: aps:8.4.6
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Tierhaltung und Tierschutz
+    fr: Détention d'animaux et protection des animaux
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Tierhaltung und Tierschutz» (Pfad: Wirtschaft und Finanzen > Landwirtschaft
+      > Tierhaltung und Tierschutz).'
+    fr: 'Objets relatifs au thème APS « Détention d''animaux et protection des animaux » (chemin : Economie
+      et finances > Agriculture > Détention d''animaux et protection des animaux).'
+- tag_id: aps:8.4.7
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Tierversuche
+    fr: Expérimentation animale
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Tierversuche» (Pfad: Wirtschaft und Finanzen > Landwirtschaft > Tierversuche).'
+    fr: 'Objets relatifs au thème APS « Expérimentation animale » (chemin : Economie et finances > Agriculture
+      > Expérimentation animale).'
+- tag_id: aps:8.4.8
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Jagd und Fischerei
+    fr: Chasse et pêche
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Jagd und Fischerei» (Pfad: Wirtschaft und Finanzen > Landwirtschaft
+      > Jagd und Fischerei).'
+    fr: 'Objets relatifs au thème APS « Chasse et pêche » (chemin : Economie et finances > Agriculture
+      > Chasse et pêche).'
+- tag_id: aps:8.4.9
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Grossraubtiere
+    fr: Grands prédateurs
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Grossraubtiere» (Pfad: Wirtschaft und Finanzen > Landwirtschaft > Grossraubtiere).'
+    fr: 'Objets relatifs au thème APS « Grands prédateurs » (chemin : Economie et finances > Agriculture
+      > Grands prédateurs).'
+- tag_id: aps:8.4.10
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Forstwirtschaft
+    fr: Sylviculture
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Forstwirtschaft» (Pfad: Wirtschaft und Finanzen > Landwirtschaft > Forstwirtschaft).'
+    fr: 'Objets relatifs au thème APS « Sylviculture » (chemin : Economie et finances > Agriculture >
+      Sylviculture).'
+- tag_id: aps:8.4.11
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Gentechnologie
+    fr: Génie génétique
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Gentechnologie» (Pfad: Wirtschaft und Finanzen > Landwirtschaft > Gentechnologie).'
+    fr: 'Objets relatifs au thème APS « Génie génétique » (chemin : Economie et finances > Agriculture
+      > Génie génétique).'
+- tag_id: aps:8.4.12
+  scheme: aps
+  status: active
+  parent: aps:8.4
+  names:
+    de: Umweltschutz in der Landwirtschaft
+    fr: Protection de l'environnement dans l'agriculture
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Umweltschutz in der Landwirtschaft» (Pfad: Wirtschaft und Finanzen >
+      Landwirtschaft > Umweltschutz in der Landwirtschaft).'
+    fr: 'Objets relatifs au thème APS « Protection de l''environnement dans l''agriculture » (chemin :
+      Economie et finances > Agriculture > Protection de l''environnement dans l''agriculture).'
+- tag_id: aps:8.5
+  scheme: aps
+  status: active
+  parent: aps:8
+  names:
+    de: Arbeit
+    fr: Travail
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Arbeit» (Pfad: Wirtschaft und Finanzen > Arbeit). Umfasst: Arbeitsrecht;
+      Arbeitsmarkt; Löhne; Sozialpartnerschaft; Arbeitszeit; Arbeitnehmendenschutz.'
+    fr: 'Objets relatifs au thème APS « Travail » (chemin : Economie et finances > Travail). Comprend
+      : Droit du travail; Marché du travail; Salaires; Partenariat social; Temps de travail; Protection
+      des travailleurs.'
+- tag_id: aps:8.5.1
+  scheme: aps
+  status: active
+  parent: aps:8.5
+  names:
+    de: Arbeitsrecht
+    fr: Droit du travail
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Arbeitsrecht» (Pfad: Wirtschaft und Finanzen > Arbeit > Arbeitsrecht).'
+    fr: 'Objets relatifs au thème APS « Droit du travail » (chemin : Economie et finances > Travail >
+      Droit du travail).'
+- tag_id: aps:8.5.2
+  scheme: aps
+  status: active
+  parent: aps:8.5
+  names:
+    de: Arbeitsmarkt
+    fr: Marché du travail
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Arbeitsmarkt» (Pfad: Wirtschaft und Finanzen > Arbeit > Arbeitsmarkt).'
+    fr: 'Objets relatifs au thème APS « Marché du travail » (chemin : Economie et finances > Travail >
+      Marché du travail).'
+- tag_id: aps:8.5.3
+  scheme: aps
+  status: active
+  parent: aps:8.5
+  names:
+    de: Löhne
+    fr: Salaires
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Löhne» (Pfad: Wirtschaft und Finanzen > Arbeit > Löhne).'
+    fr: 'Objets relatifs au thème APS « Salaires » (chemin : Economie et finances > Travail > Salaires).'
+- tag_id: aps:8.5.4
+  scheme: aps
+  status: active
+  parent: aps:8.5
+  names:
+    de: Sozialpartnerschaft
+    fr: Partenariat social
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Sozialpartnerschaft» (Pfad: Wirtschaft und Finanzen > Arbeit > Sozialpartnerschaft).'
+    fr: 'Objets relatifs au thème APS « Partenariat social » (chemin : Economie et finances > Travail
+      > Partenariat social).'
+- tag_id: aps:8.5.5
+  scheme: aps
+  status: active
+  parent: aps:8.5
+  names:
+    de: Arbeitszeit
+    fr: Temps de travail
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Arbeitszeit» (Pfad: Wirtschaft und Finanzen > Arbeit > Arbeitszeit).'
+    fr: 'Objets relatifs au thème APS « Temps de travail » (chemin : Economie et finances > Travail >
+      Temps de travail).'
+- tag_id: aps:8.5.6
+  scheme: aps
+  status: active
+  parent: aps:8.5
+  names:
+    de: Arbeitnehmendenschutz
+    fr: Protection des travailleurs
+  descriptions:
+    de: 'Geschäfte zum APS-Thema «Arbeitnehmendenschutz» (Pfad: Wirtschaft und Finanzen > Arbeit > Arbeitnehmendenschutz).'
+    fr: 'Objets relatifs au thème APS « Protection des travailleurs » (chemin : Economie et finances >
+      Travail > Protection des travailleurs).'
+- tag_id: adhoc:digitalisierung-breit
+  scheme: adhoc
+  status: active
+  names:
+    de: Digitalisierung (breit)
+    fr: Numérisation (large)
+    it: Digitalizzazione (ampia)
+  descriptions:
+    de: 'Breite Definition entlang PolitMonitor: Geschäfte zu E-Government und digitaler Verwaltung, Cybersicherheit,
+      künstlicher Intelligenz, Datenschutz und Datenpolitik, digitalen Medien und Plattformen sowie Breitband
+      und digitaler Infrastruktur.'
+    fr: 'Définition large selon PolitMonitor : objets portant sur la cyberadministration et l''administration
+      numérique, la cybersécurité, l''intelligence artificielle, la protection et la politique des données,
+      les médias et plateformes numériques ainsi que le haut débit et l''infrastructure numérique.'
+    it: 'Definizione ampia secondo PolitMonitor: oggetti relativi all''amministrazione digitale, alla
+      cibersicurezza, all''intelligenza artificiale, alla protezione e alla politica dei dati, ai media
+      e alle piattaforme digitali, nonché alla banda larga e all''infrastruttura digitale.'
+  aliases:
+  - Breitband
+  - Cybersicherheit
+  - Datenschutz
+  - digitale Medien
+  - E-Government
+  - KI
+  - künstliche Intelligenz
+  unreviewed_translations:
+  - fr
+  - it
+  created:
+    at: '2026-10-18'
+    by: team

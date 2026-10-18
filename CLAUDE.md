@@ -2,10 +2,18 @@
 
 ParlTopics labelt alle Geschäfte aus OpenParlData mit Themen (festes APS-Schema plus Ad-hoc-Themen) mit Apertus v1.5. Projekt für Hack Apertus Liebefeld, Challenge 2.
 
+- Auftrag (Vorgabe, gilt vor dem PRD): `docs/CHALLENGE.md`
 - Was gebaut wird: `docs/PRD.md` (Version 0.3, Hack = Phase 1)
 - Wie es gebaut ist: `docs/ARCHITEKTUR.md`, Diagramme in `docs/architecture/`
 - Betrieb ohne Internet: `docs/AIRGAP.md`
 - Entscheide: `docs/adr/`, Setup und Arbeitsweise: `docs/ENTWICKLUNG.md`
+
+## Auftrag (Kurzfassung, Details in `docs/CHALLENGE.md`)
+
+- **Erfolg:** Qualität auf gelabelter Stichprobe (DVS-Digitalisierung, APS), de/fr/it und alle Ebenen, Ad-hoc-Themen ohne Training, machbare Laufzeit für über 300'000 Geschäfte.
+- **Ethik:** Begründung zeigen (Konfidenz, Textstelle), Bias nach Sprache, Region und Partei prüfen, politisch neutral bleiben, Mensch kann korrigieren.
+- **Abgabe:** öffentliches Repo mit Open-Source-Lizenz, technischer Bericht (PDF), Demo-Video (max. 2 min), 5-Minuten-Pitch.
+- **Bei Zielkonflikten** zählen belegte Zahlen aus der Evaluation mehr als Oberfläche.
 
 ## Kommandos
 
