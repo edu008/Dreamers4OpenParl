@@ -46,6 +46,9 @@ from parltopics.api.schemas import (
     PageDetail,
     PageOut,
     PageTree,
+    ProposalDecisionIn,
+    ProposalDecisionOut,
+    ProposalList,
     RelatedTopic,
     ReviewIn,
     ReviewQueue,
@@ -55,12 +58,12 @@ from parltopics.api.schemas import (
     TopicGraph,
     TopicOut,
 )
-from parltopics.classify import adhoc
+from parltopics.classify import adhoc, proposals
 from parltopics.classify.queue import summary as job_summary
 from parltopics.config import Settings, get_settings
 from parltopics.llm import JSONExtractionError
 from parltopics.registry import Registry, RegistryError, load_registry
-from parltopics.registry.edit import adhoc_id
+from parltopics.registry.edit import TagExists
 from parltopics.wiki.tree import (
     Page,
     TreeError,
@@ -408,6 +411,62 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             hidden=hidden,
         )
 
+    @api.get("/proposals", tags=["Review"], summary="Tag-Vorschläge", responses=no_database)
+    def proposal_list(
+        conn: Conn,
+        state: Annotated[
+            Literal["open", "done"], Query(description="open: zu entscheiden; done: entschieden")
+        ] = "open",
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> ProposalList:
+        """Vorschläge des Modells für fehlende Themen, gruppiert und mit Empfehlung (F7): new,
+        duplicate_of oder child_of. Offene zuerst nach der Zahl betroffener Geschäfte."""
+        total, rows = queries.proposals(conn, state=state, limit=limit, offset=offset)
+        return ProposalList(total=total, limit=limit, offset=offset, items=rows)
+
+    @api.post(
+        "/proposals/{proposal_id}/decision",
+        tags=["Review"],
+        summary="Entscheid zu einem Tag-Vorschlag",
+        responses={
+            404: {"description": "Vorschlag unbekannt"},
+            409: {"description": "Schon entschieden, oder das Tag gibt es schon"},
+            422: {"description": "merged ohne Tag oder ungültiges Tag"},
+            **no_database,
+        },
+    )
+    def proposal_decision(
+        proposal_id: int, body: ProposalDecisionIn, conn: Conn
+    ) -> ProposalDecisionOut:
+        """accepted legt ein Ad-hoc-Thema mit Status proposed an und öffnet Jobs für die
+        betroffenen Geschäfte; ein Mensch schaltet es später frei (/v1/adhoc/{tag_id}/activate).
+        merged und rejected halten den Entscheid mit Name und Zeit fest."""
+        try:
+            decided = proposals.decide(
+                conn,
+                settings,
+                proposal_id,
+                decision=body.decision,
+                by=body.user_name,
+                name_de=body.name_de,
+                definition_de=body.description_de,
+                broader=body.broader,
+                related_tag_id=body.related_tag_id,
+            )
+        except proposals.ProposalNotFound as error:
+            raise HTTPException(404, str(error)) from error
+        except (proposals.ProposalDecided, TagExists) as error:
+            raise HTTPException(409, str(error)) from error
+        except (ValueError, RegistryError) as error:
+            raise HTTPException(422, str(error)) from error
+        return ProposalDecisionOut(
+            proposal=queries.proposal(conn, proposal_id),
+            tag_id=decided.tag_id,
+            run_id=decided.run.run_id if decided.run else None,
+            jobs=decided.run.total if decided.run else None,
+        )
+
     @api.post(
         "/reviews",
         tags=["Review"],
@@ -483,10 +542,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         classify:adhoc:<name> für Kandidaten und Stichprobe. Die Worker prüfen sie mit
         Apertus; die Treffer erscheinen sofort als vorläufig (tag_status proposed). Ohne
         Anmeldung im Hack-MVP; user_name steht im Tag (created.by) und im Lauf."""
-        registry, _ = load()
-        tag_id = adhoc_id(body.name_de)
-        if any(tag.tag_id == tag_id for tag in registry.tags):
-            raise HTTPException(409, f"{tag_id} gibt es schon")
         try:
             created = adhoc.create(
                 conn,
@@ -499,6 +554,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 bodies=body.bodies,
                 since=body.since,
             )
+        except TagExists as error:
+            raise HTTPException(409, str(error)) from error
         except RegistryError as error:
             raise HTTPException(422, str(error)) from error
         return AdhocCreated(

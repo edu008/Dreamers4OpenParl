@@ -20,6 +20,7 @@ Eine geänderte Fassung bekommt eine neue Datei mit höherer Version, die alte b
 | `classify_chapters_v2.md` | Stufe 1: APS-Kapitel wählen, 0 bis 3 (v1: 1 bis 3, erster Testlauf) | 8B, bei Eskalation 70B |
 | `classify_topics_v2.md` | Stufe 2: Themen, Beleg (strikt wörtlich; v1 liess 70B umschreiben), Vorschläge, Kurzzusammenfassung `summary_de` | 8B, bei Eskalation 70B |
 | `adhoc_keywords_v1.md` | Stichwörter DE/FR/IT für ein Ad-hoc-Thema (`generate_keywords`) | 70B |
+| `proposal_check_v1.md` | Gruppe von Tag-Vorschlägen gegen die Registry prüfen: new, duplicate_of, child_of (F7) | 70B |
 | `agent_system_v1.md` | Systemprompt des Agenten | 70B |
 | `summarize_tag_v1.md` | Tag- oder Querschnittsseite aus den Kurzzusammenfassungen ihrer Geschäfte | 8B |
 | `summarize_parent_v1.md` | Kapitel-, Bereichs- oder Heart-Seite aus den Zusammenfassungen der Kinder plus Stichproben | 70B |

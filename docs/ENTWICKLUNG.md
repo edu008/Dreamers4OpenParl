@@ -55,6 +55,7 @@ uv run parltopics registry sync                          # tags.yaml in die Tabe
 uv run parltopics inputs --body CHE --since 2026-01-01   # Klassifikationstexte (affair_inputs) und Volltext
 uv run parltopics classify --task classify:aps --body CHE --since 2026-01-01 --limit 20
 uv run parltopics jobs summary                           # Jobs je Aufgabe und Status
+uv run parltopics proposals group                        # Tag-Vorschläge gruppieren und prüfen (F7)
 ```
 
 `classify` öffnet die Jobs eines Laufs und arbeitet sie mit `--wait` (Standard) gleich ab; je Geschäft erscheint eine Logzeile mit Status, Stufe und Grund einer Eskalation. Mit `--no-wait` übernehmen Worker die Jobs, auch mehrere parallel: `uv run parltopics worker --task classify:aps --once` endet, sobald keine Jobs mehr offen sind. Ein zweiter Aufruf mit denselben Filtern öffnet nichts, solange sich Text, Prompt und Registry nicht ändern.

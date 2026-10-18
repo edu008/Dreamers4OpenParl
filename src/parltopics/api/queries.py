@@ -134,6 +134,20 @@ GROUP BY o.tag_id, t.name_de
 ORDER BY shared DESC, o.tag_id
 LIMIT %(limit)s
 """
+# Tag-Vorschläge (F7) mit Varianten, Zahl und Auswahl der betroffenen Geschäfte.
+PROPOSALS = """
+SELECT p.id, p.name_de, p.desc_de, p.reason, p.recommendation, p.related_tag_id,
+       rt.name_de AS related_name_de, p.status, p.decision, p.decided_by, p.decided_at,
+       p.created_at, p.model_version,
+       (SELECT count(*) FROM tag_proposal_affairs pa WHERE pa.proposal_id = p.id) AS n_affairs,
+       ARRAY(SELECT DISTINCT r.name_de FROM tag_proposal_raw r WHERE r.proposal_id = p.id
+             ORDER BY r.name_de LIMIT 5) AS variants,
+       ARRAY(SELECT pa.affair_id FROM tag_proposal_affairs pa WHERE pa.proposal_id = p.id
+             ORDER BY pa.affair_id DESC LIMIT 5) AS affair_ids
+FROM tag_proposals p LEFT JOIN tags rt ON rt.tag_id = p.related_tag_id
+"""
+PROPOSAL_STATE = {"open": "p.status <> 'done'", "done": "p.status = 'done'"}
+PROPOSAL_ORDER = {"open": "n_affairs DESC, p.id DESC", "done": "p.decided_at DESC, p.id DESC"}
 RUNS = """
 SELECT id, task, kind, started_at, finished_at, n_total, n_done, n_failed, n_escalated,
        prompt_version, registry_version,
@@ -418,3 +432,34 @@ def affair_heads(conn: psycopg.Connection, ids: list[int]) -> list[dict]:
               WHERE a.id = ANY(%s)"""
     rows = {row["affair_id"]: row for row in conn.cursor(row_factory=dict_row).execute(sql, (ids,))}
     return [rows[affair_id] for affair_id in ids if affair_id in rows]
+
+
+def proposals(
+    conn: psycopg.Connection, *, state: str, limit: int, offset: int
+) -> tuple[int, list[dict]]:
+    """Offene (meiste Geschäfte zuerst) oder entschiedene Vorschläge (neueste zuerst)."""
+    where = PROPOSAL_STATE[state]
+    cursor = conn.cursor(row_factory=dict_row)
+    count = f"SELECT count(*) AS n FROM tag_proposals p WHERE {where}"
+    total = cursor.execute(count).fetchone()["n"]
+    rows = cursor.execute(
+        f"{PROPOSALS} WHERE {where} ORDER BY {PROPOSAL_ORDER[state]}"
+        " LIMIT %(limit)s OFFSET %(offset)s",
+        {"limit": limit, "offset": offset},
+    ).fetchall()
+    return total, _with_affairs(conn, rows)
+
+
+def proposal(conn: psycopg.Connection, proposal_id: int) -> dict | None:
+    sql = f"{PROPOSALS} WHERE p.id = %(id)s"
+    rows = conn.cursor(row_factory=dict_row).execute(sql, {"id": proposal_id}).fetchall()
+    return _with_affairs(conn, rows)[0] if rows else None
+
+
+def _with_affairs(conn: psycopg.Connection, rows: list[dict]) -> list[dict]:
+    """Ersetzt affair_ids durch die Köpfe der Geschäfte, mit einer Abfrage für alle Zeilen."""
+    ids = [affair_id for row in rows for affair_id in row["affair_ids"]]
+    heads = {head["affair_id"]: head for head in affair_heads(conn, ids)}
+    for row in rows:
+        row["affairs"] = [heads[i] for i in row.pop("affair_ids") if i in heads]
+    return rows

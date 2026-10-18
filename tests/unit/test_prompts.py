@@ -129,3 +129,19 @@ def test_page_and_navigation_prompts_render():
     assert "filters" in first and "filters" not in later
     assert "aps:6.1.9 | Digitalisierung | Kurz." in step_user
     assert "Suchweg: Heart → Digitalisierung" in answer_user
+
+
+def test_proposal_check_prompt_renders_registry_proposals_and_titles():
+    registry = Registry.model_validate(yaml.safe_load(FIXTURE.read_text(encoding="utf-8")))
+    system = render("proposal_check_v1", "system", tags=registry.active())
+    proposal = {"name_de": "E-Government", "desc_de": "Online-Schalter", "reason": "fehlt"}
+    similar = [registry.get("aps:6.1.9")]
+    user = render(
+        "proposal_check_v1", "user", proposals=[proposal], similar=similar, titles=["Titel A"]
+    )
+    assert "aps:6.1.9 | Digitalisierung" in system
+    assert "E-Government | Online-Schalter | fehlt" in user
+    assert "aps:6.1.9 | Digitalisierung | Geschäfte zur Digitalisierung (Testdaten)" in user
+    assert "Titel A" in user
+    nothing = render("proposal_check_v1", "user", proposals=[proposal], similar=[], titles=[])
+    assert "keine" in nothing

@@ -381,3 +381,54 @@ class AdhocActivated(BaseModel):
     tag_id: str
     status: Literal["active"]
     registry_version: str
+
+
+class ProposalOut(BaseModel):
+    """Ein gruppierter Tag-Vorschlag mit Empfehlung (F7)."""
+
+    id: int
+    name_de: str = Field(examples=["Digitale Behördenleistungen"])
+    desc_de: str | None
+    reason: str | None = Field(description="Begründung der Empfehlung")
+    recommendation: Literal["new", "duplicate_of", "child_of"] | None
+    related_tag_id: str | None = Field(description="bei duplicate_of und child_of das Tag")
+    related_name_de: str | None
+    variants: list[str] = Field(description="Namen der Rohvorschläge, höchstens fünf")
+    n_affairs: int = Field(description="Geschäfte, bei denen das Modell das Thema vermisste")
+    affairs: list[AffairHead] = Field(description="Auswahl dieser Geschäfte, höchstens fünf")
+    status: Literal["open", "pending", "done"]
+    decision: Literal["accepted", "merged", "rejected"] | None
+    decided_by: str | None
+    decided_at: datetime | None
+    created_at: datetime
+    model_version: str | None = Field(description="Modell der Empfehlung; pg_trgm ohne Modell")
+
+
+class ProposalList(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    items: list[ProposalOut]
+
+
+class ProposalDecisionIn(BaseModel):
+    decision: Literal["accepted", "merged", "rejected"] = Field(
+        description="accepted: als Ad-hoc-Thema (proposed) anlegen und die betroffenen Geschäfte"
+        " prüfen lassen; merged: geht in related_tag_id auf; rejected: verwerfen"
+    )
+    user_name: UserName = Field(examples=["Mia Muster"])
+    name_de: str | None = Field(None, min_length=2, max_length=120, description="nur accepted")
+    description_de: str | None = Field(
+        None, min_length=10, max_length=2000, description="nur accepted"
+    )
+    broader: list[str] | None = Field(
+        None, description="nur accepted; ohne Angabe bei child_of das verwandte Tag"
+    )
+    related_tag_id: str | None = Field(None, description="bei merged das Tag, sonst die Empfehlung")
+
+
+class ProposalDecisionOut(BaseModel):
+    proposal: ProposalOut
+    tag_id: str | None = Field(description="bei accepted das neue Ad-hoc-Tag")
+    run_id: int | None
+    jobs: int | None = Field(description="bei accepted: Jobs für die betroffenen Geschäfte")

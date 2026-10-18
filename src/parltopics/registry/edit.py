@@ -22,6 +22,10 @@ from parltopics.registry.models import Registry
 _LOCK = threading.Lock()  # Änderungen aus mehreren Threads der API nacheinander
 
 
+class TagExists(RegistryError):
+    """Das Tag steht schon in der Registry."""
+
+
 def adhoc_id(name: str) -> str:
     """adhoc:<name> aus dem deutschen Namen, umgeschrieben wie die APS-slugs."""
     return f"adhoc:{aps_slug(name)}"
@@ -53,7 +57,7 @@ def add_adhoc_tag(
 
     def change(data: dict[str, Any]) -> None:
         if any(tag.get("tag_id") == tag_id for tag in data["tags"]):
-            raise RegistryError(f"{tag_id} gibt es schon in der Registry")
+            raise TagExists(f"{tag_id} gibt es schon in der Registry")
         data["tags"].append(entry)
 
     return tag_id, _edit(path, change, today)
