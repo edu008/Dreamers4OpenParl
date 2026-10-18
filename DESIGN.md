@@ -138,6 +138,7 @@ Keine Rundungen (`--radius: 0`). Knöpfe, Felder, Themen und Flächen sind Recht
 - **Knöpfe:** Hauptaktion rot gefüllt; sonst schwarzer Rahmen, beim Hover schwarz gefüllt.
 - **Umschalter:** Felder in einem schwarzen Rahmen, die Auswahl schwarz gefüllt (`aria-pressed`).
 - **Themen:** in der Liste Rahmen in Tinte, auf der Geschäftsseite schwarz gefüllt; ein Klick filtert die Suche. Das aktive Thema steht schwarz gefüllt mit «×» und wird beim Hover rot.
+- **Geschäft als Pop-up:** Ein Klick in der Trefferliste öffnet das Geschäft als Dialog über der Liste (`?geschaeft=<id>`, Zurück und Escape schliessen). Die Karte folgt der Vorlage «GradientBlobCard»: weisses Glasfeld, dahinter wandert ein Fleck in Schweizer Rot, weicher Schatten nach aussen, eckig. Das ist die einzige Stelle mit Verlauf und Schatten; ohne Bewegungswunsch (`prefers-reduced-motion`) steht der Fleck still. Direkte Links `/geschaefte/<id>` zeigen dieselben Fakten als eigene Seite.
 - **Hinweise und Fehler:** Tonfläche mit 4-px-Linie links in Tinte.
 - **Randspalte (Admin):** je Thema Name, Konfidenz mit Wort, Zustand des Belegs, Prüfstatus, Modell.
 
@@ -150,7 +151,7 @@ Keine Rundungen (`--radius: 0`). Knöpfe, Felder, Themen und Flächen sind Recht
 - Seitentitel setzen, Skip-Link, sichtbarer Fokus, Dunkel- und Handyansicht prüfen.
 
 **Don't**
-- Keine Rundungen, keine Schatten, keine Verläufe, kein Glas.
+- Keine Rundungen, keine Schatten, keine Verläufe, kein Glas (Ausnahme: die Karte im Pop-up).
 - Kein Rot für Daten, Konfidenz oder Fehler.
 - Keine Kantonswappen (Wappenschutzgesetz), keine Schweizerkreuze als Schmuck.
 - Keine Menüpunkte auf der öffentlichen Seite, die nicht zum Finden von Geschäften gehören.

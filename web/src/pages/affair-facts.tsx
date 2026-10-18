@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import type { ElementType, ReactNode } from "react"
 import { Link, useLocation, useParams } from "react-router"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -25,7 +25,7 @@ function formatDate(iso: string | null | undefined): string {
 /** Abschnitt im Raster: Titel in der linken Spalte, Inhalt rechts. */
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="grid gap-x-8 gap-y-3 border-t-2 border-foreground pt-4 sm:grid-cols-[12rem_minmax(0,1fr)]">
+    <section className="grid gap-x-8 gap-y-3 border-t-2 border-foreground pt-4 @3xl:grid-cols-[12rem_minmax(0,1fr)]">
       <h2 className="text-lg font-bold">{title}</h2>
       <div className="min-w-0">{children}</div>
     </section>
@@ -38,7 +38,7 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
       {rows.map(([term, value]) => (
         <div
           key={term}
-          className="grid gap-x-6 gap-y-1 border-t border-border py-3 first:border-t-0 first:pt-0 sm:grid-cols-[10rem_minmax(0,1fr)]"
+          className="grid gap-x-6 gap-y-1 border-t border-border py-3 first:border-t-0 first:pt-0 @md:grid-cols-[10rem_minmax(0,1fr)]"
         >
           <dt className="text-sm font-bold">{term}</dt>
           <dd className="min-w-0 break-words">{value}</dd>
@@ -48,17 +48,41 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
   )
 }
 
-// Öffentliche Geschäftsseite: die Fakten wie bei OpenParlData und die Themen, ohne Konfidenz,
-// Modell oder Prüfstand. Die Prüfansicht mit allen Angaben liegt unter /admin/review.
+export function useAffair(affairId: string) {
+  return useApi<AffairTopics>(
+    `/v1/affairs/${encodeURIComponent(affairId)}/topics`
+  )
+}
+
+// Öffentliche Geschäftsseite (direkter Link): Rückweg zur Suche und die Fakten.
 export function AffairFactsPage() {
   const { affairId = "" } = useParams()
   const fromSearch = (useLocation().state as { search?: string } | null)?.search
-  const back = { pathname: "/", search: fromSearch ?? "" }
-  const found = useApi<AffairTopics>(
-    `/v1/affairs/${encodeURIComponent(affairId)}/topics`
-  )
+  const found = useAffair(affairId)
   usePageTitle(found.data?.title ?? "Geschäft")
+  return (
+    <article className="flex flex-col gap-10">
+      <Link
+        to={{ pathname: "/", search: fromSearch ?? "" }}
+        className="self-start text-sm font-bold underline-offset-4 hover:text-primary hover:underline"
+      >
+        ← Geschäfte
+      </Link>
+      <AffairFacts found={found} />
+    </article>
+  )
+}
 
+// Die Fakten wie bei OpenParlData und die Themen, ohne Konfidenz, Modell oder Prüfstand (die
+// Prüfansicht liegt unter /admin/review). Seite und Pop-up nutzen sie; im Pop-up ist der Titel
+// der Dialog-Titel.
+export function AffairFacts({
+  found,
+  Title = "h1",
+}: {
+  found: ReturnType<typeof useAffair>
+  Title?: ElementType
+}) {
   if (found.loading) {
     return (
       <div className="flex flex-col gap-4">
@@ -72,9 +96,7 @@ export function AffairFactsPage() {
     return (
       <Alert variant="destructive">
         <AlertTitle>Geschäft nicht geladen</AlertTitle>
-        <AlertDescription>
-          {found.error} <Link to={back}>Zur Suche</Link>
-        </AlertDescription>
+        <AlertDescription>{found.error}</AlertDescription>
       </Alert>
     )
   }
@@ -137,23 +159,17 @@ export function AffairFactsPage() {
   ]
 
   return (
-    <article className="flex flex-col gap-10">
-      <Link
-        to={back}
-        className="self-start text-sm font-bold underline-offset-4 hover:text-primary hover:underline"
-      >
-        ← Geschäfte
-      </Link>
+    <div className="@container flex flex-col gap-10">
       <header className="flex flex-col gap-4">
         <p className="tabular text-sm text-muted-foreground">
           {meta.filter(Boolean).join(" | ")}
         </p>
-        <h1
+        <Title
           lang={language}
           className="font-heading text-[clamp(1.75rem,4vw,3rem)] leading-[1.05] font-bold tracking-[-0.02em] text-balance"
         >
           {title}
-        </h1>
+        </Title>
         {topics.length > 0 && (
           <ul aria-label="Themen" className="flex flex-wrap gap-2 pt-2">
             {topics.map((topic) => (
@@ -195,6 +211,6 @@ export function AffairFactsPage() {
       <Section title="Gebiet">
         <Facts rows={area} />
       </Section>
-    </article>
+    </div>
   )
 }

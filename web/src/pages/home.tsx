@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from "react"
-import { Link, useLocation } from "react-router"
+import { Link, useLocation, useNavigate } from "react-router"
 
 import { SearchForm } from "@/components/search-form"
 import { Segmented } from "@/components/segmented"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { GradientBlobCard } from "@/components/ui/gradient-blob-card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
@@ -13,6 +15,7 @@ import { useQuery } from "@/hooks/use-query"
 import type { BodyOut, SearchHit, SearchResult, TopicOut } from "@/lib/api"
 import { LEVEL_LABEL } from "@/lib/export"
 import { parseSnippet } from "@/lib/snippet"
+import { AffairFacts, useAffair } from "@/pages/affair-facts"
 
 const LIMIT = 20
 const TOPICS_SHOWN = 3
@@ -98,7 +101,9 @@ function Snippet({ headline }: { headline: string }) {
 }
 
 function Hit({ hit, params }: { hit: SearchHit; params: URLSearchParams }) {
-  const { search } = useLocation()
+  // Öffnet das Pop-up über die Adresse: Zurück schliesst es, der Link lässt sich teilen.
+  const popup = new URLSearchParams(params)
+  popup.set("geschaeft", String(hit.affair_id))
   const title = hit.title ?? `Geschäft ${hit.affair_id}`
   const meta = [
     hit.type_de ?? hit.type,
@@ -127,8 +132,8 @@ function Hit({ hit, params }: { hit: SearchHit; params: URLSearchParams }) {
         <h2 className="text-lg leading-snug font-bold text-balance group-hover:text-primary sm:text-xl">
           {/* Die ganze Zeile ist der Link (::after deckt sie ab); die Themen liegen darüber. */}
           <Link
-            to={`/geschaefte/${hit.affair_id}`}
-            state={{ search }}
+            to={{ search: `?${popup}` }}
+            state={{ popup: true }}
             className="outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring"
           >
             {title}
@@ -383,6 +388,28 @@ function Results({
 
 // Öffentliche Startseite: eine Aufgabe, Geschäfte finden. Ein Suchfeld, Filter hinter einem
 // Schalter, darunter die neuesten Geschäfte oder die Treffer (GET /v1/search, mit oder ohne q).
+/** Ein Geschäft als Pop-up über der Liste, in der GradientBlobCard. */
+function AffairPopup({
+  affairId,
+  onClose,
+}: {
+  affairId: string
+  onClose: () => void
+}) {
+  const found = useAffair(affairId)
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-3xl">
+        <GradientBlobCard>
+          <div className="flex max-h-[85vh] flex-col gap-8 overflow-y-auto p-6 pt-14 sm:p-10 sm:pt-14">
+            <AffairFacts found={found} Title={DialogTitle} />
+          </div>
+        </GradientBlobCard>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function HomePage() {
   const [params, setParams] = useQuery()
   const typed = params.get("q")?.trim() ?? ""
@@ -392,6 +419,17 @@ export function HomePage() {
   const active = FILTERS.filter((key) => valid(params, key)).length
   const [open, setOpen] = useState(active > 0)
   usePageTitle(query ? `Suche: ${query}` : "Geschäfte")
+  const affairId = params.get("geschaeft")?.trim()
+  const navigate = useNavigate()
+  const openedHere = (useLocation().state as { popup?: boolean } | null)?.popup
+
+  function closeAffair() {
+    // Aus der Liste geöffnet: einen Schritt zurück, damit Zurück nicht wieder öffnet.
+    if (openedHere) return navigate(-1)
+    const next = new URLSearchParams(params)
+    next.delete("geschaeft")
+    setParams(next)
+  }
 
   function reset() {
     const next = new URLSearchParams()
@@ -443,6 +481,7 @@ export function HomePage() {
           />
         )}
         <Results params={params} query={query} page={page} />
+        {affairId && <AffairPopup affairId={affairId} onClose={closeAffair} />}
       </section>
     </>
   )
