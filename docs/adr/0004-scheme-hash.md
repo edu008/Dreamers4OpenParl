@@ -1,6 +1,6 @@
 # ADR 0004: Jobs hängen am `scheme_hash`, nicht an der `registry_version`
 
-- Status: angenommen
+- Status: angenommen; die Feldnamen der kanonischen Form verfeinert [ADR 0007](0007-registry-skos.md)
 - Datum: 18.10.2026
 - Bezug: PRD 7.2, 7.7, F18, ARCHITEKTUR.md 3.7
 

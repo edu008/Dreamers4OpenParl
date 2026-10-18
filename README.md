@@ -79,9 +79,10 @@ ParlTopics adds these directories (monorepo, see [docs/PRD.md, Anhang D](docs/PR
 | `registry/tags.yaml` | Tag registry, the single source of all topics |
 | `prompts/` | Versioned prompts for workers and agent |
 | `migrations/` | Numbered SQL migrations (PostgreSQL 16) |
+| `web/` | Web app: React, Vite, TypeScript, Tailwind CSS, shadcn/ui; FastAPI serves the build from `web/dist` |
 | `deploy/` | Dockerfile, Docker Compose, air-gap bundle and offline test |
 | `tests/` | Unit and integration tests, mock LLM |
-| `scripts/` | Build and check of the Archify diagrams, ERD generator |
+| `scripts/` | Build and check of the Archify diagrams, ERD generator, check of the web build |
 
 ## Environment
 
@@ -136,7 +137,7 @@ Each dimension is scored from 0 to 5.
 
 > Status: work in progress during the hackathon (18 to 19 October 2026). The commands below are updated as the code in `src/` lands. Commands that are not implemented yet exit with code 3 and name their milestone.
 
-Requires [uv](https://docs.astral.sh/uv/), Docker with Compose v2 and make.
+Requires [uv](https://docs.astral.sh/uv/), Docker with Compose v2, make and Node 22 (for the web app).
 
 ```bash
 git clone https://github.com/edu008/Dreamers4OpenParl.git
@@ -145,12 +146,14 @@ make setup              # Python 3.12 and dependencies from uv.lock (uv sync)
 
 # Configure the model endpoint (never commit the key)
 cp .env.example .env
-# set LLM_NAME, LLM_NAME_LARGE, LLM_BASE_URL, LLM_API_KEY in .env
+# set LLM_API_KEY in .env; LLM_BASE_URL points to the Keera gateway (https://gateway.keera.ch/api/v1)
 
 make db && make migrate # PostgreSQL 16 with pgvector in Docker, create the schema
 make test               # unit tests
+make web-build          # web app (React, shadcn/ui) into web/dist
 uv run parltopics llm check
 make api                # web app and API on http://127.0.0.1:8000
+make web-dev            # optional: Vite with hot reload on http://127.0.0.1:5173
 ```
 
 The bulk export files are downloaded in a separate online step (`uv run parltopics download`) into
@@ -161,9 +164,9 @@ evaluation follow in this section and in the reproducibility chapter of the tech
 
 | Document | Content |
 | --- | --- |
-| [PRD](docs/PRD.md) | Product requirements: goals, scope by phase, requirements F1–F22, metrics, milestones |
-| [Architektur](docs/ARCHITEKTUR.md) | Worker and agent design, pipeline, tools, versions and hashes |
-| [Diagramme](docs/architecture/README.md) | Eight interactive Archify diagrams (open the HTML files locally) |
+| [PRD](docs/PRD.md) | Product requirements: goals, scope by phase, requirements F1–F27, metrics, milestones, research background |
+| [Architektur](docs/ARCHITEKTUR.md) | Worker and agent design, page tree with summaries, navigation search, pipeline, tools |
+| [Diagramme](docs/architecture/README.md) | Ten interactive Archify diagrams (open the HTML files locally) |
 | [Air-Gap](docs/AIRGAP.md) | Build online, transfer, run offline; offline test |
 | [Entwicklung](docs/ENTWICKLUNG.md) | Setup, tests, conventions, pull request checklist |
 | [ADR](docs/adr/README.md) | Architecture decisions |
