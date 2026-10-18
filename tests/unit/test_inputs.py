@@ -70,6 +70,8 @@ def test_compose_prefers_the_long_title_in_each_language():
 
 def test_strip_html_survives_ocr_garbage():
     """Echter Fall aus docs_VD: '<![' ohne gültige Marked Section liess den Parser abstürzen."""
-    assert strip_html("Rubattel Di?enl<![ilfl Zünd Georges\n<p>Ruch Daniel</p>") == (
-        "Rubattel Di?enl\nRuch Daniel"
-    )
+    # Je nach Python-Patchversion wirft der Parser oder überliest den Abschnitt; beides muss gehen.
+    text = strip_html("Rubattel Di?enl<![ilfl Zünd Georges\n<p>Ruch Daniel</p>")
+    assert text.startswith("Rubattel Di?enl")
+    assert text.endswith("Ruch Daniel")
+    assert "<" not in text
