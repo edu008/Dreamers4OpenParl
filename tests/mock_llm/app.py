@@ -39,6 +39,8 @@ def fake_completion(messages: list[dict]) -> str:
     """Antwort auf eine Anfrage: JSON nach PRD Anhang B oder "OK"."""
     system = next((m["content"] for m in messages if m["role"] == "system"), "")
     user = next((m["content"] for m in messages if m["role"] == "user"), "")
+    if "Suchbegriffe" in system:  # adhoc_keywords_v1
+        return json.dumps({"de": ["Velo", "Veloweg"], "fr": ["vélo"], "it": ["bicicletta"]})
     affair = AFFAIR.search(user)
     if affair is None:
         return "OK"
