@@ -102,10 +102,15 @@ class _TextParser(HTMLParser):
 def strip_html(value: str) -> str:
     """Text ohne Tags und Entities; Leerraum je Zeile zusammengezogen, leere Zeilen entfernt."""
     parser = _TextParser()
-    parser.feed(value)
-    parser.close()
+    try:
+        parser.feed(value)
+        parser.close()
+        text = "".join(parser.parts)
+    except AssertionError:
+        # Python 3.12 bricht bei OCR-Müll wie "<![ilfl" ab (docs VD); dann Tags grob entfernen.
+        text = html.unescape(re.sub(r"<[^>]*>|<!\[", "\n", value))
     # Einige Quellen kodieren doppelt (&amp;nbsp;): der Parser löst nur eine Ebene auf.
-    lines = html.unescape("".join(parser.parts)).splitlines()
+    lines = html.unescape(text).splitlines()
     return "\n".join(" ".join(line.split()) for line in lines if line.strip())
 
 
