@@ -198,7 +198,7 @@ Format siehe Anhang A.
 ### 7.3 Klassifikation mit Apertus (Worker)
 
 - **Zweistufig (Vorgabe):**
-  - Stufe 1: Systemprompt + 22 APS-Kapitel (ID, `pref_label` DE/FR/IT, `definition`) + Klassifikationstext → 1 bis 3 Kapitel mit Konfidenz.
+  - Stufe 1: Systemprompt + 22 APS-Kapitel (ID, `pref_label` DE/FR/IT, `definition`) + Klassifikationstext → 0 bis 3 Kapitel mit Konfidenz (leer: kein APS-Kapitel passt).
   - Stufe 2: Systemprompt + Themen der gewählten Kapitel + alle aktiven Ad-hoc-Tags (kompakt: ID, `pref_label`, `definition` DE, `alt_labels`) + Klassifikationstext → Tags mit Konfidenz und Beleg, eine Kurzzusammenfassung des Geschäfts, optional Vorschläge. Sind mehr als 10 Ad-hoc-Tags aktiv, wählt Stufe 1 auch die Querschnittsthemen vor; das braucht eine neue Prompt-Version.
   - Begründung: Die volle Registry (165 Themen mit Beschreibungen in drei Sprachen) ergäbe pro Anfrage grob 15'000–25'000 Tokens. Das wäre nur mit Prefix-Caching bei Keera tragbar, und ob es das gibt, ist offen (15). Zweistufig bleiben beide Anfragen klein. Einstufig läuft nur noch als Vergleich in der Evaluation (F16). Die Forschung stützt das: Informationen in der Mitte langer Kontexte werden schlechter genutzt (Lost in the Middle), und reines Zero-shot-Prompting ist bei grossen hierarchischen Label-Mengen schwach (TELEClass, Anhang F).
 - **Aufbau der Nachrichten:** Systemprompt und Registry-Ausschnitt stehen in der System-Nachricht, der Geschäftstext in der User-Nachricht. So bleibt der Anfang über viele Anfragen gleich und Prefix-Caching kann greifen, falls vorhanden.
@@ -696,7 +696,7 @@ Das Pydantic-Modell dazu liegt in `src/parltopics/registry/models.py`.
 Validierung:
 
 - `affair_id` entspricht dem angefragten Geschäft; `language` ist `de`, `fr`, `it`, `rm` oder `other`.
-- Stufe 1: 1 bis 3 Kapitel, nur IDs aus der angebotenen Kapitelliste.
+- Stufe 1: 0 bis 3 Kapitel, nur IDs aus der angebotenen Kapitelliste.
 - Stufe 2: höchstens 5 Tags und 2 Vorschläge; `tag_id` muss im angebotenen Ausschnitt aktiv sein (fehlt nur das Präfix `aps:`, ergänzt es der Code); `confidence` in [0, 1]; `evidence` höchstens 300 Zeichen, ein längeres Zitat kürzt der Code an einer Wortgrenze, das Tag bleibt.
 - Beleg: Trigramm-Ähnlichkeit zum Klassifikationstext ≥ 0.9, sonst Konfidenz halbieren und `evidence_verified = false` (7.3).
 - `summary_de`: ein Satz. Fehlt er oder ist er leer, bleibt die Ausgabe gültig; längere Texte kürzt der Code auf 300 Zeichen (7.3).

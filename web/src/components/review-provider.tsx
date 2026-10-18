@@ -3,44 +3,50 @@ import { useCallback, useMemo, useState, type ReactNode } from "react"
 import { ReviewContext, type ReviewState } from "@/hooks/use-review"
 import {
   loadDecisions,
-  loadSession,
+  loadName,
+  loadRole,
   saveDecisions,
-  saveSession,
+  saveName,
+  saveRole,
   type ReviewDecision,
   type ReviewMap,
-  type ReviewSession,
+  type Role,
 } from "@/lib/review"
 
+const DEFAULT_NAME = "Reviewer"
+
 export function ReviewProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<ReviewSession | null>(() =>
-    loadSession()
-  )
+  const [role, setRoleState] = useState<Role>(() => loadRole())
+  const [name, setNameState] = useState(() => loadName())
   const [decisions, setDecisions] = useState<ReviewMap>(() => loadDecisions())
 
-  const activate = useCallback((name: string, token: string) => {
-    const next = { name: name.trim(), token: token.trim() }
-    saveSession(next)
-    setSession(next)
+  const setRole = useCallback((next: Role) => {
+    saveRole(next)
+    setRoleState(next)
   }, [])
 
-  const deactivate = useCallback(() => {
-    saveSession(null)
-    setSession(null)
+  const setName = useCallback((next: string) => {
+    saveName(next)
+    setNameState(next)
   }, [])
 
   const decide = useCallback(
     (key: string, decision: ReviewDecision) => {
-      if (session === null) return
+      if (role === "leser") return
       setDecisions((current) => {
         const next = {
           ...current,
-          [key]: { decision, by: session.name, at: new Date().toISOString() },
+          [key]: {
+            decision,
+            by: name.trim() || DEFAULT_NAME,
+            at: new Date().toISOString(),
+          },
         }
         saveDecisions(next)
         return next
       })
     },
-    [session]
+    [role, name]
   )
 
   const undo = useCallback((key: string) => {
@@ -54,15 +60,17 @@ export function ReviewProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ReviewState>(
     () => ({
-      active: session !== null,
-      name: session?.name ?? "",
+      role,
+      active: role !== "leser",
+      isAdmin: role === "admin",
+      name,
       decisions,
-      activate,
-      deactivate,
+      setRole,
+      setName,
       decide,
       undo,
     }),
-    [session, decisions, activate, deactivate, decide, undo]
+    [role, name, decisions, setRole, setName, decide, undo]
   )
   return (
     <ReviewContext.Provider value={value}>{children}</ReviewContext.Provider>

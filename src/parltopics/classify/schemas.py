@@ -29,7 +29,7 @@ class ChapterChoice(_Output):
 class Stage1Output(_Output):
     affair_id: int
     language: Language
-    chapters: list[ChapterChoice] = Field(min_length=1)
+    chapters: list[ChapterChoice]  # leer: kein APS-Kapitel passt (classify_chapters_v2)
 
 
 def _shorten(text: str, limit: int) -> str:

@@ -32,8 +32,8 @@ def test_classification_prompts_render_with_registry_tags():
     registry = Registry.model_validate(yaml.safe_load(FIXTURE.read_text(encoding="utf-8")))
     chapters = [t for t in registry.active("aps") if t.aps_level == "kapitel"]
     topics = [t for t in registry.active() if t.aps_level in ("thema", None)]
-    _, stage1 = split(ROOT / "prompts" / "classify_chapters_v1.md")
-    _, stage2 = split(ROOT / "prompts" / "classify_topics_v1.md")
+    _, stage1 = split(ROOT / "prompts" / "classify_chapters_v2.md")
+    _, stage2 = split(ROOT / "prompts" / "classify_topics_v2.md")
     system1 = ENV.from_string(stage1["system"]).render(chapters=chapters)
     system2 = ENV.from_string(stage2["system"]).render(tags=topics)
     user = ENV.from_string(stage2["user"]).render(affair_id=70435, text="Der Bundesrat …")

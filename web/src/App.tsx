@@ -3,9 +3,12 @@ import { Route, Routes } from "react-router"
 import { Layout } from "@/components/layout"
 import { HomePage } from "@/pages/home"
 import { AffairPage } from "@/pages/affair"
-import { StatusPage } from "@/pages/status"
+import { AdminPage } from "@/pages/admin"
 import { ReviewPage } from "@/pages/review"
-import { GraphPage, NotFoundPage, SearchPage } from "@/pages/placeholders"
+import { GraphPage } from "@/pages/graph"
+import { HelpPage } from "@/pages/help"
+import { NotFoundPage } from "@/pages/placeholders"
+import { SearchPage } from "@/pages/search"
 import { TagPage } from "@/pages/tag-page"
 
 // Routen der Web-App (PRD 7.5). FastAPI liefert für alle Pfade ausserhalb von /v1 index.html aus.
@@ -27,7 +30,8 @@ export function App() {
           element={<AffairPage mode="review" />}
         />
         <Route path="graph" element={<GraphPage />} />
-        <Route path="status" element={<StatusPage />} />
+        <Route path="hilfe" element={<HelpPage />} />
+        <Route path="admin" element={<AdminPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

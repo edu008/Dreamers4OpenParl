@@ -72,7 +72,7 @@ export function MarginNotes({
               >
                 {label.name}
               </p>
-              <Confidence value={label.confidence} />
+              <Confidence value={label.confidence} labelled />
               {label.evidence === null ? (
                 <p className="text-muted-foreground">Kein Beleg angegeben</p>
               ) : label.evidenceVerified ? (
@@ -102,6 +102,10 @@ export function MarginNotes({
                   }
                 >
                   {rejected ? "Verworfen" : "Bestätigt"} von {entry.by}
+                </p>
+              ) : mode === "public" ? (
+                <p className="text-muted-foreground">
+                  Noch nicht von einem Menschen geprüft
                 </p>
               ) : (
                 label.needsReview && (
@@ -144,7 +148,7 @@ export function MarginNotes({
           )
         })}
       </ul>
-      {mode === "public" && labels.length > 0 && (
+      {mode === "public" && review.active && labels.length > 0 && (
         <p>
           <Link
             to={`/review/geschaefte/${affairId}`}

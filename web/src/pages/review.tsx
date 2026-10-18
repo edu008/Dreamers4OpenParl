@@ -2,8 +2,8 @@ import { useState } from "react"
 import { Link } from "react-router"
 
 import { Confidence } from "@/components/confidence"
-import { JobTable, SystemList } from "@/components/job-summary"
-import { ReviewSignIn } from "@/components/review-signin"
+import { ProcessingBadge } from "@/components/job-summary"
+import { ReviewerName } from "@/components/reviewer-name"
 import { PlainHeader, SortHeader } from "@/components/sort-header"
 import { Button } from "@/components/ui/button"
 import { compareValues, useSort, type SortDir } from "@/hooks/use-sort"
@@ -209,19 +209,40 @@ export function ReviewPage() {
   const open = rows.filter((row) => !row.entry)
   const done = rows.filter((row) => row.entry)
 
+  if (!review.active) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
+            Review
+          </h1>
+          <ProcessingBadge />
+        </div>
+        <p className="max-w-[68ch] text-muted-foreground">
+          Der Review ist für Mitarbeitende, die Labels prüfen. Wähle oben rechts
+          die Ansicht «Reviewer», um die Warteschlange zu sehen und Labels zu
+          bestätigen oder zu verwerfen.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="flex flex-col gap-2">
-        <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
-          Review
-        </h1>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
+            Review
+          </h1>
+          <ProcessingBadge />
+        </div>
         <p className="max-w-[68ch] text-muted-foreground">
           Labels sind Vorschläge. Hier stehen die unsichersten zuerst: niedrige
           Konfidenz oder ein Beleg, der nicht im Text steht. Öffne das Geschäft,
           lies den Beleg und entscheide.
         </p>
         <div className="pt-2">
-          <ReviewSignIn />
+          <ReviewerName />
         </div>
         <p className="text-xs text-muted-foreground">
           Echte Labels aus der API. Entscheide gelten vorerst nur in diesem
@@ -280,19 +301,6 @@ export function ReviewPage() {
           </div>
         </details>
       )}
-      <section
-        aria-labelledby="processing-heading"
-        className="flex flex-col gap-3 pt-4"
-      >
-        <h2
-          id="processing-heading"
-          className="font-heading text-lg font-medium"
-        >
-          Verarbeitungsstand
-        </h2>
-        <SystemList />
-        <JobTable />
-      </section>
     </>
   )
 }

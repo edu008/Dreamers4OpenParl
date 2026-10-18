@@ -91,7 +91,7 @@ Der tägliche Lauf (F17) verkettet 2 bis 10 ohne Review. Diagramm: [02-pipeline]
    ```
 
 2. **Input laden:** Klassifikationstext und `input_hash` aus `affair_inputs`, Registry-Ausschnitt aus dem eingefrorenen Stand des Laufs.
-3. **Stufe 1:** System-Nachricht mit Regeln und den 22 APS-Kapiteln, User-Nachricht mit dem Geschäftstext. Ergebnis: 1 bis 3 Kapitel.
+3. **Stufe 1:** System-Nachricht mit Regeln und den 22 APS-Kapiteln, User-Nachricht mit dem Geschäftstext. Ergebnis: 0 bis 3 Kapitel; passt keines, bietet Stufe 2 nur die aktiven Ad-hoc-Tags an.
 4. **Stufe 2:** System-Nachricht mit Regeln, den Themen der gewählten Kapitel und allen aktiven Ad-hoc-Tags, User-Nachricht mit dem Geschäftstext. Ergebnis: Tags, Konfidenz, Beleg, Vorschläge.
 5. **Validieren** mit den Pydantic-Modellen aus `classify/schemas.py` (Anhang B des PRD). Bei ungültigem JSON eine Wiederholung mit Fehlerhinweis.
 6. **Eskalieren**, falls nötig (Tabelle 3.4): `stage` auf `70b`, Schritte 3 bis 5 mit `LLM_NAME_LARGE`.
@@ -144,9 +144,10 @@ Der gleichbleibende Teil steht vorne, damit Prefix-Caching greifen kann. Die Pro
 | JSON-Form | Pydantic-Modell aus Anhang B | eine Wiederholung mit Fehlerhinweis, dann 70B, dann `failed`; ist nur die 70B-Antwort ungültig, gilt das gültige 8B-Ergebnis |
 | Tag-IDs | nur aus dem angebotenen Ausschnitt | Tag verworfen, Ereignis protokolliert |
 | Anzahl | höchstens 5 Tags, 2 Vorschläge | überzählige verworfen |
-| Beleg | `word_similarity(evidence, text) ≥ 0.9` | Konfidenz halbiert, `evidence_verified = false` |
+| Beleg | `word_similarity(evidence, text) ≥ 0.9` | eine Nachfrage nach wörtlichen Zitaten (gilt nur, wenn danach mehr Belege gefunden werden); sonst Konfidenz halbiert, `evidence_verified = false` |
 | Konfidenz | unter `CONFIDENCE_THRESHOLD` (Start 0.6) | Eskalation an 70B |
 | Vorschlag | vorhanden | Eskalation an 70B |
+| Keine Themen | 8B vergibt kein Tag (auch: kein passendes Kapitel) | Eskalation an 70B |
 | Sprache, Länge | unbekannt oder über Limit | Eskalation an 70B |
 | Stichprobe | 2 %, fest nach `affair_id % 50 = 0`, damit ein Lauf reproduzierbar bleibt | Eskalation an 70B, dient der Kalibrierung |
 
