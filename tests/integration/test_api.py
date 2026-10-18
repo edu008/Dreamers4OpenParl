@@ -21,6 +21,10 @@ TEXT = "Der Bundesrat soll die Verwaltung digitalisieren."
 
 def seed(conn) -> None:
     conn.execute(
+        "INSERT INTO bodies (id, body_key, name, level, raw)"
+        " VALUES (1, 'CHE', 'Schweiz', 'country', '{}')"
+    )
+    conn.execute(
         "INSERT INTO affairs (id, body_key, number, title_de, type_harmonized_en, begin_date, raw)"
         " VALUES (70435, 'CHE', '24.3456', 'Digitale Verwaltung', 'Motion', '2026-03-01', '{}')"
     )
@@ -72,6 +76,7 @@ def test_endpoints_read_labels_topics_and_jobs(conn, repo_root, tmp_path):
             TEXT,
             TEXT,
         )
+        assert (affair["body_name"], affair["body_level"]) == ("Schweiz", "country")
         labels = [(item["tag_id"], item["status"], item["confidence"]) for item in affair["labels"]]
         assert labels == [("aps:6.1.9", "active", 0.86), ("aps:2.4.1", "superseded", 0.4)]
         assert client.get("/v1/affairs/1/topics").status_code == 404
@@ -85,6 +90,7 @@ def test_endpoints_read_labels_topics_and_jobs(conn, repo_root, tmp_path):
         filters = {"body_key": "CHE", "from": "2026-01-01", "min_confidence": 0.8}
         page = client.get(path, params=filters).json()
         assert (page["total"], page["items"][0]["affair_id"]) == (1, 70435)
+        assert page["items"][0]["body_name"] == "Schweiz"
         assert client.get(path, params={"min_confidence": 0.9}).json()["total"] == 0
         assert client.get(path, params={"to": "2025-12-31"}).json()["total"] == 0
         assert client.get("/v1/topics/aps:9.9/affairs").status_code == 404

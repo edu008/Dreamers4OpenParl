@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from parltopics.wiki.tree import PageKind
 
 Stage = Literal["8b", "70b", "human"]
+LEVEL = "country, canton, city oder municipality"
 
 
 class PageOut(BaseModel):
@@ -64,12 +65,17 @@ class LabelOut(BaseModel):
 class AffairTopics(BaseModel):
     affair_id: int = Field(description="OpenParlData-ID", examples=[70435])
     body_key: str = Field(examples=["CHE"])
+    body_name: str | None = Field(description="Name des Parlaments", examples=["Schweiz"])
+    body_level: str | None = Field(description=LEVEL, examples=["country"])
     number: str | None = Field(examples=["24.3456"])
     title: str | None
-    type: str | None = Field(description="harmonisierter Typ", examples=["Motion"])
+    type: str | None = Field(description="harmonisierter Typ (englisch)", examples=["Motion"])
     begin_date: date | None
     url_external: str | None
-    text: str | None = Field(description="Klassifikationstext, in dem die Belege stehen")
+    text: str | None = Field(
+        description="Klassifikationstext, in dem die Belege stehen: erste Zeile der Titel,"
+        " danach die Absätze, getrennt durch Zeilenumbrüche (\\n)"
+    )
     language: str | None = Field(examples=["de"])
     summary_de: str | None = Field(description="Kurzzusammenfassung in einem Satz")
     labels: list[LabelOut] = Field(description="Aktive Labels zuerst, danach der Verlauf")
@@ -89,6 +95,8 @@ class TopicOut(BaseModel):
 class TopicAffair(BaseModel):
     affair_id: int = Field(examples=[70435])
     body_key: str = Field(examples=["CHE"])
+    body_name: str | None = Field(description="Name des Parlaments", examples=["Schweiz"])
+    body_level: str | None = Field(description=LEVEL, examples=["country"])
     number: str | None
     title: str | None
     type: str | None

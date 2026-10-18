@@ -8,11 +8,12 @@ from psycopg.rows import dict_row
 from parltopics.wiki.tree import sort_key
 
 AFFAIR = """
-SELECT a.id AS affair_id, a.body_key, a.number,
+SELECT a.id AS affair_id, a.body_key, b.name AS body_name, b.level AS body_level, a.number,
        coalesce(a.title_de, a.title_fr, a.title_it, a.title_rm) AS title,
        a.type_harmonized_en AS type, a.begin_date, a.url_external, i.text, i.language,
        s.summary AS summary_de
 FROM affairs a
+LEFT JOIN bodies b ON b.body_key = a.body_key
 LEFT JOIN affair_inputs i ON i.affair_id = a.id
 LEFT JOIN affair_summaries s ON s.affair_id = a.id AND s.language = 'de' AND s.status = 'active'
 WHERE a.id = %s
@@ -34,13 +35,14 @@ GROUP BY t.tag_id
 """
 TOPIC_FILTER = """
 FROM affair_tags l JOIN affairs a ON a.id = l.affair_id
+LEFT JOIN bodies b ON b.body_key = a.body_key
 WHERE l.tag_id = %(tag_id)s AND l.status = 'active' AND l.confidence >= %(min_confidence)s
   AND (%(body_key)s::text IS NULL OR a.body_key = %(body_key)s::text)
   AND (%(date_from)s::date IS NULL OR a.begin_date >= %(date_from)s::date)
   AND (%(date_to)s::date IS NULL OR a.begin_date <= %(date_to)s::date)
 """
 TOPIC_AFFAIRS = f"""
-SELECT a.id AS affair_id, a.body_key, a.number,
+SELECT a.id AS affair_id, a.body_key, b.name AS body_name, b.level AS body_level, a.number,
        coalesce(a.title_de, a.title_fr, a.title_it, a.title_rm) AS title,
        a.type_harmonized_en AS type, a.begin_date, l.confidence, l.evidence,
        l.evidence_verified, l.stage
