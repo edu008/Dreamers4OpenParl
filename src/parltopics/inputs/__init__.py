@@ -64,11 +64,13 @@ SET text = EXCLUDED.text, language = EXCLUDED.language, source = EXCLUDED.source
 WHERE affair_inputs.input_hash <> EXCLUDED.input_hash
 RETURNING affair_id
 """
-# Volltext: neu, wenn das Dokument fehlt oder älter ist als sein Text. Der Titel (erste Zeile)
-# zählt mehr als der Rest. In derselben Transaktion wie UPSERT, also mit demselben now().
+# Volltext: neu, wenn das Dokument fehlt oder älter ist als sein Text. updated_at ist das
+# built_at des gelesenen Texts, nicht now(): Schreibt ein anderer Lauf den Text gleichzeitig neu,
+# bleibt das Dokument älter als der neue Text und wird beim nächsten Lauf ersetzt. Der Titel
+# (erste Zeile) zählt mehr als der Rest.
 SEARCH = """
 WITH stale AS (
-    SELECT i.affair_id, i.language, i.text, position(chr(10) IN i.text) AS cut,
+    SELECT i.affair_id, i.language, i.text, i.built_at, position(chr(10) IN i.text) AS cut,
            (CASE i.language WHEN 'de' THEN 'german' WHEN 'fr' THEN 'french'
                             WHEN 'it' THEN 'italian' ELSE 'simple' END)::regconfig AS config
     FROM affair_inputs i LEFT JOIN search_documents d ON d.affair_id = i.affair_id
@@ -79,7 +81,7 @@ SELECT affair_id, language,
        setweight(to_tsvector(config, CASE WHEN cut > 0 THEN left(text, cut - 1) ELSE text END), 'A')
        || setweight(to_tsvector(config, CASE WHEN cut > 0 THEN substr(text, cut + 1) ELSE '' END),
                     'D'),
-       now()
+       built_at
 FROM stale
 ON CONFLICT (affair_id) DO UPDATE
 SET language = EXCLUDED.language, document = EXCLUDED.document, updated_at = EXCLUDED.updated_at

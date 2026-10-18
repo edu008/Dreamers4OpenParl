@@ -76,6 +76,8 @@ def test_inputs_fill_the_full_text_search_once_per_text(conn, repo_root):
     title = "SELECT ts_filter(document, '{a}') FROM search_documents WHERE affair_id = 1"
     assert conn.execute(title).fetchone()[0] == "'digitalisier':2A 'motion':1A"
     assert build_inputs(conn).indexed == 0
+    stamps = "SELECT count(*) FROM search_documents JOIN affair_inputs USING (affair_id)"
+    assert conn.execute(f"{stamps} WHERE updated_at = built_at").fetchone() == (3,)
 
     conn.execute("UPDATE affair_texts SET text = '<p>Cybersicherheit stärken.</p>' WHERE id = 10")
     assert build_inputs(conn).indexed == 1
