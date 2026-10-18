@@ -74,7 +74,12 @@ export interface TopicAffair {
   number: string | null
   title: string | null
   type: string | null
+  /** Deutsche Bezeichnung der Geschäftsart, von der API geliefert. */
+  type_de?: string | null
   begin_date: string | null
+  /** Thema, zu dem diese Zeile gehört (bei Seitenabfragen mit mehreren Themen). */
+  tag_id?: string
+  name_de?: string
   confidence: number
   evidence: string | null
   evidence_verified: boolean
