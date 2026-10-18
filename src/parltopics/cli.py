@@ -87,7 +87,16 @@ def registry_import_aps(
     xlsx: Annotated[Path, typer.Argument(help="aps_topics.xlsx aus dem hackapertus-Datensatz")],
 ) -> None:
     """APS-Schema (165 Themen) aus aps_topics.xlsx in registry/tags.yaml übernehmen."""
-    _planned("M0", "F4")
+    from parltopics.registry import RegistryError
+    from parltopics.registry.aps_import import import_aps
+
+    registry_path = get_settings().registry_path
+    try:
+        count, version = import_aps(xlsx, registry_path)
+    except (RegistryError, OSError) as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"{count} APS-Einträge in {registry_path}, registry_version {version}")
 
 
 @llm_app.command("check")
