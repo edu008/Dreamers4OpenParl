@@ -1,3 +1,5 @@
+import { Link } from "react-router"
+
 import { Confidence } from "@/components/confidence"
 import { Button } from "@/components/ui/button"
 import { useReview } from "@/hooks/use-review"
@@ -24,10 +26,12 @@ export interface Versions {
 // Randspalte neben dem Text: je Label Name, Konfidenz, Zustand des Belegs, Prüfbedarf und, im
 // Review-Modus, die Entscheide. Ein verworfenes Label bleibt sichtbar (durchgestrichen).
 export function MarginNotes({
+  mode,
   affairId,
   labels,
   versions,
 }: {
+  mode: "public" | "review"
   affairId: string
   labels: MarginLabel[]
   versions: Versions
@@ -86,11 +90,13 @@ export function MarginNotes({
                 </p>
               ) : (
                 label.needsReview && (
-                  <p className="font-semibold text-level-medium">Prüfung nötig</p>
+                  <p className="font-semibold text-level-medium">
+                    Prüfung nötig
+                  </p>
                 )
               )}
               <p className="text-muted-foreground">{STAGE_NAME[label.stage]}</p>
-              {review.active && (
+              {mode === "review" && review.active && (
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {entry ? (
                     <Button
@@ -123,6 +129,16 @@ export function MarginNotes({
           )
         })}
       </ul>
+      {mode === "public" && (
+        <p>
+          <Link
+            to={`/review/geschaefte/${affairId}`}
+            className="font-medium underline underline-offset-2"
+          >
+            Im Review prüfen
+          </Link>
+        </p>
+      )}
       <details className="border-t border-border pt-3 text-muted-foreground">
         <summary className="cursor-pointer underline-offset-2 hover:underline">
           Technische Angaben
@@ -130,7 +146,9 @@ export function MarginNotes({
         <dl className="mt-2 flex flex-col gap-1.5">
           <div>
             <dt>Modell</dt>
-            <dd className="tabular break-all text-foreground">{versions.model}</dd>
+            <dd className="tabular break-all text-foreground">
+              {versions.model}
+            </dd>
           </div>
           <div>
             <dt>Prompt</dt>
