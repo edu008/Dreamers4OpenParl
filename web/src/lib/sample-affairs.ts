@@ -115,3 +115,21 @@ export const SAMPLE_AFFAIRS: AffairRecord[] = [
 export function findSampleAffair(id: string): AffairRecord | undefined {
   return SAMPLE_AFFAIRS.find((affair) => affair.id === id)
 }
+
+// Beispiel-Zuordnung: welche Wiki-Seite welches Beispiel-Label zeigt (nur bis die API Labels liefert).
+const SAMPLE_TAG_FOR_PAGE: Record<string, string> = {
+  "adhoc:digitalisierung-breit": "beispiel:digitalisierung",
+}
+
+export interface TopicRow {
+  affair: AffairRecord
+  label: AffairLabel
+}
+
+export function sampleRowsForPage(pageId: string): TopicRow[] {
+  const tagId = SAMPLE_TAG_FOR_PAGE[pageId]
+  if (!tagId) return []
+  return SAMPLE_AFFAIRS.flatMap((affair) =>
+    affair.labels.filter((label) => label.tagId === tagId).map((label) => ({ affair, label }))
+  )
+}
