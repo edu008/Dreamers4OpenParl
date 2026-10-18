@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "ParlTopics – Agent beantwortet eine Suchanfrage",
+    "output": "docs/architecture/05-agent-suche.html",
+    "quality_profile": "showcase",
+    "legend": {
+      "entries": {
+        "return": { "label": "Antwort" },
+        "default": { "label": "Aufruf" },
+        "emphasis": { "label": "Werkzeug" }
+      }
+    }
+  },
+  "participants": [
+    { "id": "user", "type": "external", "label": "Nutzer", "sublabel": "Browser" },
+    { "id": "api", "type": "frontend", "label": "Web-App & API", "sublabel": "POST /v1/agent/search" },
+    { "id": "agent", "type": "backend", "label": "Agent", "sublabel": "max. 6 Werkzeuge" },
+    { "id": "llm", "type": "external", "label": "Apertus 70B", "sublabel": "Tool-Calling" },
+    { "id": "tools", "type": "database", "label": "Werkzeuge", "sublabel": "lesend, PostgreSQL" }
+  ],
+  "segments": [
+    { "from": 150, "to": 210, "label": "Anfrage" },
+    { "from": 225, "to": 452, "label": "Werkzeug-Schleife" },
+    { "from": 470, "to": 640, "label": "Antwort mit Belegen" }
+  ],
+  "messages": [
+    { "id": "ask", "from": "user", "to": "api", "y": 165, "label": "Frage: KI seit 2024" },
+    { "id": "forward", "from": "api", "to": "agent", "y": 193, "label": "Anfrage und Filter" },
+    { "id": "plan", "from": "agent", "to": "llm", "y": 240, "label": "Anfrage, Werkzeugliste" },
+    { "id": "call-tags", "from": "llm", "to": "agent", "y": 268, "label": "list_tags(KI)", "variant": "return" },
+    { "id": "run-tags", "from": "agent", "to": "tools", "y": 296, "label": "list_tags", "variant": "emphasis" },
+    { "id": "tags", "from": "tools", "to": "agent", "y": 324, "label": "passende Tags", "variant": "return" },
+    { "id": "next", "from": "agent", "to": "llm", "y": 352, "label": "Ergebnis" },
+    { "id": "call-search", "from": "llm", "to": "agent", "y": 380, "label": "search_affairs(ab 2024)", "variant": "return" },
+    { "id": "run-search", "from": "agent", "to": "tools", "y": 408, "label": "search_affairs", "variant": "emphasis" },
+    { "id": "hits", "from": "tools", "to": "agent", "y": 436, "label": "Treffer mit IDs", "variant": "return" },
+    { "id": "summarize", "from": "agent", "to": "llm", "y": 490, "label": "Ergebnisse" },
+    { "id": "answer", "from": "llm", "to": "agent", "y": 518, "label": "Antwort, zitierte IDs", "variant": "return", "note": "Code prüft: jede ID kam aus einem Werkzeug" },
+    { "id": "reply", "from": "agent", "to": "api", "y": 575, "label": "Kurzantwort mit Belegen", "variant": "return", "note": "Sitzung in agent_runs protokolliert" },
+    { "id": "show", "from": "api", "to": "user", "y": 622, "label": "Antwort mit Links", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "api", "from": 160, "to": 628, "type": "frontend" },
+    { "participant": "agent", "from": 188, "to": 581, "type": "backend" },
+    { "participant": "llm", "from": 235, "to": 274, "type": "external" },
+    { "participant": "tools", "from": 291, "to": 330, "type": "database" },
+    { "participant": "llm", "from": 347, "to": 386, "type": "external" },
+    { "participant": "tools", "from": 403, "to": 442, "type": "database" },
+    { "participant": "llm", "from": 485, "to": 524, "type": "external" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Nur aus Werkzeugen", "items": ["Jede Aussage trägt OpenParlData-IDs aus Werkzeug-Ergebnissen", "Ohne Treffer: Keine passenden Geschäfte gefunden", "Zahlen kommen aus count_affairs, nicht aus dem Modell"] },
+    { "dot": "amber", "title": "Grenzen", "items": ["Höchstens 6 Werkzeugaufrufe, 60 s Gesamtzeit", "Alle Werkzeuge lesend; Anlegen nur nach Bestätigung im UI", "Ohne Tool-Calling: JSON-Protokoll mit denselben Pydantic-Modellen"] }
+  ]
+}

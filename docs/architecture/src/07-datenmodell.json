@@ -1,0 +1,483 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {"title": "ParlTopics – Datenmodell", "output": "docs/architecture/07-datenmodell.html", "quality_profile": "standard"},
+  "layout": {"mode": "grid", "gapX": 80, "gapY": 44},
+  "entities": [
+    {
+      "id": "classification_jobs",
+      "label": "classification_jobs",
+      "tag": "Steuerung",
+      "row": 0,
+      "col": 0,
+      "attributes": [
+        {"name": "affair_id", "type": "bigint", "key": ["pk", "fk"], "references": "affairs.id"},
+        {"name": "task", "type": "text", "key": "pk"},
+        {"name": "status", "type": "text"},
+        {"name": "priority", "type": "integer"},
+        {"name": "stage", "type": "text"},
+        {"name": "input_hash", "type": "text"},
+        {"name": "prompt_version", "type": "text"},
+        {"name": "scheme_hash", "type": "text"},
+        {"name": "run_id", "type": "integer", "key": "fk", "references": "classification_runs.id"},
+        {"name": "worker_id", "type": "text"},
+        {"name": "locked_at", "type": "timestamptz"},
+        {"name": "attempts", "type": "integer"},
+        {"name": "last_error", "type": "text"},
+        {"name": "updated_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "classification_runs",
+      "label": "classification_runs",
+      "tag": "Steuerung",
+      "row": 1,
+      "col": 0,
+      "attributes": [
+        {"name": "id", "type": "serial", "key": "pk"},
+        {"name": "kind", "type": "text"},
+        {"name": "task", "type": "text"},
+        {"name": "params", "type": "jsonb"},
+        {"name": "registry_version", "type": "text"},
+        {"name": "scheme_hash", "type": "text"},
+        {"name": "prompt_version", "type": "text"},
+        {"name": "started_at", "type": "timestamptz"},
+        {"name": "finished_at", "type": "timestamptz"},
+        {"name": "n_total", "type": "integer"},
+        {"name": "n_done", "type": "integer"},
+        {"name": "n_failed", "type": "integer"},
+        {"name": "n_escalated", "type": "integer"}
+      ]
+    },
+    {
+      "id": "job_events",
+      "label": "job_events",
+      "tag": "Steuerung",
+      "row": 2,
+      "col": 0,
+      "attributes": [
+        {"name": "id", "type": "bigserial", "key": "pk"},
+        {"name": "affair_id", "type": "bigint"},
+        {"name": "task", "type": "text"},
+        {"name": "from_status", "type": "text"},
+        {"name": "to_status", "type": "text"},
+        {"name": "reason", "type": "text"},
+        {"name": "run_id", "type": "integer"},
+        {"name": "worker_id", "type": "text"},
+        {"name": "created_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "affairs",
+      "label": "affairs",
+      "tag": "Geschäft",
+      "row": 0,
+      "col": 1,
+      "attributes": [
+        {"name": "id", "type": "bigint", "key": "pk"},
+        {"name": "body_key", "type": "text"},
+        {"name": "body_id", "type": "bigint"},
+        {"name": "number", "type": "text"},
+        {"name": "external_id", "type": "text"},
+        {"name": "title_de", "type": "text"},
+        {"name": "title_fr", "type": "text"},
+        {"name": "title_it", "type": "text"},
+        {"name": "title_rm", "type": "text"},
+        {"name": "type_harmonized_en", "type": "text"},
+        {"name": "begin_date", "type": "date"},
+        {"name": "url_external", "type": "text"},
+        {"name": "raw", "type": "jsonb"},
+        {"name": "updated_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "affair_inputs",
+      "label": "affair_inputs",
+      "tag": "Geschäft",
+      "row": 1,
+      "col": 1,
+      "attributes": [
+        {"name": "affair_id", "type": "bigint", "key": ["pk", "fk"], "references": "affairs.id"},
+        {"name": "text", "type": "text"},
+        {"name": "language", "type": "text"},
+        {"name": "source", "type": "text"},
+        {"name": "input_hash", "type": "text"},
+        {"name": "built_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "search_documents",
+      "label": "search_documents",
+      "tag": "Geschäft",
+      "row": 2,
+      "col": 1,
+      "attributes": [
+        {"name": "affair_id", "type": "bigint", "key": ["pk", "fk"], "references": "affairs.id"},
+        {"name": "language", "type": "text"},
+        {"name": "document", "type": "tsvector"},
+        {"name": "updated_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "affair_tags",
+      "label": "affair_tags",
+      "tag": "Labels und Review",
+      "row": 0,
+      "col": 2,
+      "attributes": [
+        {"name": "id", "type": "bigserial", "key": "pk"},
+        {"name": "affair_id", "type": "bigint", "key": "fk", "references": "affairs.id"},
+        {"name": "tag_id", "type": "text", "key": "fk", "references": "tags.tag_id"},
+        {"name": "scheme", "type": "text"},
+        {"name": "confidence", "type": "numeric(4,3)"},
+        {"name": "evidence", "type": "text"},
+        {"name": "evidence_verified", "type": "boolean"},
+        {"name": "task", "type": "text"},
+        {"name": "stage", "type": "text"},
+        {"name": "model_version", "type": "text"},
+        {"name": "prompt_version", "type": "text"},
+        {"name": "registry_version", "type": "text"},
+        {"name": "input_hash", "type": "text"},
+        {"name": "run_id", "type": "integer", "key": "fk", "references": "classification_runs.id"},
+        {"name": "status", "type": "text"},
+        {"name": "review_status", "type": "text"},
+        {"name": "reviewed_by", "type": "text"},
+        {"name": "reviewed_at", "type": "timestamptz"},
+        {"name": "created_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "reviews",
+      "label": "reviews",
+      "tag": "Labels und Review",
+      "row": 1,
+      "col": 2,
+      "attributes": [
+        {"name": "id", "type": "bigserial", "key": "pk"},
+        {"name": "affair_id", "type": "bigint", "key": "fk", "references": "affairs.id"},
+        {"name": "affair_tag_id", "type": "bigint", "key": "fk", "references": "affair_tags.id"},
+        {"name": "action", "type": "text"},
+        {"name": "new_tag_id", "type": "text", "key": "fk", "references": "tags.tag_id"},
+        {"name": "comment", "type": "text"},
+        {"name": "user_name", "type": "text"},
+        {"name": "created_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "tag_proposals",
+      "label": "tag_proposals",
+      "tag": "Vorschläge",
+      "row": 2,
+      "col": 2,
+      "attributes": [
+        {"name": "id", "type": "bigserial", "key": "pk"},
+        {"name": "group_key", "type": "text", "key": "uk"},
+        {"name": "name_de", "type": "text"},
+        {"name": "desc_de", "type": "text"},
+        {"name": "reason", "type": "text"},
+        {"name": "recommendation", "type": "text"},
+        {"name": "related_tag_id", "type": "text", "key": "fk", "references": "tags.tag_id"},
+        {"name": "model_version", "type": "text"},
+        {"name": "run_id", "type": "integer", "key": "fk", "references": "classification_runs.id"},
+        {"name": "status", "type": "text"},
+        {"name": "decision", "type": "text"},
+        {"name": "decided_by", "type": "text"},
+        {"name": "decided_at", "type": "timestamptz"},
+        {"name": "created_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "tag_proposal_raw",
+      "label": "tag_proposal_raw",
+      "tag": "Vorschläge",
+      "row": 3,
+      "col": 2,
+      "attributes": [
+        {"name": "id", "type": "bigserial", "key": "pk"},
+        {"name": "affair_id", "type": "bigint", "key": "fk", "references": "affairs.id"},
+        {"name": "run_id", "type": "integer", "key": "fk", "references": "classification_runs.id"},
+        {"name": "name_de", "type": "text"},
+        {"name": "desc_de", "type": "text"},
+        {"name": "reason", "type": "text"},
+        {"name": "model_version", "type": "text"},
+        {"name": "proposal_id", "type": "bigint", "key": "fk", "references": "tag_proposals.id"},
+        {"name": "created_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "tag_proposal_affairs",
+      "label": "tag_proposal_affairs",
+      "tag": "Vorschläge",
+      "row": 4,
+      "col": 2,
+      "attributes": [
+        {"name": "proposal_id", "type": "bigint", "key": ["pk", "fk"], "references": "tag_proposals.id"},
+        {"name": "affair_id", "type": "bigint", "key": ["pk", "fk"], "references": "affairs.id"}
+      ]
+    },
+    {
+      "id": "tags",
+      "label": "tags",
+      "tag": "Registry",
+      "row": 0,
+      "col": 3,
+      "width": 299,
+      "attributes": [
+        {"name": "tag_id", "type": "text", "key": "pk"},
+        {"name": "scheme", "type": "text"},
+        {"name": "status", "type": "text"},
+        {"name": "parent_id", "type": "text", "key": "fk", "references": "tags.tag_id"},
+        {"name": "merged_into", "type": "text", "key": "fk", "references": "tags.tag_id"},
+        {"name": "name_de", "type": "text"},
+        {"name": "name_fr", "type": "text"},
+        {"name": "name_it", "type": "text"},
+        {"name": "name_rm", "type": "text"},
+        {"name": "desc_de", "type": "text"},
+        {"name": "desc_fr", "type": "text"},
+        {"name": "desc_it", "type": "text"},
+        {"name": "aliases", "type": "text[]"},
+        {"name": "unreviewed_translations", "type": "text[]"},
+        {"name": "match_text", "type": "text"},
+        {"name": "content_hash", "type": "text"},
+        {"name": "registry_version", "type": "text"},
+        {"name": "updated_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "registry_syncs",
+      "label": "registry_syncs",
+      "tag": "Registry",
+      "row": 1,
+      "col": 3,
+      "attributes": [
+        {"name": "id", "type": "bigserial", "key": "pk"},
+        {"name": "registry_version", "type": "text"},
+        {"name": "file_hash", "type": "text"},
+        {"name": "scheme_hashes", "type": "jsonb"},
+        {"name": "synced_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "agent_runs",
+      "label": "agent_runs",
+      "tag": "Agent",
+      "row": 2,
+      "col": 3,
+      "attributes": [
+        {"name": "id", "type": "bigserial", "key": "pk"},
+        {"name": "kind", "type": "text"},
+        {"name": "query", "type": "text"},
+        {"name": "tool_calls", "type": "jsonb"},
+        {"name": "answer", "type": "text"},
+        {"name": "cited_affair_ids", "type": "bigint[]"},
+        {"name": "model_version", "type": "text"},
+        {"name": "prompt_version", "type": "text"},
+        {"name": "duration_ms", "type": "integer"},
+        {"name": "status", "type": "text"},
+        {"name": "created_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "bodies",
+      "label": "bodies",
+      "tag": "Quelldaten",
+      "row": 0,
+      "col": 4,
+      "attributes": [
+        {"name": "id", "type": "bigint", "key": "pk"},
+        {"name": "body_key", "type": "text", "key": "uk"},
+        {"name": "name", "type": "text"},
+        {"name": "level", "type": "text"},
+        {"name": "languages", "type": "text[]"},
+        {"name": "raw", "type": "jsonb"},
+        {"name": "updated_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "affair_texts",
+      "label": "affair_texts",
+      "tag": "Quelldaten",
+      "row": 1,
+      "col": 4,
+      "attributes": [
+        {"name": "id", "type": "bigint", "key": "pk"},
+        {"name": "affair_id", "type": "bigint"},
+        {"name": "text_type", "type": "text"},
+        {"name": "language", "type": "text"},
+        {"name": "format", "type": "text"},
+        {"name": "text", "type": "text"},
+        {"name": "raw", "type": "jsonb"},
+        {"name": "updated_at", "type": "timestamptz"}
+      ]
+    },
+    {
+      "id": "affair_docs",
+      "label": "affair_docs",
+      "tag": "Quelldaten",
+      "row": 2,
+      "col": 4,
+      "attributes": [
+        {"name": "id", "type": "bigint", "key": "pk"},
+        {"name": "parent_type", "type": "text"},
+        {"name": "parent_id", "type": "bigint"},
+        {"name": "name", "type": "text"},
+        {"name": "category", "type": "text"},
+        {"name": "doc_date", "type": "date"},
+        {"name": "language", "type": "text"},
+        {"name": "text", "type": "text"},
+        {"name": "raw", "type": "jsonb"},
+        {"name": "updated_at", "type": "timestamptz"}
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "classification_jobs_affair_id",
+      "from": "classification_jobs",
+      "to": "affairs",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one"
+    },
+    {
+      "id": "classification_jobs_run_id",
+      "from": "classification_jobs",
+      "to": "classification_runs",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "toOptional": true,
+      "identifying": false
+    },
+    {"id": "affair_inputs_affair_id", "from": "affair_inputs", "to": "affairs", "fromCardinality": "one", "fromOptional": true, "toCardinality": "one"},
+    {
+      "id": "search_documents_affair_id",
+      "from": "search_documents",
+      "to": "affairs",
+      "fromCardinality": "one",
+      "fromOptional": true,
+      "toCardinality": "one"
+    },
+    {
+      "id": "affair_tags_affair_id",
+      "from": "affair_tags",
+      "to": "affairs",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "identifying": false
+    },
+    {
+      "id": "affair_tags_tag_id",
+      "from": "affair_tags",
+      "to": "tags",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "identifying": false
+    },
+    {
+      "id": "reviews_affair_tag_id",
+      "from": "reviews",
+      "to": "affair_tags",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "toOptional": true,
+      "identifying": false
+    },
+    {
+      "id": "reviews_affair_id",
+      "from": "reviews",
+      "to": "affairs",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "identifying": false
+    },
+    {
+      "id": "reviews_new_tag_id",
+      "from": "reviews",
+      "to": "tags",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "toOptional": true,
+      "identifying": false
+    },
+    {
+      "id": "tag_proposals_related_tag_id",
+      "from": "tag_proposals",
+      "to": "tags",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "toOptional": true,
+      "identifying": false
+    },
+    {
+      "id": "tag_proposal_raw_proposal_id",
+      "from": "tag_proposal_raw",
+      "to": "tag_proposals",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "toOptional": true,
+      "identifying": false
+    },
+    {
+      "id": "tag_proposal_raw_affair_id",
+      "from": "tag_proposal_raw",
+      "to": "affairs",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one",
+      "identifying": false
+    },
+    {
+      "id": "tag_proposal_affairs_proposal_id",
+      "from": "tag_proposal_affairs",
+      "to": "tag_proposals",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one"
+    },
+    {
+      "id": "tag_proposal_affairs_affair_id",
+      "from": "tag_proposal_affairs",
+      "to": "affairs",
+      "fromCardinality": "many",
+      "fromOptional": true,
+      "toCardinality": "one"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Lesehilfe",
+      "items": [
+        "Erzeugt aus migrations/ mit scripts/erd_from_sql.py; verbindlich sind die Migrationen",
+        "Quelltabellen haben keine Fremdschlüssel: affair_texts.affair_id und affair_docs.parent_id verweisen fachlich auf affairs",
+        "run_id in affair_tags, tag_proposals und tag_proposal_raw verweist auf classification_runs; die Linien sind weggelassen",
+        "tags.parent_id und tags.merged_into verweisen auf tags selbst"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Regeln",
+      "items": [
+        "Pro Geschäft, Tag, input_hash und prompt_version höchstens ein aktives Label (partieller Unique-Index)",
+        "Labels werden nie gelöscht, nur auf superseded oder rejected gesetzt",
+        "Ein Job im Status pending trägt immer worker_id und locked_at"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Gestrichelte Linien",
+      "items": [
+        "Gestrichelt: nicht identifizierende Beziehung, der Fremdschlüssel ist nicht Teil des Primärschlüssels",
+        "Durchgezogen: identifizierend, z. B. classification_jobs (affair_id, task)"
+      ]
+    }
+  ]
+}

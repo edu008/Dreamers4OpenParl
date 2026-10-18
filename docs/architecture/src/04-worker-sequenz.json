@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "ParlTopics – Ein Job im Worker",
+    "output": "docs/architecture/04-worker-sequenz.html",
+    "quality_profile": "showcase",
+    "legend": {
+      "entries": {
+        "emphasis": {
+          "label": "Ergebnis schreiben"
+        },
+        "return": {
+          "label": "Antwort"
+        },
+        "security": {
+          "label": "Besitzprüfung"
+        },
+        "dashed": {
+          "label": "Hintergrund"
+        },
+        "default": {
+          "label": "Aufruf"
+        }
+      }
+    }
+  },
+  "participants": [
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Worker",
+      "sublabel": "parltopics worker"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "Jobs, Labels"
+    },
+    {
+      "id": "llm8",
+      "type": "external",
+      "label": "Apertus 8B",
+      "sublabel": "LLM_NAME"
+    },
+    {
+      "id": "llm70",
+      "type": "external",
+      "label": "Apertus 70B",
+      "sublabel": "LLM_NAME_LARGE"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 228,
+      "label": "Job übernehmen"
+    },
+    {
+      "from": 240,
+      "to": 410,
+      "label": "Klassifizieren"
+    },
+    {
+      "from": 422,
+      "to": 518,
+      "label": "Eskalation, falls nötig"
+    },
+    {
+      "from": 532,
+      "to": 712,
+      "label": "Schreiben"
+    }
+  ],
+  "messages": [
+    {
+      "id": "take",
+      "from": "worker",
+      "to": "db",
+      "y": 165,
+      "label": "Job holen: SKIP LOCKED",
+      "note": "open → pending, attempts + 1"
+    },
+    {
+      "id": "job",
+      "from": "db",
+      "to": "worker",
+      "y": 212,
+      "label": "Geschäft, Input, Ausschnitt",
+      "variant": "return"
+    },
+    {
+      "id": "stage1",
+      "from": "worker",
+      "to": "llm8",
+      "y": 255,
+      "label": "Stufe 1: Kapitel wählen"
+    },
+    {
+      "id": "chapters",
+      "from": "llm8",
+      "to": "worker",
+      "y": 283,
+      "label": "1 bis 3 Kapitel",
+      "variant": "return"
+    },
+    {
+      "id": "stage2",
+      "from": "worker",
+      "to": "llm8",
+      "y": 315,
+      "label": "Stufe 2: Themen der Kapitel"
+    },
+    {
+      "id": "tags8b",
+      "from": "llm8",
+      "to": "worker",
+      "y": 343,
+      "label": "Tags, Beleg, Vorschläge",
+      "variant": "return",
+      "note": "Pydantic: nur Registry-IDs, Beleg ≥ 0.9"
+    },
+    {
+      "id": "heartbeat",
+      "from": "worker",
+      "to": "db",
+      "y": 400,
+      "label": "Heartbeat: locked_at",
+      "variant": "dashed"
+    },
+    {
+      "id": "escalate",
+      "from": "worker",
+      "to": "llm70",
+      "y": 452,
+      "label": "gleiche Stufen mit 70B",
+      "note": "unter Schwelle, Vorschlag, 2 % Stichprobe"
+    },
+    {
+      "id": "tags70b",
+      "from": "llm70",
+      "to": "worker",
+      "y": 507,
+      "label": "Tags, Beleg",
+      "variant": "return"
+    },
+    {
+      "id": "own",
+      "from": "worker",
+      "to": "db",
+      "y": 552,
+      "label": "UPDATE … WHERE worker_id",
+      "variant": "security",
+      "note": "keine Zeile: Ergebnis verwerfen"
+    },
+    {
+      "id": "owned",
+      "from": "db",
+      "to": "worker",
+      "y": 609,
+      "label": "Job gehört diesem Worker",
+      "variant": "return"
+    },
+    {
+      "id": "write",
+      "from": "worker",
+      "to": "db",
+      "y": 639,
+      "label": "Labels, Vorschläge, done",
+      "variant": "emphasis",
+      "note": "eine Transaktion, 8B-Label superseded"
+    },
+    {
+      "id": "commit",
+      "from": "db",
+      "to": "worker",
+      "y": 696,
+      "label": "COMMIT",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "worker",
+      "from": 160,
+      "to": 702,
+      "type": "backend"
+    },
+    {
+      "participant": "db",
+      "from": 160,
+      "to": 218,
+      "type": "database"
+    },
+    {
+      "participant": "llm8",
+      "from": 250,
+      "to": 349,
+      "type": "external"
+    },
+    {
+      "participant": "llm70",
+      "from": 447,
+      "to": 513,
+      "type": "external"
+    },
+    {
+      "participant": "db",
+      "from": 547,
+      "to": 702,
+      "type": "database"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Ein Geschäft pro Aufruf",
+      "items": [
+        "Der Code wählt den Job, Apertus sieht genau ein Geschäft",
+        "Stufe 1 wählt Kapitel, Stufe 2 Themen und aktive Ad-hoc-Tags",
+        "Temperatur 0, Prompts als versionierte Dateien"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Sicher schreiben",
+      "items": [
+        "Das Schreiben beginnt mit der Besitzprüfung",
+        "Labels, Rohvorschläge, Status und job_events in einer Transaktion",
+        "Ein Worker, der seinen Job verloren hat, schreibt nichts"
+      ]
+    }
+  ]
+}

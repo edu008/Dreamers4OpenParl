@@ -1,0 +1,277 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "ParlTopics – Pipeline vom Download bis zur Ausgabe",
+    "output": "docs/architecture/02-pipeline.html",
+    "quality_profile": "showcase",
+    "legend": {
+      "entries": {
+        "frontend": {
+          "label": "Oberfläche"
+        },
+        "backend": {
+          "label": "Verarbeitung"
+        },
+        "security": {
+          "label": "Prüfung durch Menschen"
+        },
+        "messagebus": {
+          "label": "Warteschlange"
+        },
+        "database": {
+          "label": "Speicher"
+        },
+        "external": {
+          "label": "Online-Schritt"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "daten",
+      "label": "Daten und Registry"
+    },
+    {
+      "id": "worker",
+      "label": "Worker und Apertus"
+    },
+    {
+      "id": "ausnahme",
+      "label": "Eskalation und Vorschläge",
+      "variant": "exception"
+    },
+    {
+      "id": "mensch",
+      "label": "Review (Mensch)"
+    },
+    {
+      "id": "ausgabe",
+      "label": "Ausgabe"
+    }
+  ],
+  "phases": [
+    {
+      "id": "vorbereiten",
+      "label": "Vorbereiten",
+      "fromCol": 0,
+      "toCol": 2
+    },
+    {
+      "id": "klassifizieren",
+      "label": "Klassifizieren",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "emphasis"
+    },
+    {
+      "id": "pruefen",
+      "label": "Prüfen und nutzen",
+      "fromCol": 5,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "download",
+    "ingest",
+    "jobs",
+    "classify",
+    "store",
+    "review",
+    "output"
+  ],
+  "nodes": [
+    {
+      "id": "download",
+      "lane": "daten",
+      "col": 0,
+      "type": "external",
+      "label": "Download",
+      "sublabel": "online, separat"
+    },
+    {
+      "id": "ingest",
+      "lane": "daten",
+      "col": 1,
+      "type": "backend",
+      "label": "Ingest und Input",
+      "sublabel": "Text, Sprache, Hash"
+    },
+    {
+      "id": "registry",
+      "lane": "daten",
+      "col": 2,
+      "type": "database",
+      "label": "Registry-Sync",
+      "sublabel": "tags.yaml → tags"
+    },
+    {
+      "id": "jobs",
+      "lane": "worker",
+      "col": 2,
+      "type": "messagebus",
+      "label": "Jobs öffnen",
+      "sublabel": "neu oder geändert"
+    },
+    {
+      "id": "classify",
+      "lane": "worker",
+      "col": 3,
+      "type": "backend",
+      "label": "Apertus 8B",
+      "sublabel": "Kapitel → Themen"
+    },
+    {
+      "id": "store",
+      "lane": "worker",
+      "col": 4,
+      "type": "database",
+      "label": "Speichern",
+      "sublabel": "mit Besitzprüfung"
+    },
+    {
+      "id": "escalate",
+      "lane": "ausnahme",
+      "col": 3,
+      "type": "backend",
+      "label": "Apertus 70B",
+      "sublabel": "bei Unsicherheit"
+    },
+    {
+      "id": "proposals",
+      "lane": "ausnahme",
+      "col": 4,
+      "type": "messagebus",
+      "label": "Vorschläge",
+      "sublabel": "nach dem Lauf"
+    },
+    {
+      "id": "review",
+      "lane": "mensch",
+      "col": 5,
+      "type": "security",
+      "label": "Review",
+      "sublabel": "in der Web-App"
+    },
+    {
+      "id": "output",
+      "lane": "ausgabe",
+      "col": 5,
+      "type": "frontend",
+      "label": "Ausgabe",
+      "sublabel": "API, Wiki, Export"
+    }
+  ],
+  "edges": [
+    {
+      "id": "download-ingest",
+      "from": "download",
+      "to": "ingest",
+      "label": "Bündel",
+      "role": "main"
+    },
+    {
+      "id": "ingest-jobs",
+      "from": "ingest",
+      "to": "jobs",
+      "label": "neu oder geändert",
+      "role": "main"
+    },
+    {
+      "id": "registry-jobs",
+      "from": "registry",
+      "to": "jobs",
+      "label": "scheme_hash",
+      "role": "branch"
+    },
+    {
+      "id": "jobs-classify",
+      "from": "jobs",
+      "to": "classify",
+      "label": "SKIP LOCKED",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "classify-store",
+      "from": "classify",
+      "to": "store",
+      "label": "gültig",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "classify-escalate",
+      "from": "classify",
+      "to": "escalate",
+      "label": "unsicher",
+      "role": "branch",
+      "variant": "security"
+    },
+    {
+      "id": "escalate-store",
+      "from": "escalate",
+      "to": "store",
+      "label": "70B-Ergebnis",
+      "role": "branch"
+    },
+    {
+      "id": "store-proposals",
+      "from": "store",
+      "to": "proposals",
+      "label": "Rohvorschläge",
+      "role": "branch",
+      "variant": "dashed"
+    },
+    {
+      "id": "store-review",
+      "from": "store",
+      "to": "review",
+      "label": "Labels",
+      "role": "main"
+    },
+    {
+      "id": "proposals-review",
+      "from": "proposals",
+      "to": "review",
+      "label": "Empfehlung",
+      "role": "branch",
+      "variant": "dashed"
+    },
+    {
+      "id": "review-output",
+      "from": "review",
+      "to": "output",
+      "label": "bestätigt",
+      "role": "main"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Täglicher Lauf",
+      "items": [
+        "Ein Kommando verkettet Ingest, Input, Jobs, Klassifikation, Export und Wiki",
+        "Nur neue oder geänderte Geschäfte, erkannt über input_hash und scheme_hash"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Eskalation",
+      "items": [
+        "70B bei Konfidenz unter Schwelle, Vorschlag, unbekannter Sprache oder in der 2-%-Stichprobe",
+        "Das 8B-Ergebnis bleibt als superseded gespeichert"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Mensch entscheidet",
+      "items": [
+        "Vorschläge werden nach dem Lauf gruppiert und erst im Review aktiv",
+        "Freigaben schreiben registry/tags.yaml und öffnen nur reclassify-Jobs",
+        "Labels sind sofort sichtbar; Review bestätigt oder korrigiert sie"
+      ]
+    }
+  ]
+}

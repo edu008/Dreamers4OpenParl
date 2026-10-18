@@ -1,0 +1,53 @@
+{
+  "archify": "3.1.0",
+  "diagrams": {
+    "01-systemarchitektur": {
+      "type": "architecture",
+      "quality": "showcase",
+      "source_sha256": "113e71461fa79f723402fe4ca4d38a3545ba87df09586a8e98ec6777220665a1",
+      "html_sha256": "75ccbd6031c09a8ac322fa12ea10efc79bccc55d0c3393b688fb8b92ec95c6a9"
+    },
+    "02-pipeline": {
+      "type": "workflow",
+      "quality": "showcase",
+      "source_sha256": "536f90fbeb748840aa659473d6606f00fe48ecacca29a47c542dd0f4f4e8514f",
+      "html_sha256": "773ad4af3ee56bc2e00029c2254be71925048221aab5c2ca08975f10e20dee53"
+    },
+    "03-job-lifecycle": {
+      "type": "lifecycle",
+      "quality": "showcase",
+      "source_sha256": "c1ae4865bfbfa94d9f60bba9ee5639d14aec7802c43e89301449f96bea28a9a5",
+      "html_sha256": "d70f0c010e69b354c1bc33900bcd799a592c4369fb2c18a0542c006645162c91"
+    },
+    "04-worker-sequenz": {
+      "type": "sequence",
+      "quality": "showcase",
+      "source_sha256": "6bf578cc6bf32762fb28ac5a2901949b749f0f86b20d87ed901da8e7af5b96b2",
+      "html_sha256": "e8a6f51ce293d19628fa86ed7b022b604011c6fd309c01663dd429664a8de473"
+    },
+    "05-agent-suche": {
+      "type": "sequence",
+      "quality": "showcase",
+      "source_sha256": "518986ff6c5f8987473a06b0d896642b3b3253fb01799593912132cb9bd632bf",
+      "html_sha256": "9e240e08ea3e26e64e65c70fa0e2c59db5508a5263a6fe6be0c83f250acac34a"
+    },
+    "06-adhoc-thema": {
+      "type": "workflow",
+      "quality": "showcase",
+      "source_sha256": "2c6433d796e852b7c9931e4805ebe7e7fec4c249eefd3a2e49986315eae86851",
+      "html_sha256": "cf13fff438190aa81888514a1722a2451637b44f73a4c311773e1e44ac10d6af"
+    },
+    "07-datenmodell": {
+      "type": "erd",
+      "quality": "standard",
+      "source_sha256": "a87a1aed3cb8314299465b6aaf0afb4a8119378f6ae98db8b900b6bceeee62de",
+      "html_sha256": "15b8d64a41580186e6aab724ff6afd1d661e4daa73aca7c37b3614a36d483b0b"
+    },
+    "08-airgap-deployment": {
+      "type": "dataflow",
+      "quality": "showcase",
+      "source_sha256": "c1b60b41b2df4f21f1142b1f22765aeb8b7f246519228bb5e03804fd78e70870",
+      "html_sha256": "e5fa931a9564c86adba582dad2186a7498d18bac118a8156a04ad7dff57eafeb"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "ParlTopics – Ad-hoc-Thema vom Dialog bis zur Aktivierung",
+    "output": "docs/architecture/06-adhoc-thema.html",
+    "quality_profile": "showcase",
+    "legend": {
+      "entries": {
+        "frontend": { "label": "Oberfläche" },
+        "backend": { "label": "Verarbeitung" },
+        "security": { "label": "Entscheid durch Menschen" },
+        "messagebus": { "label": "Warteschlange" },
+        "database": { "label": "Registry" }
+      }
+    }
+  },
+  "lanes": [
+    { "id": "redaktion", "label": "Redaktion" },
+    { "id": "agent", "label": "Agent (70B)" },
+    { "id": "worker", "label": "Worker (8B)" },
+    { "id": "system", "label": "Web-App und Registry" }
+  ],
+  "phases": [
+    { "id": "dialog", "label": "Dialog mit dem Agenten", "fromCol": 0, "toCol": 2 },
+    { "id": "anlegen", "label": "Anlegen und prüfen", "fromCol": 3, "toCol": 4, "variant": "emphasis" },
+    { "id": "freigabe", "label": "Freigabe", "fromCol": 5, "toCol": 5 }
+  ],
+  "mainPath": ["idee", "keywords", "entwurf", "bestaetigen", "anlegen", "kandidaten", "pruefen", "treffer", "aktivieren"],
+  "nodes": [
+    { "id": "idee", "lane": "redaktion", "col": 0, "type": "frontend", "label": "Thema beschreiben", "sublabel": "Name, Beschreibung" },
+    { "id": "keywords", "lane": "agent", "col": 1, "type": "backend", "label": "Stichwörter", "sublabel": "DE, FR, IT" },
+    { "id": "entwurf", "lane": "agent", "col": 2, "type": "backend", "label": "Entwurf", "sublabel": "Kandidaten geschätzt" },
+    { "id": "bestaetigen", "lane": "redaktion", "col": 2, "type": "security", "label": "Bestätigen", "sublabel": "Liste prüfen" },
+    { "id": "anlegen", "lane": "system", "col": 3, "type": "database", "label": "Tag anlegen", "sublabel": "Status proposed" },
+    { "id": "kandidaten", "lane": "system", "col": 4, "type": "messagebus", "label": "Jobs öffnen", "sublabel": "Kandidaten + 2 %" },
+    { "id": "pruefen", "lane": "worker", "col": 4, "type": "backend", "label": "Prüfen", "sublabel": "classify:adhoc" },
+    { "id": "treffer", "lane": "redaktion", "col": 5, "type": "frontend", "label": "Vorläufige Treffer", "sublabel": "sofort sichtbar" },
+    { "id": "aktivieren", "lane": "system", "col": 5, "type": "security", "label": "Aktivieren", "sublabel": "im Review" }
+  ],
+  "edges": [
+    { "id": "idee-keywords", "from": "idee", "to": "keywords", "label": "generate_keywords", "role": "main" },
+    { "id": "keywords-entwurf", "from": "keywords", "to": "entwurf", "label": "Suche, Zählung", "role": "main" },
+    { "id": "entwurf-bestaetigen", "from": "entwurf", "to": "bestaetigen", "label": "propose_adhoc_topic", "role": "main" },
+    { "id": "bestaetigen-keywords", "from": "bestaetigen", "to": "keywords", "label": "anpassen", "role": "return", "variant": "dashed" },
+    { "id": "bestaetigen-anlegen", "from": "bestaetigen", "to": "anlegen", "label": "POST /v1/adhoc", "role": "main", "variant": "security" },
+    { "id": "anlegen-kandidaten", "from": "anlegen", "to": "kandidaten", "label": "Volltext", "role": "main" },
+    { "id": "kandidaten-pruefen", "from": "kandidaten", "to": "pruefen", "label": "Jobs", "role": "main" },
+    { "id": "pruefen-treffer", "from": "pruefen", "to": "treffer", "label": "Label, Beleg", "role": "main", "variant": "emphasis" },
+    { "id": "treffer-aktivieren", "from": "treffer", "to": "aktivieren", "label": "bewährt", "role": "main" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Agent schlägt vor", "items": ["generate_keywords erzeugt Stichwörter in DE, FR und IT", "propose_adhoc_topic liefert nur einen Entwurf, es legt nichts an"] },
+    { "dot": "rose", "title": "Mensch entscheidet", "items": ["Erst die Bestätigung im UI ruft POST /v1/adhoc auf", "Aktiv wird das Thema erst nach dem Review", "Danach läuft es in Stufe 2 des täglichen Laufs mit"] },
+    { "dot": "emerald", "title": "Kandidaten statt Volllauf", "items": ["Jobs nur für Volltext-Treffer plus 2 % Stichprobe", "Die Stichprobe misst den Kandidaten-Recall", "Nicht-Treffer verbessern die Stichwortliste"] }
+  ]
+}

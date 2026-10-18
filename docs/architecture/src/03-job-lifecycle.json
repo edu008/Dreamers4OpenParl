@@ -1,0 +1,165 @@
+{
+  "schema_version": 3,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "ParlTopics – Lebenszyklus eines Klassifikations-Jobs",
+    "output": "docs/architecture/03-job-lifecycle.html",
+    "quality_profile": "showcase",
+    "legend": {
+      "entries": {
+        "start": {
+          "label": "wartet"
+        },
+        "active": {
+          "label": "in Arbeit"
+        },
+        "success": {
+          "label": "erledigt"
+        },
+        "failure": {
+          "label": "fehlgeschlagen"
+        }
+      }
+    }
+  },
+  "mainPath": [
+    "open",
+    "pending8b",
+    "done"
+  ],
+  "states": [
+    {
+      "id": "open",
+      "type": "start",
+      "label": "open",
+      "sublabel": "wartet auf Worker",
+      "step": "01"
+    },
+    {
+      "id": "pending8b",
+      "type": "active",
+      "label": "pending · 8b",
+      "sublabel": "Worker klassifiziert",
+      "tag": "Heartbeat",
+      "step": "02"
+    },
+    {
+      "id": "done",
+      "type": "success",
+      "label": "done",
+      "sublabel": "gültig für die Hashes",
+      "step": "03"
+    },
+    {
+      "id": "pending70b",
+      "type": "active",
+      "label": "pending · 70b",
+      "sublabel": "Eskalation, gleicher Job",
+      "tag": "Heartbeat"
+    },
+    {
+      "id": "failed",
+      "type": "failure",
+      "label": "failed",
+      "sublabel": "mit Fehlergrund"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "take",
+      "from": "open",
+      "to": "pending8b",
+      "label": "übernommen",
+      "note": "SKIP LOCKED, attempts + 1"
+    },
+    {
+      "id": "write8b",
+      "from": "pending8b",
+      "to": "done",
+      "label": "geschrieben",
+      "note": "Besitzprüfung bestanden",
+      "variant": "emphasis"
+    },
+    {
+      "id": "escalate",
+      "from": "pending8b",
+      "to": "pending70b",
+      "label": "unsicher",
+      "note": "Schwelle, Vorschlag, Stichprobe"
+    },
+    {
+      "id": "write70b",
+      "from": "pending70b",
+      "to": "done",
+      "label": "geschrieben",
+      "note": "8B-Label superseded"
+    },
+    {
+      "id": "timeout8b",
+      "from": "pending8b",
+      "to": "open",
+      "label": "Timeout",
+      "note": "kein Heartbeat seit 10 min, auch aus 70b",
+      "variant": "dashed"
+    },
+    {
+      "id": "fail8b",
+      "from": "pending8b",
+      "to": "failed",
+      "label": "dauerhafter Fehler",
+      "note": "leerer Text oder 3. Versuch",
+      "variant": "security"
+    },
+    {
+      "id": "fail70b",
+      "from": "pending70b",
+      "to": "failed",
+      "label": "JSON ungültig",
+      "variant": "security"
+    },
+    {
+      "id": "reopen",
+      "from": "done",
+      "to": "open",
+      "label": "neue Eingabe",
+      "note": "Text, Prompt oder scheme_hash neu",
+      "variant": "dashed"
+    },
+    {
+      "id": "retry",
+      "from": "failed",
+      "to": "open",
+      "label": "manuell",
+      "note": "oder neue Prompt-/Modellversion",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Wann ein Job aufgeht",
+      "items": [
+        "Neues Geschäft oder geänderter Text (input_hash)",
+        "Neue prompt_version oder neuer scheme_hash der Aufgabe",
+        "Freigegebenes Tag betrifft das Geschäft (reclassify)"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Versuche und Timeout",
+      "items": [
+        "attempts zählt Übernahmen; JSON-Wiederholung und Eskalation zählen nicht extra",
+        "Heartbeat alle 2 min; Timeout nach 10 min gilt für pending · 8b und pending · 70b",
+        "Ein Timeout beim 3. Versuch führt zu failed"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Besitzprüfung",
+      "items": [
+        "Geschrieben wird nur, wenn der Job noch pending ist und die worker_id passt",
+        "Sonst wird das Ergebnis verworfen und lost_lock protokolliert"
+      ]
+    }
+  ]
+}

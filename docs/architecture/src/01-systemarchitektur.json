@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ParlTopics – Systemarchitektur",
+    "output": "docs/architecture/01-systemarchitektur.html",
+    "quality_profile": "showcase",
+    "legend": {
+      "entries": {
+        "frontend": {
+          "label": "Oberfläche"
+        },
+        "backend": {
+          "label": "Dienst"
+        },
+        "database": {
+          "label": "Speicher"
+        },
+        "external": {
+          "label": "Extern"
+        }
+      }
+    }
+  },
+  "components": [
+    {
+      "id": "odp",
+      "type": "external",
+      "label": "OpenParlData",
+      "sublabel": "files.openparldata.ch",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "download",
+      "type": "backend",
+      "label": "Download",
+      "sublabel": "parltopics download",
+      "pos": [
+        280,
+        40
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "bundle",
+      "type": "database",
+      "label": "Import-Bündel",
+      "sublabel": "NDJSON.gz, CSV, XLSX",
+      "pos": [
+        520,
+        40
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "ingest",
+      "type": "backend",
+      "label": "Ingest & Input",
+      "sublabel": "COPY, HTML weg, Sprache",
+      "pos": [
+        520,
+        180
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "registry",
+      "type": "database",
+      "label": "Tag-Registry",
+      "sublabel": "registry/tags.yaml",
+      "tag": "Git-Historie",
+      "pos": [
+        280,
+        320
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "PostgreSQL 16",
+      "sublabel": "Daten, Labels, Jobs, FTS",
+      "pos": [
+        520,
+        320
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Worker",
+      "sublabel": "Klassifikation 8B → 70B",
+      "tag": "SKIP LOCKED",
+      "pos": [
+        760,
+        320
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "api",
+      "type": "frontend",
+      "label": "Web-App & API",
+      "sublabel": "Wiki, Review, Graph, /v1",
+      "pos": [
+        520,
+        460
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "Agent",
+      "sublabel": "Suche & Ad-hoc-Dialog",
+      "tag": "nur lesend",
+      "pos": [
+        760,
+        460
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "Apertus v1.5",
+      "sublabel": "LLM_BASE_URL",
+      "tag": "8B · 70B",
+      "pos": [
+        1000,
+        320
+      ],
+      "size": [
+        140,
+        200
+      ]
+    },
+    {
+      "id": "user",
+      "type": "external",
+      "label": "Nutzer & Reviewer",
+      "sublabel": "Browser",
+      "pos": [
+        520,
+        600
+      ],
+      "size": [
+        140,
+        60
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Rechner mit Internet",
+      "wraps": [
+        "download",
+        "bundle"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Server ohne Internet · Docker Compose",
+      "wraps": [
+        "ingest",
+        "registry",
+        "db",
+        "worker",
+        "api",
+        "agent"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "odp-download",
+      "from": "odp",
+      "to": "download",
+      "label": "Exporte"
+    },
+    {
+      "id": "download-bundle",
+      "from": "download",
+      "to": "bundle",
+      "label": "schreibt"
+    },
+    {
+      "id": "bundle-ingest",
+      "from": "bundle",
+      "to": "ingest",
+      "label": "Datenträger",
+      "variant": "dashed"
+    },
+    {
+      "id": "ingest-db",
+      "from": "ingest",
+      "to": "db",
+      "label": "COPY"
+    },
+    {
+      "id": "registry-db",
+      "from": "registry",
+      "to": "db",
+      "label": "sync"
+    },
+    {
+      "id": "worker-db",
+      "from": "worker",
+      "to": "db",
+      "label": "Jobs, Labels",
+      "variant": "emphasis"
+    },
+    {
+      "id": "worker-llm",
+      "from": "worker",
+      "to": "llm",
+      "label": "8B / 70B",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-db",
+      "from": "api",
+      "to": "db",
+      "label": "SQL"
+    },
+    {
+      "id": "api-agent",
+      "from": "api",
+      "to": "agent",
+      "label": "Anfragen"
+    },
+    {
+      "id": "agent-llm",
+      "from": "agent",
+      "to": "llm",
+      "label": "70B Tools"
+    },
+    {
+      "id": "review-registry",
+      "from": "api",
+      "to": "registry",
+      "label": "Review",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "bottom"
+    },
+    {
+      "id": "user-api",
+      "from": "user",
+      "to": "api",
+      "label": "HTTP"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Offline zur Laufzeit",
+      "items": [
+        "Einziger Netzwerkzugriff: LLM_BASE_URL, Allowlist im HTTP-Client",
+        "Hack: Keera. Air-Gap: Apertus-Endpunkt im internen Netz",
+        "Daten kommen als Import-Bündel per Datenträger"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Zwei KI-Rollen",
+      "items": [
+        "Worker: deterministisch, ein Geschäft pro Aufruf, 8B mit Eskalation an 70B",
+        "Agent: Tool-Calling mit 70B, nur lesende Werkzeuge, läuft im Prozess der Web-App"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Mensch entscheidet",
+      "items": [
+        "Review in der Web-App bestätigt, verwirft, ersetzt und ergänzt Labels",
+        "Nur Review-Aktionen schreiben registry/tags.yaml",
+        "Export und DVS-Liste entstehen per CLI aus PostgreSQL"
+      ]
+    }
+  ]
+}

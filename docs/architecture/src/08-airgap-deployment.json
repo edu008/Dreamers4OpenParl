@@ -1,0 +1,256 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "ParlTopics – Air-Gap: online bauen, offline betreiben",
+    "output": "docs/architecture/08-airgap-deployment.html",
+    "quality_profile": "showcase",
+    "legend": {
+      "entries": {
+        "emphasis": {
+          "label": "Software-Bundle"
+        },
+        "security": {
+          "label": "einzige Verbindung zur Laufzeit"
+        },
+        "dashed": {
+          "label": "Datenträger"
+        },
+        "default": {
+          "label": "Datenfluss"
+        },
+        "database": {
+          "label": "Speicher"
+        }
+      }
+    }
+  },
+  "stages": [
+    {
+      "label": "Internet"
+    },
+    {
+      "label": "Build-Rechner"
+    },
+    {
+      "label": "Transfer"
+    },
+    {
+      "label": "Server ohne Internet"
+    },
+    {
+      "label": "LLM-Endpunkt"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "pypi",
+      "type": "external",
+      "label": "PyPI",
+      "sublabel": "nach uv.lock",
+      "stage": 0,
+      "row": 0
+    },
+    {
+      "id": "hub",
+      "type": "external",
+      "label": "Docker Hub",
+      "sublabel": "python, pgvector",
+      "stage": 0,
+      "row": 1
+    },
+    {
+      "id": "odp",
+      "type": "external",
+      "label": "OpenParlData",
+      "sublabel": "Exporte",
+      "stage": 0,
+      "row": 2
+    },
+    {
+      "id": "wheels",
+      "type": "database",
+      "label": "Wheels",
+      "sublabel": "build-wheels.sh",
+      "stage": 1,
+      "row": 0
+    },
+    {
+      "id": "images",
+      "type": "backend",
+      "label": "Images",
+      "sublabel": "build, save",
+      "stage": 1,
+      "row": 1
+    },
+    {
+      "id": "data",
+      "type": "database",
+      "label": "Import-Bündel",
+      "sublabel": "parltopics download",
+      "stage": 1,
+      "row": 2
+    },
+    {
+      "id": "bundle",
+      "type": "messagebus",
+      "label": "Bundle",
+      "sublabel": "mit SHA256SUMS",
+      "stage": 2,
+      "row": 1
+    },
+    {
+      "id": "datacopy",
+      "type": "messagebus",
+      "label": "Daten-Kopie",
+      "sublabel": "täglich neu",
+      "stage": 2,
+      "row": 2
+    },
+    {
+      "id": "load",
+      "type": "backend",
+      "label": "load-bundle.sh",
+      "sublabel": "prüfen, laden",
+      "stage": 3,
+      "row": 0
+    },
+    {
+      "id": "app",
+      "type": "backend",
+      "label": "api + worker",
+      "sublabel": "Docker Compose",
+      "stage": 3,
+      "row": 1
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "Volume pgdata",
+      "stage": 3,
+      "row": 2
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "Apertus",
+      "sublabel": "LLM_BASE_URL",
+      "stage": 4,
+      "row": 1
+    }
+  ],
+  "flows": [
+    {
+      "id": "pypi-wheels",
+      "from": "pypi",
+      "to": "wheels",
+      "label": "pip download"
+    },
+    {
+      "id": "hub-images",
+      "from": "hub",
+      "to": "images",
+      "label": "Basis-Images",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wheels-images",
+      "from": "wheels",
+      "to": "images",
+      "label": "pip --no-index",
+      "variant": "emphasis"
+    },
+    {
+      "id": "odp-data",
+      "from": "odp",
+      "to": "data",
+      "label": "Exporte (HTTPS)"
+    },
+    {
+      "id": "images-bundle",
+      "from": "images",
+      "to": "bundle",
+      "label": "docker save",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wheels-bundle",
+      "from": "wheels",
+      "to": "bundle",
+      "label": "wheels/"
+    },
+    {
+      "id": "data-copy",
+      "from": "data",
+      "to": "datacopy",
+      "label": "Datenträger",
+      "variant": "dashed"
+    },
+    {
+      "id": "bundle-load",
+      "from": "bundle",
+      "to": "load",
+      "label": "Datenträger",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "load-app",
+      "from": "load",
+      "to": "app",
+      "label": "docker load",
+      "variant": "emphasis"
+    },
+    {
+      "id": "copy-db",
+      "from": "datacopy",
+      "to": "db",
+      "label": "ingest"
+    },
+    {
+      "id": "app-db",
+      "from": "app",
+      "to": "db",
+      "label": "SQL"
+    },
+    {
+      "id": "app-llm",
+      "from": "app",
+      "to": "llm",
+      "label": "nur LLM_BASE_URL",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Build-Zeit (online)",
+      "items": [
+        "Wheels exakt nach uv.lock, geladen im Ziel-Image python:3.12-slim",
+        "Das App-Image entsteht nur aus diesen Wheels, ohne Zugriff auf PyPI",
+        "SHA256SUMS über alle Dateien des Bundles"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Laufzeit (offline)",
+      "items": [
+        "Container ohne Route nach aussen",
+        "Einziger Zielhost: LLM_BASE_URL, Allowlist im HTTP-Client",
+        "Registry und Import-Bündel liegen fest in REGISTRY_DIR und IMPORT_DIR",
+        "Hack: Keera. Air-Gap: Apertus-Endpunkt im internen Netz"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Nachweis",
+      "items": [
+        "make offline-test startet db, api und Mock-LLM in einem internen Docker-Netz",
+        "Ein Aufruf ins Internet aus dem App-Container muss scheitern",
+        "Läuft bei jedem Push in der CI"
+      ]
+    }
+  ]
+}
