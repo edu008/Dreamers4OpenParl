@@ -27,7 +27,7 @@ export function Layout() {
 
   // Die Navigation folgt der gewählten Ansicht: Review für Reviewer und Admin, Admin nur für Admin.
   const nav = [
-    { to: "/", label: "Wiki" },
+    { to: "/", label: "Themen" },
     ...(active ? [{ to: "/review", label: "Review" }] : []),
     ...(isAdmin ? [{ to: "/admin", label: "Admin" }] : []),
     { to: "/graph", label: "Graph" },

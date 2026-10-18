@@ -109,7 +109,7 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
           </Link>
         ) : (
           <Link to="/" className="underline underline-offset-2">
-            Wiki
+            Themen
           </Link>
         )}{" "}
         / Geschäft {affair.number ?? affair.affair_id}
