@@ -346,6 +346,8 @@ Diagramm: [09-wiki-hierarchie](architecture/09-wiki-hierarchie.html).
 
 PRD 7.10, ADR 0008. Die Suche steigt durch den Seitenbaum ab. Der Code steuert die Schleife wie bei den Workern; das Modell bewertet nur, es wählt nicht den nächsten Schritt.
 
+Umgesetzt in `parltopics.search.navigate` (Schleife) und `parltopics.api.navigate` (Modell, Datenbank, Seitenbaum), Endpunkt `POST /v1/search/navigate`. Bis der Seitenlauf (M3) Kurzzusammenfassungen schreibt, steht für eine Seite die Definition aus der Registry. Höchstens zwei Suchen laufen je API-Prozess gleichzeitig, weitere bekommen 429. Jede Suche steht in `search_runs`, auch eine ohne Treffer oder mit Fehler.
+
 ```text
 stapel = [heart]; schritte = 0; filter = keine
 solange stapel nicht leer:

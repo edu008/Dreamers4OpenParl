@@ -54,6 +54,18 @@ WHERE d.document @@ {TSQUERY}
 # Treffer markieren STX und ETX; search() maskiert den Rest und macht daraus <mark>.
 MARK = ("\x02", "\x03")
 HEADLINE = f"MaxFragments=2, MaxWords=25, MinWords=10, StartSel={MARK[0]}, StopSel={MARK[1]}"
+
+
+def hit_topics(affair: str) -> str:
+    """Aktive Themen eines Geschäfts als JSON-Liste mit Beleg (schemas.HitTopic)."""
+    return f"""(SELECT coalesce(json_agg(json_build_object(
+                    'tag_id', l.tag_id, 'name_de', t.name_de, 'confidence', l.confidence,
+                    'evidence', l.evidence, 'evidence_verified', l.evidence_verified,
+                    'stage', l.stage) ORDER BY l.confidence DESC), '[]')
+        FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
+        WHERE l.affair_id = {affair} AND l.status = 'active')"""
+
+
 SEARCH = f"""
 WITH page AS (
     SELECT {AFFAIR_HEAD}, d.language, ts_rank_cd(d.document, {TSQUERY}) AS rank
@@ -65,12 +77,7 @@ SELECT page.*,
        ts_headline((CASE page.language WHEN 'de' THEN 'german' WHEN 'fr' THEN 'french'
                                        WHEN 'it' THEN 'italian' ELSE 'simple' END)::regconfig,
                    i.text, {TSQUERY}, %(headline)s) AS headline,
-       (SELECT coalesce(json_agg(json_build_object(
-                    'tag_id', l.tag_id, 'name_de', t.name_de, 'confidence', l.confidence,
-                    'evidence', l.evidence, 'evidence_verified', l.evidence_verified,
-                    'stage', l.stage) ORDER BY l.confidence DESC), '[]')
-        FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
-        WHERE l.affair_id = page.affair_id AND l.status = 'active') AS topics
+       {hit_topics("page.affair_id")} AS topics
 FROM page JOIN affair_inputs i ON i.affair_id = page.affair_id
 ORDER BY page.rank DESC, page.begin_date DESC NULLS LAST, page.affair_id DESC
 """
@@ -463,3 +470,11 @@ def _with_affairs(conn: psycopg.Connection, rows: list[dict]) -> list[dict]:
     for row in rows:
         row["affairs"] = [heads[i] for i in row.pop("affair_ids") if i in heads]
     return rows
+
+
+def hits(conn: psycopg.Connection, ids: list[int]) -> list[dict]:
+    """Köpfe dieser Geschäfte mit ihren aktiven Themen, in der Reihenfolge von ids."""
+    sql = f"""SELECT {AFFAIR_HEAD}, {hit_topics("a.id")} AS topics
+              FROM affairs a LEFT JOIN bodies b ON b.body_key = a.body_key WHERE a.id = ANY(%s)"""
+    rows = {row["affair_id"]: row for row in conn.cursor(row_factory=dict_row).execute(sql, (ids,))}
+    return [rows[affair_id] for affair_id in ids if affair_id in rows]

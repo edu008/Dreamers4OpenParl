@@ -311,3 +311,80 @@ def test_topic_graph_by_area_and_related_topics(conn, repo_root, api_settings):
         ]
         assert related[0]["name_de"] == "Digitalisierung (breit)"
         assert client.get("/v1/topics/aps:9.9/related").status_code == 404
+
+
+def test_navigation_search_walks_back_falls_back_and_logs(
+    conn, repo_root, api_settings, monkeypatch
+):
+    import json
+
+    import httpx
+
+    from parltopics.llm import LLMClient
+    from tests.mock_llm.app import completion, fake_completion
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        return httpx.Response(
+            200, json=completion(fake_completion(body["messages"]), body["model"])
+        )
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("kein LLM")
+
+    def use(handler):
+        mock = httpx.MockTransport(handler)
+        monkeypatch.setattr(
+            "parltopics.api.navigate.LLMClient",
+            lambda settings, transport=None: LLMClient(settings, transport=mock),
+        )
+
+    migrate(conn, repo_root / "migrations")
+    sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
+    seed(conn)  # 70435: aktiv aps:6.1.9; der Mock bewertet die erste Unterseite am höchsten
+    conn.execute(INDEX, ([70435],))
+    use(answer)
+    with TestClient(create_app(api_settings)) as client:
+        found = client.post("/v1/search/navigate", json={"query": "Verwaltung digitalisieren"})
+        result = found.json()
+        assert (result["status"], result["fallback_used"]) == ("ok", False)
+        # Der erste Ast (Wirtschaft) hat keine Treffer: zurück und über Infrastruktur weiter.
+        titles = [step["title"] for step in result["path"]]
+        assert titles == [
+            "Themen",
+            "Infrastruktur und Umwelt",
+            "Verkehr und Kommunikation",
+            "Digitalisierung",
+        ]
+        assert result["answer"] == "Geschäft 70435 passt zur Frage (Mock)."
+        assert result["statements"] == [{"text": result["answer"], "affair_ids": [70435]}]
+        (hit,) = result["hits"]
+        assert (hit["affair_id"], hit["topics"][0]["tag_id"]) == (70435, "aps:6.1.9")
+        assert [topic["tag_id"] for topic in result["related_topics"]] == [
+            "aps:6",
+            "aps:6.1",
+            "aps:6.1.9",
+        ]
+        assert result["steps"] == 6
+
+        conn.execute("UPDATE affair_tags SET status = 'superseded'")
+        fallback = client.post("/v1/search/navigate", json={"query": "Verwaltung digitalisieren"})
+        assert (fallback.json()["fallback_used"], fallback.json()["path"]) == (
+            True,
+            [{"page_id": "volltext", "title": "Volltextsuche"}],
+        )
+        nothing = client.post("/v1/search/navigate", json={"query": "Raumfahrt"}).json()
+        assert (nothing["status"], nothing["answer"], nothing["hits"]) == ("no_results", None, [])
+
+        use(unreachable)
+        assert client.post("/v1/search/navigate", json={"query": "Raumfahrt"}).status_code == 503
+        assert client.post("/v1/search/navigate", json={"query": "ab"}).status_code == 422
+    runs = conn.execute(
+        "SELECT status, fallback_used, affair_ids FROM search_runs ORDER BY id"
+    ).fetchall()
+    assert runs == [
+        ("ok", False, [70435]),
+        ("ok", True, [70435]),
+        ("no_results", True, []),
+        ("error", False, []),
+    ]

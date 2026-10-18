@@ -432,3 +432,47 @@ class ProposalDecisionOut(BaseModel):
     tag_id: str | None = Field(description="bei accepted das neue Ad-hoc-Tag")
     run_id: int | None
     jobs: int | None = Field(description="bei accepted: Jobs für die betroffenen Geschäfte")
+
+
+class NavigateIn(BaseModel):
+    query: str = Field(
+        min_length=3, max_length=300, examples=["Was unternimmt der Bund gegen Cyberangriffe?"]
+    )
+
+
+class TopicName(BaseModel):
+    tag_id: str
+    name_de: str
+
+
+class PathStep(BaseModel):
+    page_id: str = Field(examples=["aps:6"])
+    title: str
+
+
+class AnswerStatement(BaseModel):
+    text: str
+    affair_ids: list[int] = Field(description="Geschäfte, auf die sich die Aussage stützt")
+
+
+class NavigateHit(AffairHead):
+    topics: list[HitTopic] = Field(description="aktive Themen, höchste Konfidenz zuerst")
+
+
+class NavigateOut(BaseModel):
+    """Antwort der Navigationssuche, wie search-contract.ts der Web-App (name_de statt name)."""
+
+    query: str
+    answer: str | None = Field(description="Kurzantwort aus belegten Aussagen; null ohne Treffer")
+    statements: list[AnswerStatement] = Field(description="die Aussagen der Antwort")
+    hits: list[NavigateHit] = Field(description="die gewählten Geschäfte")
+    related_topics: list[TopicName] = Field(description="Themen auf dem Suchweg und der Treffer")
+    path: list[PathStep] = Field(
+        description="Suchweg von Heart bis zur Tag-Seite; beim Rückfall nur volltext"
+    )
+    status: Literal["ok", "no_results", "limit_reached"]
+    steps: int = Field(description="Modellaufrufe dieser Suche")
+    fallback_used: bool = Field(description="die Volltextsuche hat die Geschäfte geliefert")
+    filters: dict | None = Field(description="aus der Frage gelesene Filter")
+    duration_ms: int
+    search_run_id: int = Field(description="Zeile in search_runs")
