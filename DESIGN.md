@@ -91,7 +91,7 @@ Dichte und Takt sind die einer Arbeitsfläche: kleine Schrift in Tabellen und Ra
 Bestätigte Ablehnungen: kein dunkles Dashboard-Aussehen, kein graues Standard-shadcn, keine Karten um alles, keine vielen Trennlinien, kein dekorativer Verlauf, keine KI-Glanzoptik.
 
 **Key Characteristics:**
-- Papier und Tinte, ein Grün, Gelb nur für den Beleg
+- Papier und Tinte, ein Grün, Gelb nur für die Markierung (Beleg und Logo)
 - Haarlinien statt Flächen, keine Schatten
 - Kleine Ecken, Systemschriften (Air-Gap-tauglich, keine externen Ressourcen)
 - Jede Zahl hat eine Bezeichnung oder steht in einer Spalte mit Kopf
@@ -107,11 +107,11 @@ Zurückhaltende Palette mit einer Markenfarbe. Die Dunkelansicht ist ein eigener
 - **Haarlinie** (`#d8dad3`): Tabellen- und Trennlinien.
 - **Feldrand** (`#7f8a84`): Rand von Eingabefeldern, mindestens 3:1 gegen Papier.
 - **Waldgrün** (`#1f4d3f`): Einzige Markenfarbe. Hauptknopf, Fokus, hohe Konfidenz.
-- **Beleggelb** (`#fff1a8`, Linie `#b08900`): ausschliesslich für die markierte Belegstelle im Text.
+- **Markiergelb** (`#fff1a8`, Linie `#b08900`): Textmarker-Gelb. Nur für die markierte Belegstelle im Text und für das Logo (Wortzeichen «Parl**Topics**» mit Markierung hinter «Topics», Tab-Symbol mit gelbem Balken unter dem P). Im Dunkeln der gedämpfte Ton `#4a4020`.
 - **Braun** (`#8a5a00`) und **Rot** (`#9b2c2c`): mittlere und tiefe Konfidenz, «Prüfung nötig».
 - **Dunkelansicht:** Grund `#171918`, Fläche `#1e2120`, Text `#e4e6e5`, Linie `#34383a`, Akzent gedämpftes Salbei `#a9bfb5`, Beleg `#4a4020`.
 
-Regeln: Farbe verstärkt nur, das Wort trägt die Bedeutung. Gelb steht nirgends ausser am Beleg. Grün ist keine Dekofarbe.
+Regeln: Farbe verstärkt nur, das Wort trägt die Bedeutung. Gelb steht nirgends ausser an der Markierung: Beleg im Text und Logo. Das Logo ist das einzige Markenmerkmal, es nimmt die Kernidee auf («hier steht der Beleg»). Grün ist keine Dekofarbe.
 
 ## Typography
 
@@ -147,6 +147,7 @@ Kleine Ecken: 2 bis 4 px. Ränder sind 1 px. Knöpfe und Felder sind rechteckig 
 - **Konfidenz:** Zahl mit zwei Stellen, daneben das Wort (hoch ab 0.8, mittel ab 0.6, sonst tief), Farbe verstärkt. In der Randspalte steht «Konfidenz» davor, in Tabellen im Spaltenkopf.
 - **Randspalte:** je Label Name, Konfidenz, Zustand des Belegs, Prüfstatus, Modellversion. Technische Angaben eingeklappt. Entscheiden nur in der Prüfansicht.
 - **Belegmarkierung:** gelber Grund mit Unterlinie direkt im Originaltext.
+- **Logo:** Wortzeichen «ParlTopics» in der Systemschrift, «Topics» wie mit Textmarker hinterlegt. Tab-Symbol: Waldgrün mit weissem P auf gelbem Balken. Keine weitere Grafik.
 - **Tabellen:** Haarlinien zwischen Zeilen, Kopf mit Sortierknopf (`aria-sort`), Sortierknöpfe mit vergrösserter Trefferfläche.
 - **Themenbaum:** Bereiche aufklappbar, Zahl der Geschäfte neben dem Namen.
 - **Graph:** Punkte in einer Farbe je Bereich, dicke Linie = gemeinsame Geschäfte, Beschriftungen kollidieren nicht, Fokusring bei Tastaturbedienung.
@@ -163,7 +164,7 @@ Kleine Ecken: 2 bis 4 px. Ränder sind 1 px. Knöpfe und Felder sind rechteckig 
 
 **Don't**
 - Keine Karten um jeden Block, keine Schatten, keine Verläufe.
-- Kein Gelb ausser am Beleg, kein Grün als Dekoration.
+- Kein Gelb ausser an Beleg und Logo, kein Grün als Dekoration.
 - Kein grosser Seitenbaum als Graph ohne Zoom oder Filter.
 - Keine Rollen vortäuschen: ohne Anmeldung ist «Reviewer» eine Ansicht, kein Schutz.
 - Kein Stand, der nicht stimmt: Zahlen aus echten Daten oder gar nicht anzeigen.
