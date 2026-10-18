@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router"
+import { Link } from "react-router"
 
 import { ApiStatus } from "@/components/api-status"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -44,23 +44,6 @@ function Planned({
   )
 }
 
-export function AffairPage() {
-  const { affairId = "" } = useParams()
-  return (
-    <Planned
-      title={`Geschäft ${affairId}`}
-      description="Geschäftsseiten gibt es nur in der Web-App, nicht im Markdown-Export."
-      milestone="M3"
-      items={[
-        "Titel, Texte und Links zu OpenParlData",
-        "Labels mit Konfidenz, Begründung und Stufe (8B oder 70B)",
-        "Kurzzusammenfassung aus der Klassifikation",
-        "Review: bestätigen, ändern, ablehnen, ergänzen",
-      ]}
-    />
-  )
-}
-
 export function SearchPage() {
   return (
     <Planned
@@ -71,21 +54,6 @@ export function SearchPage() {
         "Je Knoten vergleicht das Modell alle Unterseiten in einem Schritt",
         "Rückweg zum nächstbesten Ast, höchstens acht Schritte",
         "Antwort mit Suchweg und belegten Geschäften, ohne Treffer keine Antwort",
-      ]}
-    />
-  )
-}
-
-export function ReviewPage() {
-  return (
-    <Planned
-      title="Review"
-      description="Human in the Loop für Labels und neue Tags."
-      milestone="M3"
-      items={[
-        "Unsichere Labels zuerst",
-        "Vorschläge für neue Tags annehmen, zusammenlegen oder ablehnen",
-        "Jede Entscheidung mit Name und Zeitpunkt",
       ]}
     />
   )

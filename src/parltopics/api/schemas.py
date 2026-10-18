@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from parltopics.wiki.tree import PageKind
 
 Stage = Literal["8b", "70b", "human"]
+Lang = Literal["de", "fr", "it", "rm"]
 LEVEL = "country, canton, city oder municipality"
 
 
@@ -22,7 +23,19 @@ class PageOut(BaseModel):
 
 class PageTree(BaseModel):
     registry_version: str = Field(examples=["2026-10-18.4"])
-    pages: list[PageOut] = Field(description="Heart zuerst, dann APS nach Code, dann Ad-hoc")
+    lang: Lang
+    pages: list[PageOut] = Field(description="Wurzel zuerst, dann APS nach Code, dann Ad-hoc")
+
+
+class PageDetail(BaseModel):
+    """Eine Seite mit Vorfahren (von der Wurzel abwärts), Unterseiten und Querschnittsverweisen."""
+
+    registry_version: str
+    lang: Lang
+    page: PageOut
+    ancestors: list[PageOut]
+    children: list[PageOut]
+    linked: list[PageOut]
 
 
 class JobCounts(BaseModel):

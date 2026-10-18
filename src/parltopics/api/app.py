@@ -13,6 +13,7 @@ from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
+from threading import Lock
 from typing import Annotated, Literal
 
 import psycopg
@@ -28,6 +29,8 @@ from parltopics.api.schemas import (
     AffairTopics,
     JobCounts,
     JobsSummary,
+    Lang,
+    PageDetail,
     PageOut,
     PageTree,
     TopicAffairs,
@@ -35,8 +38,16 @@ from parltopics.api.schemas import (
 )
 from parltopics.classify.queue import summary as job_summary
 from parltopics.config import Settings, get_settings
-from parltopics.registry import RegistryError, load_registry
-from parltopics.wiki.tree import TreeError, build_tree, page_ids
+from parltopics.registry import Registry, RegistryError, load_registry
+from parltopics.wiki.tree import (
+    Page,
+    TreeError,
+    ancestors,
+    build_tree,
+    children,
+    linked_querschnitt,
+    page_ids,
+)
 
 ASSET_CACHE = "public, max-age=31536000, immutable"  # Dateinamen in assets/ tragen einen Hash
 SWAGGER = Path(__file__).parent / "static" / "swagger"  # swagger-ui-dist, Apache-2.0
@@ -45,7 +56,7 @@ DESCRIPTION = """Sidecar-API von ParlTopics (PRD F10): Themen zu Geschäften aus
 klassifiziert mit Apertus. Geschäfts-IDs sind OpenParlData-IDs. Alle Endpunkte lesen nur.
 
 Ohne Datenbank antworten die Endpunkte unter Geschäfte, Themen und Jobs mit 503;
-/healthz und /v1/pages funktionieren weiter."""
+/healthz und die Seiten unter /v1/pages funktionieren weiter."""
 
 TAGS = [
     {"name": "Geschäfte", "description": "Ein Geschäft mit seinen Themen, Belegen und Versionen."},
@@ -81,6 +92,47 @@ NO_BUILD_PAGE = """<!doctype html>
 </html>
 """
 
+LangQuery = Annotated[Lang, Query(description="Sprache der Titel, sonst Deutsch")]
+
+
+def page_out(page: Page, lang: Lang) -> PageOut:
+    return PageOut(
+        page_id=page.page_id,
+        kind=page.kind,
+        title=page.title_in(lang),
+        path=page.path,
+        parent_id=page.parent_id,
+        linked_from=list(page.linked_from),
+    )
+
+
+class TreeCache:
+    """Hält Registry und Seitenbaum im Speicher und lädt neu, wenn sich die Datei ändert.
+
+    Der Schlüssel ist Änderungszeit und Grösse von tags.yaml. Schlägt das Laden fehl, bleibt nichts
+    im Cache, und der nächste Aufruf versucht es erneut.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self._lock = Lock()
+        self._key: tuple[int, int] | None = None
+        self._value: tuple[Registry, dict[str, Page]] | None = None
+
+    def get(self) -> tuple[Registry, dict[str, Page]]:
+        try:
+            stat = self.path.stat()
+        except OSError as error:
+            raise RegistryError(f"{self.path}: nicht lesbar: {error}") from error
+        key = (stat.st_mtime_ns, stat.st_size)
+        with self._lock:
+            if self._value is None or key != self._key:
+                self._value = None
+                registry = load_registry(self.path)
+                self._value = (registry, build_tree(registry))
+                self._key = key
+            return self._value
+
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
@@ -108,6 +160,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     api = APIRouter(prefix="/v1")
+    cache = TreeCache(settings.registry_path)
+
+    def load() -> tuple[Registry, dict[str, Page]]:
+        try:
+            return cache.get()
+        except (RegistryError, TreeError) as error:
+            raise HTTPException(503, f"Seitenbaum nicht verfügbar: {error}") from error
 
     def connection() -> Iterator[psycopg.Connection]:
         try:
@@ -121,6 +180,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     Conn = Annotated[psycopg.Connection, Depends(connection)]
     no_database = {503: {"description": "Datenbank nicht erreichbar"}}
+    no_registry = {503: {"description": "Registry nicht lesbar"}}
 
     @app.get("/healthz", tags=["System"], summary="Lebenszeichen der API")
     def healthz() -> dict[str, str]:
@@ -195,35 +255,43 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         total, items = found
         return TopicAffairs(total=total, limit=limit, offset=offset, items=items)
 
-    @api.get(
-        "/pages",
-        tags=["Seiten"],
-        summary="Seitenbaum des ParlWiki",
-        responses={503: {"description": "Registry nicht lesbar"}},
-    )
-    def pages() -> PageTree:
-        """Seitenbaum aus der Registry: Heart, Bereiche, Kapitel, Tag- und Querschnittsseiten.
+    @api.get("/pages", tags=["Seiten"], summary="Seitenbaum des ParlWiki", responses=no_registry)
+    def pages(lang: LangQuery = "de") -> PageTree:
+        """Seitenbaum aus der Registry: Wurzel, Bereiche, Kapitel, Tag- und Querschnittsseiten.
 
         Status, Kennzahlen und Zusammenfassungen kommen mit wiki_pages in Meilenstein M3 dazu.
         """
-        try:
-            registry = load_registry(settings.registry_path)
-            tree = build_tree(registry)
-        except (RegistryError, TreeError) as error:
-            raise HTTPException(503, f"Seitenbaum nicht verfügbar: {error}") from error
+        registry, tree = load()
         return PageTree(
             registry_version=registry.registry_version,
-            pages=[
-                PageOut(
-                    page_id=page.page_id,
-                    kind=page.kind,
-                    title=page.title,
-                    path=page.path,
-                    parent_id=page.parent_id,
-                    linked_from=list(page.linked_from),
-                )
-                for page in (tree[page_id] for page_id in page_ids(tree.values()))
-            ],
+            lang=lang,
+            pages=[page_out(tree[page_id], lang) for page_id in page_ids(tree.values())],
+        )
+
+    @api.get(
+        "/pages/{page_id}",
+        tags=["Seiten"],
+        summary="Eine Seite mit Vorfahren und Unterseiten",
+        responses={404: {"description": "Seite unbekannt"}, **no_registry},
+    )
+    def page_detail(page_id: str, lang: LangQuery = "de") -> PageDetail:
+        """Eine Seite mit Vorfahren, Unterseiten und Querschnittsverweisen, ohne den ganzen Baum."""
+        registry, tree = load()
+        page = tree.get(page_id)
+        if page is None:
+            raise HTTPException(404, f"Seite {page_id} gibt es nicht")
+        linked = (
+            [tree[other] for other in page.linked_from if other in tree]
+            if page.kind == "querschnitt"
+            else linked_querschnitt(tree, page_id)
+        )
+        return PageDetail(
+            registry_version=registry.registry_version,
+            lang=lang,
+            page=page_out(page, lang),
+            ancestors=[page_out(tree[other], lang) for other in reversed(ancestors(tree, page_id))],
+            children=[page_out(child, lang) for child in children(tree, page_id)],
+            linked=[page_out(other, lang) for other in linked],
         )
 
     app.include_router(api)

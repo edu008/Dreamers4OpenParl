@@ -1,7 +1,10 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
+import { ReviewBar } from "@/components/review-bar"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { useReview } from "@/hooks/use-review"
+import { buildQueue, openRows } from "@/lib/review-queue"
 
 const NAV = [
   { to: "/", label: "Wiki" },
@@ -24,6 +27,8 @@ function isActive(pathname: string, to: string): boolean {
 
 export function Layout() {
   const { pathname } = useLocation()
+  const { decisions } = useReview()
+  const openReviews = openRows(buildQueue(decisions)).length
   return (
     <div className="flex min-h-svh flex-col">
       <header className="flex flex-wrap items-center gap-4 px-6 py-3">
@@ -39,10 +44,15 @@ export function Layout() {
               nativeButton={false}
               render={<NavLink to={item.to} end={item.to === "/"} />}
             >
-              {item.label}
+              {item.to === "/review" && openReviews > 0
+                ? `${item.label} (${openReviews})`
+                : item.label}
             </Button>
           ))}
         </nav>
+        <div className="ml-auto">
+          <ReviewBar />
+        </div>
       </header>
       <Separator />
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-8">

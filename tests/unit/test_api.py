@@ -65,6 +65,7 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
     assert {
         "/healthz",
         "/v1/pages",
+        "/v1/pages/{page_id}",
         "/v1/jobs/summary",
         "/v1/topics",
         "/v1/affairs/{affair_id}/topics",
