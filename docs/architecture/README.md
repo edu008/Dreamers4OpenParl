@@ -12,7 +12,7 @@ Zehn interaktive Diagramme zu ParlTopics, erzeugt mit [Archify](https://github.c
 | [04-worker-sequenz](04-worker-sequenz.html) | Sequenz | Ein Job im Worker: Übernahme, zwei Stufen, Heartbeat, Eskalation, Schreiben mit Besitzprüfung |
 | [05-agent-suche](05-agent-suche.html) | Sequenz | Agent-Schleife mit Werkzeugen (auch `navigate_tree`), Zitatprüfung und Protokoll |
 | [06-adhoc-thema](06-adhoc-thema.html) | Workflow | Ad-hoc-Thema vom Dialog mit dem Agenten bis zur Aktivierung im Review |
-| [07-datenmodell](07-datenmodell.html) | ERD | Alle 24 Tabellen mit Spalten, Schlüsseln und Beziehungen, erzeugt aus `migrations/0001_init.sql` und `0002_wiki_skos.sql` |
+| [07-datenmodell](07-datenmodell.html) | ERD | Alle 24 Tabellen mit Spalten, Schlüsseln und Beziehungen, erzeugt aus allen Migrationen in `migrations/` |
 | [08-airgap-deployment](08-airgap-deployment.html) | Datenfluss | Online bauen (auch die Web-App mit npm), per Datenträger übertragen, offline betreiben |
 | [09-wiki-hierarchie](09-wiki-hierarchie.html) | Baum | Seitenbaum des ParlWiki: Heart, Bereiche, Kapitel, Tag-Seiten, Querschnitt, Geschäfte |
 | [10-navigationssuche](10-navigationssuche.html) | Workflow | Navigationssuche durch den Seitenbaum mit Rückweg, Schrittgrenze und Volltext-Fallback |

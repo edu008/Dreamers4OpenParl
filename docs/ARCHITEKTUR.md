@@ -387,13 +387,13 @@ Code: `src/parltopics/search/navigate.py`, Tests in `tests/unit/test_navigate.py
 
 ## 8. Datenmodell
 
-Verbindlich sind [`migrations/0001_init.sql`](../migrations/0001_init.sql) und [`migrations/0002_wiki_skos.sql`](../migrations/0002_wiki_skos.sql). Wichtige Regeln:
+Verbindlich sind die Migrationen in `migrations/`: [`0001_init.sql`](../migrations/0001_init.sql), [`0002_one_active_label.sql`](../migrations/0002_one_active_label.sql) und [`0003_wiki_skos.sql`](../migrations/0003_wiki_skos.sql). Wichtige Regeln:
 
 - Quelltabellen haben keine Fremdschlüssel und behalten den Originaldatensatz in `raw`. So bricht ein Import nicht an einem einzelnen fehlerhaften Verweis.
 - Pro Geschäft und Tag gibt es höchstens ein aktives Label, egal aus welcher Aufgabe (partieller Unique-Index, `0002_one_active_label.sql`).
 - Labels werden nie gelöscht, nur auf `superseded` oder `rejected` gesetzt.
 - Rohvorschläge bleiben erhalten und zeigen nach der Gruppierung auf ihren Vorschlag.
-- 0002 ergänzt die Registry nach SKOS (`tag_labels`, `tag_relations`, `tag_mappings`), die Kurzzusammenfassungen (`affair_summaries`), den Seitenbaum (`wiki_pages`, `wiki_page_events`) und die Navigationssuche (`search_runs`). Bestehende Tabellen bleiben unverändert.
+- 0003 ergänzt die Registry nach SKOS (`tag_labels`, `tag_relations`, `tag_mappings`), die Kurzzusammenfassungen (`affair_summaries`), den Seitenbaum (`wiki_pages`, `wiki_page_events`) und die Navigationssuche (`search_runs`). Bestehende Tabellen bleiben unverändert.
 - Genau eine Seite `heart` ohne Tag und ohne Eltern; jede andere Seite gehört zu genau einem Tag. Eine Seite im Status `pending` trägt `worker_id` und `locked_at`.
 - Pro Tag-Paar und Richtung gibt es nur `broader` oder `related`; dass `related` nicht in die eigene Hierarchie zeigt, prüft die Registry. Eine Suche ohne Treffer speichert keine Antwort.
 

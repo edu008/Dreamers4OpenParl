@@ -89,7 +89,7 @@ CARDS = [
         "dot": "amber",
         "title": "Regeln",
         "items": [
-            "Pro Geschäft, Tag, input_hash und prompt_version höchstens ein aktives Label; "
+            "Pro Geschäft und Tag höchstens ein aktives Label (Migration 0002); "
             "pro Geschäft und Sprache höchstens eine aktive Kurzzusammenfassung",
             "Labels und Kurzzusammenfassungen werden nie gelöscht, nur auf superseded oder "
             "rejected gesetzt",

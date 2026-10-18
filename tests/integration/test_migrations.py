@@ -12,7 +12,7 @@ def test_migrations_apply_once(conn, repo_root):
     assert migrate(conn, repo_root / "migrations") == [
         "0001_init",
         "0002_one_active_label",
-        "0002_wiki_skos",
+        "0003_wiki_skos",
     ]
     assert migrate(conn, repo_root / "migrations") == []
     tables = {

@@ -19,7 +19,7 @@
 - Web-App als React-SPA mit shadcn/ui, von FastAPI als statischer Build ausgeliefert. Ersetzt Jinja2 und serverseitiges Rendern (5, 7.5, 10.1, ADR 0006).
 - LLM-Endpunkt im Hack: `https://gateway.keera.ch/api/v1` (1, 5, 10.2, 15).
 - Evaluation pro Hierarchiestufe (Bereich, Kapitel, Thema) mit Teiltreffern (F16, 13).
-- Datenmodell: Migration `0002_wiki_skos.sql` mit sieben neuen Tabellen (10.1, Anhang C).
+- Datenmodell: Migration `0003_wiki_skos.sql` mit sieben neuen Tabellen (10.1, Anhang C).
 - Neu: Anhang F „Forschungsbezug“; Diagramme 09 und 10 (Anhang E).
 - Begriff: „Hierarchiestufe“ meint Bereich, Kapitel und Thema. „Ebene“ bleibt Bund, Kanton und Gemeinde.
 - Abweichungen vom Konzepttext, weil das PRD oder ein Entscheid vom 18.10.2026 gilt: Die Registry bleibt `registry/tags.yaml` statt `tags.md` (ADR 0001). Im Air-Gap-Betrieb bleibt ein interner Endpunkt statt Keera vorgesehen (10.3). Geschäftsseiten gibt es nur in der Web-App, nicht als Markdown-Datei (F14). Die Web-App ist eine React-SPA statt serverseitig gerendert. Alle Ad-hoc-Tags sind Querschnittsseiten unter Heart, auch mit nur einem `broader` (7.9, offene Frage 17).
@@ -431,7 +431,7 @@ Jede Anforderung hat eine prüfbare Abnahme.
 | DB | PostgreSQL 16, Extensions `pg_trgm`, `vector` (ungenutzt, für später) | Daten, Labels, Jobs, Suche |
 | Doku | Archify (MIT, nur Build-Zeit) | Architektur-Diagramme als HTML |
 
-**Datenmodell** (SQL-Skizze in Anhang C, verbindlich sind `migrations/0001_init.sql` und `migrations/0002_wiki_skos.sql`; Diagramm [07-datenmodell](architecture/07-datenmodell.html)): `bodies`, `affairs`, `affair_texts`, `affair_docs`, `affair_inputs`, `search_documents`, `tags`, `registry_syncs`, `affair_tags`, `reviews`, `classification_runs`, `classification_jobs`, `job_events`, `tag_proposal_raw`, `tag_proposals`, `tag_proposal_affairs`, `agent_runs`; neu in 0002: `tag_labels`, `tag_relations`, `tag_mappings`, `affair_summaries`, `wiki_pages`, `wiki_page_events`, `search_runs`.
+**Datenmodell** (SQL-Skizze in Anhang C, verbindlich sind `migrations/0001_init.sql`, `migrations/0002_one_active_label.sql` und `migrations/0003_wiki_skos.sql`; Diagramm [07-datenmodell](architecture/07-datenmodell.html)): `bodies`, `affairs`, `affair_texts`, `affair_docs`, `affair_inputs`, `search_documents`, `tags`, `registry_syncs`, `affair_tags`, `reviews`, `classification_runs`, `classification_jobs`, `job_events`, `tag_proposal_raw`, `tag_proposals`, `tag_proposal_affairs`, `agent_runs`; neu in 0003: `tag_labels`, `tag_relations`, `tag_mappings`, `affair_summaries`, `wiki_pages`, `wiki_page_events`, `search_runs`.
 
 ### 10.2 LLM-Anbindung
 
@@ -732,7 +732,7 @@ Validierung: `summary_short` höchstens 200 Zeichen; mindestens eine Aussage, je
 
 ## Anhang C: Datenmodell (Skizze)
 
-Verbindlich sind die Migrationen in `migrations/` (`0001_init.sql`, `0002_wiki_skos.sql`). Die Skizze zeigt Schlüssel und die wichtigsten Felder.
+Verbindlich sind die Migrationen in `migrations/` (`0001_init.sql`, `0002_one_active_label.sql`, `0003_wiki_skos.sql`). Die Skizze zeigt Schlüssel und die wichtigsten Felder.
 
 ```sql
 -- Quelldaten (Ingest; ohne Fremdschlüssel, damit Bulk-Import robust bleibt; raw = Originaldatensatz)
@@ -766,7 +766,7 @@ affair_tags(id pk, affair_id → affairs, tag_id → tags, scheme, confidence nu
             status,                            -- active | rejected | superseded
             review_status,                     -- null | confirmed | rejected | changed
             reviewed_by, reviewed_at, created_at)
-  unique (affair_id, tag_id, input_hash, prompt_version) where status = 'active'
+  unique (affair_id, tag_id) where status = 'active'   -- seit 0002_one_active_label
 reviews(id pk, affair_id → affairs, affair_tag_id → affair_tags, action, new_tag_id → tags, comment, user_name, created_at)
 
 -- Vorschläge
@@ -780,7 +780,7 @@ tag_proposal_affairs(proposal_id → tag_proposals, affair_id → affairs, prima
 agent_runs(id pk, kind, query, tool_calls jsonb, answer, cited_affair_ids bigint[], model_version,
            prompt_version, duration_ms, status, created_at)
 
--- 0002: Registry nach SKOS. tags aus 0001 bleibt: name_* = pref_label, desc_* = definition,
+-- 0003: Registry nach SKOS. tags aus 0001 bleibt: name_* = pref_label, desc_* = definition,
 --       aliases = alt_labels, parent_id = APS-Eltern-Code (bei Ad-hoc NULL)
 tag_labels(id pk, tag_id → tags, kind,             -- pref | alt | hidden
            language, label)                        -- hidden ohne Sprache, ein pref je Sprache
@@ -789,12 +789,12 @@ tag_relations(tag_id → tags, target_id → tags, relation,     -- broader | re
 tag_mappings(tag_id → tags, target, match_type,    -- curia:<id>; exact | close | broad
              primary key (tag_id, target))
 
--- 0002: Kurzzusammenfassung je Geschäft (Stufe 2)
+-- 0003: Kurzzusammenfassung je Geschäft (Stufe 2)
 affair_summaries(id pk, affair_id → affairs, language, summary, task, stage, model_version, prompt_version,
                  input_hash, run_id → classification_runs, status, created_at)
   unique (affair_id, language) where status = 'active'
 
--- 0002: Seitenbaum (7.9)
+-- 0003: Seitenbaum (7.9)
 wiki_pages(page_id pk,                             -- 'heart' oder die tag_id
            kind,                                   -- heart | bereich | kapitel | tag | querschnitt
            tag_id unique → tags, parent_id → wiki_pages, linked_from text[], redirect_to → wiki_pages,
@@ -807,15 +807,15 @@ wiki_pages(page_id pk,                             -- 'heart' oder die tag_id
            worker_id, locked_at, attempts, last_error, built_at, updated_at)
 wiki_page_events(id pk, page_id, from_status, to_status, reason, summary_changed, run_key, worker_id, created_at)
 
--- 0002: Navigationssuche (7.10)
+-- 0003: Navigationssuche (7.10)
 search_runs(id pk, query, language, filters jsonb, path text[], visits jsonb, steps, fallback_used,
             affair_ids bigint[], answer, statements jsonb, model_versions jsonb, prompt_versions jsonb,
             agent_run_id → agent_runs, duration_ms, status, created_at)
 ```
 
-Indizes: aktive Labels `affair_tags(tag_id, affair_id)`, `affairs(body_key, begin_date)`, Warteschlange `classification_jobs(task, status, priority)` und offene Jobs, hängende Jobs `classification_jobs(locked_at)`, GIN auf `search_documents.document`, GIN `pg_trgm` auf `tags.match_text` (Namen und Aliasse). Neu in 0002: GIN `pg_trgm` auf `tag_labels.label`, GIN auf `wiki_pages.cited_affair_ids` (Seiten, die ein Geschäft zitieren), offene und hängende Seiten.
+Indizes: aktive Labels `affair_tags(tag_id, affair_id)`, `affairs(body_key, begin_date)`, Warteschlange `classification_jobs(task, status, priority)` und offene Jobs, hängende Jobs `classification_jobs(locked_at)`, GIN auf `search_documents.document`, GIN `pg_trgm` auf `tags.match_text` (Namen und Aliasse). Neu in 0003: GIN `pg_trgm` auf `tag_labels.label`, GIN auf `wiki_pages.cited_affair_ids` (Seiten, die ein Geschäft zitieren), offene und hängende Seiten.
 
-Regeln aus 0002: genau eine Seite `heart` ohne Tag und ohne Eltern; jede andere Seite gehört zu genau einem Tag, ihre `page_id` ist die `tag_id`; eine Seite im Status `pending` trägt `worker_id` und `locked_at`; eine Suche ohne Treffer speichert keine Antwort. Dass `related` nicht in die eigene Hierarchie zeigt, prüft die Registry (7.2). Das Konzept skizzierte `wiki_pages` mit `parent_ids`. Das Modell trennt die Eltern-Seite im Baum (`parent_id`) von den Kapiteln, die eine Querschnittsseite verlinken (`linked_from`). `summary_long` ist der Absatz aus den belegten Aussagen in `statements`.
+Regeln aus 0003: genau eine Seite `heart` ohne Tag und ohne Eltern; jede andere Seite gehört zu genau einem Tag, ihre `page_id` ist die `tag_id`; eine Seite im Status `pending` trägt `worker_id` und `locked_at`; eine Suche ohne Treffer speichert keine Antwort. Dass `related` nicht in die eigene Hierarchie zeigt, prüft die Registry (7.2). Das Konzept skizzierte `wiki_pages` mit `parent_ids`. Das Modell trennt die Eltern-Seite im Baum (`parent_id`) von den Kapiteln, die eine Querschnittsseite verlinken (`linked_from`). `summary_long` ist der Absatz aus den belegten Aussagen in `statements`.
 
 ## Anhang D: Projektstruktur (Monorepo)
 
@@ -864,7 +864,7 @@ Interaktive HTML-Dateien in [`docs/architecture/`](architecture/README.md), erze
 | [04-worker-sequenz](architecture/04-worker-sequenz.html) | Sequenz | Ein Job von der Übernahme bis zum Schreiben mit Besitzprüfung |
 | [05-agent-suche](architecture/05-agent-suche.html) | Sequenz | Agent-Schleife mit Werkzeugen (auch `navigate_tree`) und Zitatprüfung |
 | [06-adhoc-thema](architecture/06-adhoc-thema.html) | Workflow | Ad-hoc-Thema vom Dialog bis zur Aktivierung |
-| [07-datenmodell](architecture/07-datenmodell.html) | ERD | Tabellen aus 0001 und 0002, Schlüssel und Beziehungen |
+| [07-datenmodell](architecture/07-datenmodell.html) | ERD | Tabellen aller Migrationen, Schlüssel und Beziehungen |
 | [08-airgap-deployment](architecture/08-airgap-deployment.html) | Datenfluss | Build online (auch Web-App mit npm), Transfer, Betrieb offline |
 | [09-wiki-hierarchie](architecture/09-wiki-hierarchie.html) | Baum | Seitenbaum: Heart, Bereiche, Kapitel, Tag-Seiten, Querschnitt, Geschäfte |
 | [10-navigationssuche](architecture/10-navigationssuche.html) | Workflow | Navigationssuche mit Rückweg, Schrittgrenze und Volltext-Fallback |

@@ -1,4 +1,4 @@
--- 0002_wiki_skos.sql – SKOS-Registry, Kurzzusammenfassungen, Seitenbaum und Navigationssuche
+-- 0003_wiki_skos.sql – SKOS-Registry, Kurzzusammenfassungen, Seitenbaum und Navigationssuche
 -- (PRD 0.4: 7.2, 7.3, 7.9, 7.10; ADR 0007 und 0008)
 --
 -- Ergänzt 0001, ohne bestehende Tabellen zu ändern. Die Spalten von tags werden so befüllt:

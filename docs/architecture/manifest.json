@@ -40,8 +40,8 @@
     "07-datenmodell": {
       "type": "erd",
       "quality": "standard",
-      "source_sha256": "cf437b0c94682f9d105fb1696d94a83a03a04f4717ed32ac8d38e7b1649ee090",
-      "html_sha256": "03c35759de02842c04201f9be1794c757aed7cabbbd33e7cb4c845805e781fe2"
+      "source_sha256": "7c9f0e96977486bf64d2d653951218525c5e7a78df430a064ea8729b4e4442d1",
+      "html_sha256": "df0499960ed07cac6c92f60f070a489408e272833badda3155835f3392e55525"
     },
     "08-airgap-deployment": {
       "type": "dataflow",
