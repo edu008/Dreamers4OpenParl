@@ -17,8 +17,8 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    llm_name: str = "swiss-ai/Apertus-v1.5-8B"
-    llm_name_large: str = "swiss-ai/Apertus-v1.5-70B"
+    llm_name: str = "apertus-v1-5-8b"
+    llm_name_large: str = "apertus-v1-5-70b"
     llm_base_url: str = "http://localhost:8080/v1"
     llm_api_key: SecretStr = SecretStr("")
 
