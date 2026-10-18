@@ -67,7 +67,7 @@ class LabelOut(BaseModel):
     review_status: Literal["confirmed", "rejected", "changed"] | None
     task: str = Field(examples=["classify:aps"])
     stage: Stage
-    model_version: str = Field(examples=["swiss-ai/Apertus-v1.5-8B"])
+    model_version: str = Field(examples=["apertus-v1-5-8b"])
     prompt_version: str = Field(examples=["classify_chapters_v1+3f2a9c1d classify_topics_v1+…"])
     registry_version: str
     input_hash: str

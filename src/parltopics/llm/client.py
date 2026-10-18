@@ -208,6 +208,10 @@ class LLMClient:
         content = response.choices[0].message.content or ""
         return ChatResult(content=content, model=response.model or model, duration_ms=duration_ms)
 
+    async def models(self) -> list[str]:
+        """Modellnamen laut GET /models des Endpunkts."""
+        return [model.id async for model in self._openai.models.list()]
+
     async def aclose(self) -> None:
         await self._openai.close()
 

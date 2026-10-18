@@ -6,6 +6,7 @@ Schnittstelle und nennen ihren Meilenstein.
 """
 
 import asyncio
+import contextlib
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -126,12 +127,15 @@ def registry_import_aps(
 @llm_app.command("check")
 def llm_check() -> None:
     """Beide Modelle einmal aufrufen und Antwortzeit melden."""
+    import openai
+
     from parltopics.llm import LLMClient
 
     settings = get_settings()
 
-    async def run() -> list[tuple[str, bool, str]]:
-        results = []
+    async def run() -> tuple[list[tuple[str, bool, str]], list[str]]:
+        results: list[tuple[str, bool, str]] = []
+        available: list[str] = []
         async with LLMClient(settings) as client:
             for large in (False, True):
                 name = settings.llm_name_large if large else settings.llm_name
@@ -144,21 +148,28 @@ def llm_check() -> None:
                     )
                 except Exception as error:  # Bericht statt Abbruch
                     results.append((name, False, f"{type(error).__name__}: {error}"))
+                    # Ein unbekannter Modellname ergibt 404: die gültigen Namen gleich mitliefern.
+                    if isinstance(error, openai.NotFoundError) and not available:
+                        with contextlib.suppress(openai.OpenAIError):
+                            available = await client.models()
                 else:
                     detail = (
                         f"{reply.duration_ms} ms, Modell {reply.model}, Antwort {reply.content!r}"
                     )
                     results.append((name, True, detail))
-        return results
+        return results, available
 
     typer.echo(f"Endpunkt: {settings.llm_base_url}")
+    results, available = asyncio.run(run())
     failed = False
-    for name, ok, detail in asyncio.run(run()):
+    for name, ok, detail in results:
         failed |= not ok
         mark = (
             typer.style("ok    ", fg=typer.colors.GREEN) if ok else typer.style("FEHLER", fg="red")
         )
         typer.echo(f"  {mark} {name}: {detail}")
+    if available:
+        typer.echo(f"Modelle am Endpunkt: {', '.join(available)}")
     if failed:
         raise typer.Exit(code=1)
 
