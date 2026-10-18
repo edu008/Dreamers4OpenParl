@@ -1,4 +1,4 @@
-# Hack Apertus Liebefeld — `challenge name`, `team name`
+# Hack Apertus Liebefeld: OpenParlData Topic Classification, Team Dreamers
 
 Template repository for [Hack Apertus](https://hackapertus.ch/) submissions.
 Every project keeps the same layout, so organizers and judges find the same
@@ -9,14 +9,46 @@ There are 3 challenges to pick from:
 2. OpenParlData: Topic classification for Swiss parliaments with Apertus
 3. University of Bern: Deciphering Archives with Apertus
 
-`One paragraph describing the challenge.`
+We picked challenge 2. Swiss parliaments publish more than 326'000 affairs from 89 parliaments
+(federal, cantonal and municipal) through OpenParlData, in German, French, Italian and Romansh.
+There is no shared topic classification across these parliaments, so finding all affairs on a
+subject such as digitalisation means manual keyword searches that miss relevant items and return
+false hits ("Städtebau" for "eBau"). The goal is an open, reusable classification service built on
+Apertus that assigns topics either from a fixed two level taxonomy (Année Politique Suisse) or from
+ad hoc topics defined by the user, without retraining. The service is validated on a real use case:
+automatically detecting digitalisation affairs for the Digitale Verwaltung Schweiz (DVS).
 
 Submissions must use the v1.5 Apertus model family.
 The submission must comply with the [HackApertus T&C](https://hackapertus.ch/terms-and-conditions).
 
 ## 🎯 The Challenge
 
-`Fill in the title of the challenge you picked and link the Notion challenge page (URL)`
+**OpenParlData: Topic classification for Swiss parliaments with Apertus**
+
+Challenge page: `TODO: Notion URL der Challenge-Seite einfügen`
+
+### Our solution
+
+| | |
+| --- | --- |
+| Input | Affairs from the OpenParlData bulk export: title, texts (federal level), start of the first document (cantons, municipalities) |
+| Mode 1 | Fixed taxonomy: two level classification along Année Politique Suisse (APS) |
+| Mode 2 | Ad hoc topics: user defines a topic with a short description (e.g. "Digitalisierung", "Covid-19"), no retraining |
+| Languages | Classified directly in de, fr, it and rm, no translation step |
+| Output per affair | Topic(s), confidence score and the text passage that justifies the label |
+| Human in the loop | Labels can be reviewed and corrected |
+| Model | Apertus v1.5 (8B for bulk runs, 70B for difficult cases) via an OpenAI compatible endpoint |
+
+**Evaluation.** Gold set built from manually checked keyword hits plus a random sample without
+keyword hits, so both precision and recall are measurable. Baseline: a title regex for
+digitalisation finds 8'151 affairs (2.5 %), of which 78 out of 100 checked were relevant.
+Results are additionally split by language, parliament level and region to check for bias.
+
+**Data.** Bulk export from [files.openparldata.ch/exports](https://files.openparldata.ch/exports/)
+(`affairs`, `texts`, `docs`). We do not paginate the API. Elections and naturalisations are
+filtered out before classification.
+
+Details on architecture, evaluation and limitations are in [technical_report.md](technical_report.md).
 
 ## 🔧 Resources & Tools
 
@@ -88,7 +120,31 @@ Each dimension is scored from 0 to 5.
 
 ## Getting started
 
-1. Click **Use this template** to create your own repository.
+> Status: work in progress during the hackathon (18 to 19 October 2026). The commands below are updated as the code in `src/` lands.
+
+```bash
+git clone https://github.com/edu008/Dreamers4OpenParl.git
+cd Dreamers4OpenParl
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r src/requirements.txt
+
+# Configure the model endpoint (never commit the key)
+cp .env.example .env
+# set LLM_NAME, LLM_BASE_URL, LLM_API_KEY in .env
+```
+
+The bulk export files are downloaded at runtime into a local data folder that is excluded from
+git. Exact run commands for data download, classification and evaluation follow in this section
+and in the reproducibility chapter of the technical report.
+
+## 🤖 Use of AI tools
+
+- **Apertus v1.5** (8B, 70B) is the only model used inside the product.
+- **Claude** (Anthropic) was used as a development assistant for data exploration, code and documentation.
+
+## 👥 Team Dreamers
+
+`TODO: Namen der drei Teammitglieder`
 
 ## License
 
