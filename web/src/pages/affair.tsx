@@ -148,7 +148,7 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
           </Link>
           {!review.active && (
             <span className="text-muted-foreground">
-              Zum Entscheiden oben rechts die Ansicht «Reviewer» wählen.
+              Zum Entscheiden oben rechts die Ansicht «Admin» wählen.
             </span>
           )}
         </nav>

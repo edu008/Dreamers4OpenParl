@@ -200,44 +200,42 @@ function FilterSelect({
   options: [string, number][]
 }) {
   return (
-    <label className="flex items-center gap-2 text-xs text-muted-foreground">
-      {label}
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-8 max-w-[16rem] rounded-md border border-input bg-background px-2 text-sm text-foreground"
-      >
-        <option value={ALL}>{allLabel}</option>
-        {options.map(([name, count]) => (
-          <option key={name} value={name}>
-            {name} ({count})
-          </option>
-        ))}
-      </select>
-    </label>
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-8 w-44 truncate rounded-md border border-input bg-background px-2 text-xs text-foreground"
+    >
+      <option value={ALL}>{allLabel}</option>
+      {options.map(([name, count]) => (
+        <option key={name} value={name}>
+          {name} ({count})
+        </option>
+      ))}
+    </select>
   )
 }
 
 function Progress({ done, total }: { done: number; total: number }) {
   const share = total === 0 ? 0 : Math.round((done / total) * 100)
   return (
-    <div className="flex flex-col gap-1">
-      <p className="text-xs text-muted-foreground">
-        <span className="tabular font-medium text-foreground">
-          {done} von {total}
-        </span>{" "}
-        Labels entschieden
-      </p>
+    <div className="flex items-center gap-3 text-xs text-muted-foreground">
       <div
         role="progressbar"
         aria-label="Fortschritt des Reviews"
         aria-valuemin={0}
         aria-valuemax={total}
         aria-valuenow={done}
-        className="h-1 w-full max-w-[20rem] bg-border"
+        className="h-1 w-24 bg-border"
       >
         <div className="h-full bg-primary" style={{ width: `${share}%` }} />
       </div>
+      <span>
+        <span className="tabular font-medium text-foreground">
+          {done} von {total}
+        </span>{" "}
+        entschieden
+      </span>
     </div>
   )
 }
@@ -371,7 +369,7 @@ export function ReviewPage() {
         </div>
         <p className="max-w-[68ch] text-muted-foreground">
           Der Review ist für Mitarbeitende, die Labels prüfen. Wähle oben rechts
-          die Ansicht «Reviewer», um die Warteschlange zu sehen und Labels zu
+          die Ansicht «Admin», um die Warteschlange zu sehen und Labels zu
           bestätigen oder zu verwerfen.
         </p>
       </div>
@@ -404,7 +402,7 @@ export function ReviewPage() {
         aria-labelledby="queue-heading"
         className="flex flex-col gap-3 pt-2"
       >
-        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <h2 id="queue-heading" className="font-heading text-lg font-medium">
             Offen ({open.length})
           </h2>
@@ -414,7 +412,7 @@ export function ReviewPage() {
           />
         </div>
         {queue.length > 0 && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div
               role="group"
               aria-label="Grund"
@@ -428,8 +426,8 @@ export function ReviewPage() {
                   onClick={() => setReason(option.value)}
                   className={
                     reason === option.value
-                      ? "bg-secondary px-3 py-2 font-medium text-foreground"
-                      : "bg-background px-3 py-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      ? "h-8 bg-secondary px-3 font-medium text-foreground"
+                      : "h-8 bg-background px-3 text-muted-foreground hover:bg-muted hover:text-foreground"
                   }
                 >
                   {option.label}
@@ -453,7 +451,7 @@ export function ReviewPage() {
                 label="Thema"
                 value={topic}
                 onChange={setTopic}
-                allLabel="Alle Themen"
+                allLabel="Alle Themen des Bereichs"
                 options={topics}
               />
             )}
@@ -462,7 +460,7 @@ export function ReviewPage() {
                 label="Körperschaft"
                 value={body}
                 onChange={setBody}
-                allLabel="Alle"
+                allLabel="Alle Körperschaften"
                 options={bodies}
               />
             )}

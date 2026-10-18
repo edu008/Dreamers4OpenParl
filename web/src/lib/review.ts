@@ -2,11 +2,10 @@
 // Darstellung für die Demo, keine Berechtigung. Solange es keinen Endpunkt POST /v1/reviews gibt,
 // gelten die Entscheide nur in diesem Browser.
 
-export type Role = "leser" | "reviewer" | "admin"
+export type Role = "leser" | "admin"
 
 export const ROLES: { value: Role; label: string }[] = [
   { value: "leser", label: "Leser" },
-  { value: "reviewer", label: "Reviewer" },
   { value: "admin", label: "Admin" },
 ]
 
@@ -46,6 +45,8 @@ function write(key: string, value: string): void {
 
 export function loadRole(): Role {
   const stored = read(ROLE_KEY)
+  // Die frühere Ansicht «Reviewer» gibt es nicht mehr; Admin darf auch entscheiden.
+  if (stored === "reviewer") return "admin"
   return ROLES.some((role) => role.value === stored)
     ? (stored as Role)
     : "leser"

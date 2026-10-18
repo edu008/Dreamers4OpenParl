@@ -1,7 +1,7 @@
 import { useReview } from "@/hooks/use-review"
 import { ROLES } from "@/lib/review"
 
-// Ansichtsschalter für die Demo: zeigt, was Leser, Reviewer und Admin sehen. Das MVP hat keine
+// Ansichtsschalter für die Demo: zeigt, was Leser und Admin sehen. Das MVP hat keine
 // Zugangskontrolle, der Schalter ist eine Darstellung und kein Schutz. Bewusst dezent gehalten.
 export function RoleSwitch() {
   const { role, setRole } = useReview()
@@ -9,7 +9,7 @@ export function RoleSwitch() {
     <div
       role="group"
       aria-label="Ansicht"
-      title="Demo-Ansicht: was sieht ein Leser, Reviewer oder Admin?"
+      title="Demo-Ansicht: was sieht ein Leser, was ein Admin?"
       className="inline-flex overflow-hidden rounded-md border border-border text-xs"
     >
       {ROLES.map((option) => (
