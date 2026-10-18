@@ -33,9 +33,9 @@ flowchart LR
 | Download | `parltopics.download` | CLI auf einem Rechner mit Internet | `files.openparldata.ch` | Import-Bündel |
 | Ingest, Input | `parltopics.ingest`, `parltopics.inputs` | CLI auf dem Server | Import-Bündel | `affairs`, `affair_texts`, `affair_docs`, `affair_inputs`, `search_documents` |
 | Registry | `parltopics.registry` | CLI und Bibliothek | `registry/tags.yaml` | `tags`, `registry_syncs`; die Datei nur bei Review-Aktionen |
-| Worker | `parltopics.classify` | Dienst `worker` oder CLI `classify` | `classification_jobs`, `affair_inputs`, `tags` | `affair_tags`, `tag_proposal_raw`, Job-Status, `job_events` |
+| Worker | `parltopics.classify` | Dienst `worker` oder CLI `classify` | `classification_jobs`, `affair_inputs`, `tags` | `affair_tags`, `affair_summaries`, `tag_proposal_raw`, Job-Status, `job_events`, Zähler in `classification_runs` |
 | Agent | `parltopics.agent` | im Prozess der API | über lesende Werkzeuge | `agent_runs` |
-| API | `parltopics.api` | Dienst `api` (FastAPI) | alle Tabellen | `reviews`, Label-Status, Registry-Datei (nur Review) |
+| API | `parltopics.api` | Dienst `api` (FastAPI), Doku unter `/v1/docs` | alle Tabellen | `reviews`, Label-Status, Registry-Datei (nur Review) |
 | Web-App | `web/` (React, Vite, shadcn/ui) | statischer Build in `web/dist`, von `api` ausgeliefert | Sidecar-API unter `/v1` | über die API |
 | Seitenlauf | `parltopics.wiki` | Dienst `worker` oder CLI `pages` (M3) | Labels, `affair_summaries`, Registry | `wiki_pages`, `wiki_page_events`, Markdown-Export |
 | Navigationssuche | `parltopics.search.navigate` | im Prozess der API | `wiki_pages`, `affair_summaries`, Volltext | `search_runs` |
@@ -117,7 +117,7 @@ Neben der Verarbeitung laufen zwei Hintergrundaufgaben:
 UPDATE classification_jobs SET locked_at = now()
 WHERE worker_id = %(worker_id)s AND status = 'pending';
 
--- Aufräumen hängender Jobs, z. B. jede Minute, von genau einem Prozess
+-- Aufräumen hängender Jobs: jeder Worker vor jeder Übernahme (idempotent, zeilengesperrt)
 UPDATE classification_jobs
 SET status = CASE WHEN attempts >= 3 THEN 'failed' ELSE 'open' END,
     worker_id = NULL, locked_at = NULL, last_error = 'timeout', updated_at = now()
@@ -148,7 +148,7 @@ Der gleichbleibende Teil steht vorne, damit Prefix-Caching greifen kann. Die Pro
 | Konfidenz | unter `CONFIDENCE_THRESHOLD` (Start 0.6) | Eskalation an 70B |
 | Vorschlag | vorhanden | Eskalation an 70B |
 | Sprache, Länge | unbekannt oder über Limit | Eskalation an 70B |
-| Stichprobe | 2 % zufällig | Eskalation an 70B, dient der Kalibrierung |
+| Stichprobe | 2 %, fest nach `affair_id % 50 = 0`, damit ein Lauf reproduzierbar bleibt | Eskalation an 70B, dient der Kalibrierung |
 
 ### 3.5 Drosselung
 
@@ -162,11 +162,12 @@ Der Worker ruft keine Werkzeuge über das Modell auf. Seine Werkzeuge sind Pytho
 |---|---|
 | `llm/client.py` | OpenAI-kompatibler Client mit Allowlist, Retry mit Backoff, adaptiver Drosselung |
 | `llm/json_utils.py` | JSON aus Modellantworten lösen (Codeblöcke, Text davor oder danach) |
+| `llm/prompts.py` | Prompt-Dateien laden und rendern, `prompt_version` mit Inhalts-Hash |
 | `registry/` | `tags.yaml` laden und validieren, `scheme_hash` berechnen, kompakte Prompt-Form erzeugen |
 | `inputs/` | HTML entfernen, Sprache erkennen, Längenlimit, `input_hash` |
 | `classify/schemas.py` | Pydantic-Modelle der Ausgabe (Anhang B) |
-| `classify/queue.py` (M1) | Jobs öffnen, übernehmen, Heartbeat, Aufräumen, Lauf-Lock |
-| `classify/worker.py` (M1) | Ablauf 3.2 mit asyncio |
+| `classify/queue.py` | Jobs öffnen, übernehmen, Heartbeat, Aufräumen, Lauf-Lock, Ergebnis mit Besitzprüfung schreiben |
+| `classify/worker.py` | Ablauf 3.2 mit asyncio |
 | `classify/proposals.py` (M1) | Rohvorschläge gruppieren und mit 70B prüfen |
 | `search/` | Volltext und Trigramm für Ad-hoc-Kandidaten; Navigationssuche in `search/navigate.py` (Abschnitt 6) |
 
@@ -184,6 +185,8 @@ Der Worker ruft keine Werkzeuge über das Modell auf. Seine Werkzeuge sind Pytho
 | Manuell „neu klassifizieren“ | dieser Job |
 
 Ein neues Ad-hoc-Tag öffnet also nie den APS-Volllauf (ADR 0004).
+
+Einen geänderten Text öffnet schon `inputs`. Neue Prompt-Versionen und ein neuer `scheme_hash` öffnen ihre Jobs erst beim nächsten `classify`: `registry sync` öffnet nichts, damit ein laufender Worker mit seinem eingefrorenen Stand nicht nachklassifiziert (PRD 7.7).
 
 ## 4. Agent (Suche und Ad-hoc-Dialog)
 
@@ -379,7 +382,7 @@ Code: `src/parltopics/search/navigate.py`, Tests in `tests/unit/test_navigate.py
 |---|---|---|---|
 | `registry_version` | Versionsfeld in `tags.yaml`, steigt mit jeder Änderung | Datei, `tags`, jedes Label, jeder Lauf | Protokoll, Nachvollziehbarkeit |
 | `scheme_hash` | SHA-256 über die aktiven Einträge, die eine Aufgabe nutzt | Lauf, Job | entscheidet, ob ein Job neu aufgeht |
-| `prompt_version` | Dateiname mit Version plus Inhalts-Hash | Lauf, Job, Label | Reproduzierbarkeit, neue Läufe |
+| `prompt_version` | Dateiname mit Version plus Inhalts-Hash; bei `classify:aps` beide Prompts, durch ein Leerzeichen getrennt | Lauf, Job, Label | Reproduzierbarkeit, neue Läufe |
 | `input_hash` | SHA-256 des Klassifikationstexts | `affair_inputs`, Job, Label | geänderte Geschäfte erkennen |
 | `model_version` | Modellname und vom Endpunkt gemeldete Version | Label, `agent_runs`, Seite, `search_runs` | Reproduzierbarkeit |
 | `input_hash` einer Seite | SHA-256 über Registry-Eintrag, Labels im Zeitfenster, `summary_hash` der Unterseiten, Stichproben, Prompt-Version, Ende des Zeitfensters | `wiki_pages` | entscheidet, ob ein Modellaufruf nötig ist |

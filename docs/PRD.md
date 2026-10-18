@@ -106,7 +106,7 @@ Das Tool ist self-hosted (Python, PostgreSQL, Docker) und air-gap-fähig. Zur La
 | Offline | Die Anwendung läuft ohne Internet. Erlaubter Netzwerkzugriff zur Laufzeit: nur der Host aus `LLM_BASE_URL` (Allowlist im HTTP-Client). Keine CDNs, Web-Fonts, Telemetrie, Paket- oder Modell-Downloads zur Laufzeit. Build und Datendownload laufen getrennt auf einem Rechner mit Internet (10.3). |
 | Datenimport | Download der OpenParlData-Exporte ist ein separater Schritt (eigenes Kommando, kann auf einem anderen Rechner laufen). Die Anwendung liest ein lokales Import-Bündel. |
 | Daten | OpenParlData-Exporte (`files.openparldata.ch/exports`), Hack-Datensatz (`/hackapertus`), APS-Schema (`aps_topics.xlsx`). Quelle für Bund: Parlamentsdienste (Curia Vista) via OpenParlData. |
-| Lizenzen | Code: Apache-2.0 (Template). Technischer Bericht: CC-BY-4.0 (Template). Apertus: Apache 2.0. OpenParlData: Nutzungsbedingungen klären (offene Frage). APS-Schema: Quelle nennen. Fremdkomponenten im Repo: Archify (MIT, nur Dokumentation). Web-App: React, React Router, Base UI, shadcn/ui, Tailwind CSS (MIT), class-variance-authority (Apache-2.0), Lucide (ISC). Vorgesehen für die Graph-Ansicht: force-graph bzw. react-force-graph (MIT). |
+| Lizenzen | Code: Apache-2.0 (Template). Technischer Bericht: CC-BY-4.0 (Template). Apertus: Apache 2.0. OpenParlData: Nutzungsbedingungen klären (offene Frage). APS-Schema: Quelle nennen. Fremdkomponenten im Repo: Archify (MIT, nur Dokumentation), Swagger UI (`swagger-ui-dist` 5.33.3, Apache-2.0) für die API-Dokumentation unter `/v1/docs`. Web-App: React, React Router, Base UI, shadcn/ui, Tailwind CSS (MIT), class-variance-authority (Apache-2.0), Lucide (ISC). Vorgesehen für die Graph-Ansicht: force-graph bzw. react-force-graph (MIT). |
 
 ## 6. Datengrundlage (Stand 18.10.2026)
 
@@ -696,7 +696,7 @@ Validierung:
 
 - `affair_id` entspricht dem angefragten Geschäft; `language` ist `de`, `fr`, `it`, `rm` oder `other`.
 - Stufe 1: 1 bis 3 Kapitel, nur IDs aus der angebotenen Kapitelliste.
-- Stufe 2: höchstens 5 Tags und 2 Vorschläge; `tag_id` muss im angebotenen Ausschnitt aktiv sein; `confidence` in [0, 1]; `evidence` höchstens 300 Zeichen.
+- Stufe 2: höchstens 5 Tags und 2 Vorschläge; `tag_id` muss im angebotenen Ausschnitt aktiv sein (fehlt nur das Präfix `aps:`, ergänzt es der Code); `confidence` in [0, 1]; `evidence` höchstens 300 Zeichen, ein längeres Zitat kürzt der Code an einer Wortgrenze, das Tag bleibt.
 - Beleg: Trigramm-Ähnlichkeit zum Klassifikationstext ≥ 0.9, sonst Konfidenz halbieren und `evidence_verified = false` (7.3).
 - `summary_de`: ein Satz. Fehlt er oder ist er leer, bleibt die Ausgabe gültig; längere Texte kürzt der Code auf 300 Zeichen (7.3).
 

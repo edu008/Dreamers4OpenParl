@@ -13,7 +13,7 @@ Wie du ParlTopics lokal aufsetzt, testest und änderst. Was gebaut wird, steht i
 | Node.js mit npm | Web-App (Entwicklung und Build) und Diagramme (Archify) | 22, siehe `web/.nvmrc` |
 | Chrome oder Chromium | nur für `make diagrams` (Browser-Check von Archify) | aktuell |
 
-Unter Windows: WSL2 mit aktivierter WSL-Integration in Docker Desktop.
+Unter Windows: WSL2 mit aktivierter WSL-Integration in Docker Desktop. Für Python, Tests und die Pipeline geht es auch direkt unter Windows: uv mit `winget install astral-sh.uv`; `make` fehlt dort, die Befehle aus dem `Makefile` laufen auch einzeln (z. B. `uv run pytest -m "not integration"`). In Verbindungs-URLs `127.0.0.1` statt `localhost` schreiben: `localhost` versucht unter Windows zuerst IPv6 und hängt bei Ports aus Docker.
 
 ## Setup
 
@@ -40,6 +40,23 @@ make web-dev                  # Vite mit Hot Reload auf http://127.0.0.1:5173, /
 make help                     # alle Ziele
 ```
 
+Die API-Dokumentation für die Web-App steht nach `make api` unter <http://127.0.0.1:8000/v1/docs> (Swagger UI aus dem Paket, ohne CDN); das Schema unter `/v1/openapi.json`.
+
+## Klassifikation
+
+Nach dem Ingest läuft die Pipeline in drei Kommandos (PRD 7.1, [ARCHITEKTUR.md](ARCHITEKTUR.md#2-pipeline)):
+
+```bash
+uv run parltopics registry sync                          # tags.yaml in die Tabelle tags, je registry_version einmal
+uv run parltopics inputs --body CHE --since 2026-01-01   # Klassifikationstexte (affair_inputs)
+uv run parltopics classify --task classify:aps --body CHE --since 2026-01-01 --limit 20
+uv run parltopics jobs summary                           # Jobs je Aufgabe und Status
+```
+
+`classify` öffnet die Jobs eines Laufs und arbeitet sie mit `--wait` (Standard) gleich ab; je Geschäft erscheint eine Logzeile mit Status, Stufe und Grund einer Eskalation. Mit `--no-wait` übernehmen Worker die Jobs, auch mehrere parallel: `uv run parltopics worker --task classify:aps --once` endet, sobald keine Jobs mehr offen sind. Ein zweiter Aufruf mit denselben Filtern öffnet nichts, solange sich Text, Prompt und Registry nicht ändern.
+
+Ohne LLM-Endpunkt hilft der Mock aus den Tests: `uv run uvicorn app:app --app-dir tests/mock_llm --port 8080` und in `.env` `LLM_BASE_URL=http://127.0.0.1:8080/v1`. Er wählt immer das erste angebotene Kapitel und Thema.
+
 ## Gemeinsame Datenbank über Tailscale
 
 Eine Person betreibt die Datenbank mit allen Daten (`make db`, `make migrate`, `make data`), die anderen greifen über [Tailscale](https://tailscale.com) darauf zu. Tailscale ist ein privates Netz nur für das Team: Kein Port ist im Internet offen, und der Router muss nicht eingestellt werden. Die Datenbank bleibt an `127.0.0.1` gebunden; `tailscale serve` reicht den Port nur ins Team-Netz weiter.
@@ -61,7 +78,7 @@ Eine Person betreibt die Datenbank mit allen Daten (`make db`, `make migrate`, `
 **Wer mitarbeitet:**
 
 1. Tailscale installieren, die Einladung annehmen und anmelden.
-2. In `.env` die gemeinsame Datenbank eintragen. Das Passwort gibt es von der betreibenden Person über einen sicheren Kanal (Passwort-Manager, Signal), nie im Repo oder Chat-Verlauf:
+2. In `.env` die gemeinsame Datenbank eintragen: die bestehende Zeile `DATABASE_URL` ersetzen, keine zweite anhängen, denn bei doppelten Schlüsseln gilt still die letzte. Das Passwort gibt es von der betreibenden Person über einen sicheren Kanal (Passwort-Manager, Signal), nie im Repo oder Chat-Verlauf:
 
    ```bash
    DATABASE_URL=postgresql://parltopics:<passwort>@<rechnername>:5432/parltopics
