@@ -85,7 +85,11 @@ export function AffairPage() {
         </div>
         <MarginNotes
           labels={labels}
-          versions={`${affair.model} · Prompt ${affair.promptVersion} · Registry ${affair.registryVersion}`}
+          versions={{
+            model: affair.model,
+            prompt: affair.promptVersion,
+            registry: affair.registryVersion,
+          }}
         />
       </div>
     </article>

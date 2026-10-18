@@ -7,9 +7,15 @@ export interface MarginLabel extends AffairLabel {
 }
 
 const STAGE_NAME: Record<AffairLabel["stage"], string> = {
-  "8b": "Modell 8B",
-  "70b": "Modell 70B",
+  "8b": "Apertus 8B",
+  "70b": "Apertus 70B",
   human: "Mensch",
+}
+
+export interface Versions {
+  model: string
+  prompt: string
+  registry: string
 }
 
 // Randspalte neben dem Text: je Label Name, Konfidenz, Zustand des Belegs und, was Prüfung braucht.
@@ -18,7 +24,7 @@ export function MarginNotes({
   versions,
 }: {
   labels: MarginLabel[]
-  versions: string
+  versions: Versions
 }) {
   return (
     <aside
@@ -51,7 +57,25 @@ export function MarginNotes({
           </li>
         ))}
       </ul>
-      <p className="border-t border-border pt-3 text-muted-foreground">{versions}</p>
+      <details className="border-t border-border pt-3 text-muted-foreground">
+        <summary className="cursor-pointer underline-offset-2 hover:underline">
+          Technische Angaben
+        </summary>
+        <dl className="mt-2 flex flex-col gap-1.5">
+          <div>
+            <dt>Modell</dt>
+            <dd className="tabular break-all text-foreground">{versions.model}</dd>
+          </div>
+          <div>
+            <dt>Prompt</dt>
+            <dd className="tabular text-foreground">{versions.prompt}</dd>
+          </div>
+          <div>
+            <dt>Registry</dt>
+            <dd className="tabular text-foreground">{versions.registry}</dd>
+          </div>
+        </dl>
+      </details>
     </aside>
   )
 }
