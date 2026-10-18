@@ -9,6 +9,11 @@ export interface ReviewCandidate {
   tagId: string
   labelName: string
   confidence: number
+  evidence: string | null
+  evidenceVerified: boolean
+  /** Bereich des Themas (Seitenbaum), für den Filter. */
+  areaId: string | null
+  areaName: string | null
   reasons: string[]
 }
 

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://parltopics:parltopics@localhost:5432/parltopics"
 
-    parallel_8b: int = Field(16, ge=1)
+    parallel_8b: int = Field(20, ge=1)  # Pilot 18.10.2026: 16 ohne Drosselung, Volllauf < 24 h
     parallel_70b: int = Field(4, ge=1)
     confidence_threshold: float = Field(0.6, ge=0, le=1)
     job_timeout_seconds: int = Field(600, ge=30)

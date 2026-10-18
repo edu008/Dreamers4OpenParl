@@ -46,6 +46,16 @@ export function HomePage() {
             ))}
           </p>
         )}
+        <p className="text-xs text-muted-foreground">
+          Anwendungsfall Digitale Verwaltung Schweiz:{" "}
+          <Link
+            to="/tags/adhoc:digitalisierung-breit"
+            className="inline-block py-2 underline underline-offset-2"
+          >
+            Digitalisierung im ganzen Bestand
+          </Link>{" "}
+          mit Auswertung und CSV-Export.
+        </p>
       </div>
       <section
         aria-labelledby="topics-heading"

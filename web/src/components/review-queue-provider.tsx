@@ -4,7 +4,14 @@ import {
   ReviewQueueContext,
   type ReviewQueueState,
 } from "@/hooks/use-review-queue"
-import { fetchJson, type TopicAffairs, type TopicOut } from "@/lib/api"
+import {
+  fetchJson,
+  type PageTree,
+  type TopicAffairs,
+  type TopicOut,
+} from "@/lib/api"
+import { pool } from "@/lib/pool"
+import { ancestorsOf } from "@/lib/tree"
 import { reviewReasons } from "@/lib/label-state"
 import type { ReviewCandidate } from "@/lib/review-queue"
 
@@ -12,19 +19,26 @@ import type { ReviewCandidate } from "@/lib/review-queue"
 // Geschäften laden und die auffälligen Labels hier herausfiltern. Das trägt nur bei wenigen
 // Themen; mit mehr Daten braucht es einen Endpunkt im Backend (Auftrag an edu).
 async function loadCandidates(signal: AbortSignal): Promise<ReviewCandidate[]> {
-  const topics = await fetchJson<TopicOut[]>("/v1/topics", signal)
+  const [topics, tree] = await Promise.all([
+    fetchJson<TopicOut[]>("/v1/topics", signal),
+    fetchJson<PageTree>("/v1/pages", signal),
+  ])
   const withAffairs = topics.filter((topic) => topic.n_affairs > 0)
-  const lists = await Promise.all(
-    withAffairs.map(async (topic) => ({
-      topic,
-      found: await fetchJson<TopicAffairs>(
-        `/v1/topics/${encodeURIComponent(topic.tag_id)}/affairs?limit=500`,
-        signal
-      ),
-    }))
-  )
-  return lists.flatMap(({ topic, found }) =>
-    found.items.flatMap((item) => {
+  const lists = await pool(withAffairs, 8, async (topic) => ({
+    topic,
+    found: await fetchJson<TopicAffairs>(
+      `/v1/topics/${encodeURIComponent(topic.tag_id)}/affairs?limit=500`,
+      signal
+    ),
+  }))
+  const areaOf = (tagId: string) => {
+    const self = tree.pages.find((page) => page.page_id === tagId)
+    const chain = [...ancestorsOf(tree.pages, tagId), ...(self ? [self] : [])]
+    return chain.find((page) => page.kind === "bereich") ?? null
+  }
+  return lists.flatMap(({ topic, found }) => {
+    const area = areaOf(topic.tag_id)
+    return found.items.flatMap((item) => {
       const reasons = reviewReasons({
         confidence: item.confidence,
         evidence: item.evidence,
@@ -41,11 +55,15 @@ async function loadCandidates(signal: AbortSignal): Promise<ReviewCandidate[]> {
               tagId: topic.tag_id,
               labelName: topic.name_de,
               confidence: item.confidence,
+              evidence: item.evidence,
+              evidenceVerified: item.evidence_verified,
+              areaId: area?.page_id ?? null,
+              areaName: area?.title ?? null,
               reasons,
             },
           ]
     })
-  )
+  })
 }
 
 export function ReviewQueueProvider({ children }: { children: ReactNode }) {

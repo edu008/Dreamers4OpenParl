@@ -13,6 +13,30 @@ import { useReviewQueue } from "@/hooks/use-review-queue"
 import { buildQueue, type QueueRow } from "@/lib/review-queue"
 
 const ALL = "alle"
+const PAGE_SIZE = 25
+
+type ReasonFilter = "alle" | "beleg" | "konfidenz"
+
+const REASON_OPTIONS: { value: ReasonFilter; label: string }[] = [
+  { value: "alle", label: "Alle" },
+  { value: "beleg", label: "Beleg nicht im Text" },
+  { value: "konfidenz", label: "Konfidenz tief" },
+]
+
+function matchesReason(row: QueueRow, filter: ReasonFilter): boolean {
+  if (filter === "alle") return true
+  const key = filter === "beleg" ? "Beleg" : "Konfidenz"
+  return row.reasons.some((reason) => reason.includes(key))
+}
+
+function countBy(rows: QueueRow[], pick: (row: QueueRow) => string | null) {
+  const counts = new Map<string, number>()
+  for (const row of rows) {
+    const key = pick(row)
+    if (key) counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], "de"))
+}
 
 type OpenKey = "affair" | "label" | "confidence"
 type DoneKey = "affair" | "label" | "confidence" | "date"
@@ -41,7 +65,38 @@ function sortRows(rows: QueueRow[], key: DoneKey, dir: SortDir): QueueRow[] {
   )
 }
 
-function AffairCell({ row }: { row: QueueRow }) {
+function EvidenceLine({ row }: { row: QueueRow }) {
+  if (row.evidence === null) {
+    return (
+      <p className="mt-1 text-xs text-muted-foreground">Kein Beleg angegeben</p>
+    )
+  }
+  const text =
+    row.evidence.length > 220 ? `${row.evidence.slice(0, 220)} …` : row.evidence
+  return (
+    <p
+      className="mt-1 line-clamp-2 text-xs text-muted-foreground"
+      title={row.evidence}
+    >
+      Beleg:{" "}
+      <span
+        className={
+          row.evidenceVerified ? "bg-evidence px-0.5 text-foreground" : "italic"
+        }
+      >
+        «{text}»
+      </span>
+    </p>
+  )
+}
+
+function AffairCell({
+  row,
+  evidence = false,
+}: {
+  row: QueueRow
+  evidence?: boolean
+}) {
   return (
     <td className="max-w-[22rem] px-3 py-3">
       <p className="tabular text-xs text-muted-foreground">
@@ -49,17 +104,21 @@ function AffairCell({ row }: { row: QueueRow }) {
       </p>
       <Link
         to={`/review/geschaefte/${row.affairId}`}
-        className="text-base leading-snug font-medium underline-offset-4 hover:underline"
+        title={row.title}
+        className="line-clamp-2 text-base leading-snug font-medium underline-offset-4 hover:underline"
       >
         {row.title}
       </Link>
+      {evidence && <EvidenceLine row={row} />}
     </td>
   )
 }
 
 function OpenTable({ rows }: { rows: QueueRow[] }) {
   const sort = useSort<OpenKey>("confidence", "asc")
+  const [shown, setShown] = useState(PAGE_SIZE)
   const sorted = sortRows(rows, sort.key, sort.dir)
+  const visible = sorted.slice(0, shown)
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[38rem] table-fixed border-collapse text-sm">
@@ -94,12 +153,12 @@ function OpenTable({ rows }: { rows: QueueRow[] }) {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row) => (
+          {visible.map((row) => (
             <tr
               key={`${row.affairId}|${row.tagId}`}
               className="border-b border-border align-top"
             >
-              <AffairCell row={row} />
+              <AffairCell row={row} evidence />
               <td className="px-3 py-3">{row.labelName}</td>
               <td className="px-3 py-3 whitespace-nowrap">
                 <Confidence value={row.confidence} />
@@ -109,6 +168,74 @@ function OpenTable({ rows }: { rows: QueueRow[] }) {
           ))}
         </tbody>
       </table>
+      {sorted.length > visible.length && (
+        <div className="flex items-center gap-3 px-3 py-3 text-xs text-muted-foreground">
+          <span className="tabular">
+            {visible.length} von {sorted.length} angezeigt
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShown((count) => count + PAGE_SIZE)}
+          >
+            Mehr anzeigen
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  allLabel,
+  options,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  allLabel: string
+  options: [string, number][]
+}) {
+  return (
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-8 w-44 truncate rounded-md border border-input bg-background px-2 text-xs text-foreground"
+    >
+      <option value={ALL}>{allLabel}</option>
+      {options.map(([name, count]) => (
+        <option key={name} value={name}>
+          {name} ({count})
+        </option>
+      ))}
+    </select>
+  )
+}
+
+function Progress({ done, total }: { done: number; total: number }) {
+  const share = total === 0 ? 0 : Math.round((done / total) * 100)
+  return (
+    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+      <div
+        role="progressbar"
+        aria-label="Fortschritt des Reviews"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={done}
+        className="h-1 w-24 bg-border"
+      >
+        <div className="h-full bg-primary" style={{ width: `${share}%` }} />
+      </div>
+      <span>
+        <span className="tabular font-medium text-foreground">
+          {done} von {total}
+        </span>{" "}
+        entschieden
+      </span>
     </div>
   )
 }
@@ -200,14 +327,36 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
 // stehen getrennt, eingeklappt, damit die Liste oben nur zeigt, was noch zu tun ist.
 export function ReviewPage() {
   const review = useReview()
+  const [reason, setReason] = useState<ReasonFilter>("alle")
+  const [area, setArea] = useState(ALL)
+  const [body, setBody] = useState(ALL)
   const [topic, setTopic] = useState(ALL)
   const live = useReviewQueue()
   const queue = buildQueue(live.candidates, review.decisions)
-  const topics = [...new Set(queue.map((row) => row.labelName))].sort()
-  const rows =
-    topic === ALL ? queue : queue.filter((row) => row.labelName === topic)
+  const rows = queue.filter(
+    (row) =>
+      matchesReason(row, reason) &&
+      (area === ALL || row.areaName === area) &&
+      (body === ALL || row.body === body) &&
+      (topic === ALL || row.labelName === topic)
+  )
   const open = rows.filter((row) => !row.entry)
   const done = rows.filter((row) => row.entry)
+  const openAll = queue.filter((row) => !row.entry)
+  const areas = countBy(openAll, (row) => row.areaName)
+  const bodies = countBy(openAll, (row) => row.body)
+  const topics = countBy(
+    openAll.filter((row) => area === ALL || row.areaName === area),
+    (row) => row.labelName
+  )
+  const filtered =
+    reason !== "alle" || area !== ALL || body !== ALL || topic !== ALL
+  const reset = () => {
+    setReason("alle")
+    setArea(ALL)
+    setBody(ALL)
+    setTopic(ALL)
+  }
 
   if (!review.active) {
     return (
@@ -220,7 +369,7 @@ export function ReviewPage() {
         </div>
         <p className="max-w-[68ch] text-muted-foreground">
           Der Review ist für Mitarbeitende, die Labels prüfen. Wähle oben rechts
-          die Ansicht «Reviewer», um die Warteschlange zu sehen und Labels zu
+          die Ansicht «Admin», um die Warteschlange zu sehen und Labels zu
           bestätigen oder zu verwerfen.
         </p>
       </div>
@@ -244,37 +393,80 @@ export function ReviewPage() {
         <div className="pt-2">
           <ReviewerName />
         </div>
-        <p className="text-xs text-muted-foreground">
-          Echte Labels aus der API. Entscheide gelten vorerst nur in diesem
-          Browser; zum Speichern fehlt noch der Endpunkt im Backend.
-        </p>
       </div>
       <section
         aria-labelledby="queue-heading"
         className="flex flex-col gap-3 pt-2"
       >
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <h2 id="queue-heading" className="font-heading text-lg font-medium">
             Offen ({open.length})
           </h2>
-          {topics.length > 1 && (
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              Thema
-              <select
-                value={topic}
-                onChange={(event) => setTopic(event.target.value)}
-                className="h-7 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-              >
-                <option value={ALL}>Alle Themen</option>
-                {topics.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <Progress
+            done={queue.filter((row) => row.entry).length}
+            total={queue.length}
+          />
         </div>
+        {queue.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              role="group"
+              aria-label="Grund"
+              className="inline-flex overflow-hidden rounded-md border border-border text-xs"
+            >
+              {REASON_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={reason === option.value}
+                  onClick={() => setReason(option.value)}
+                  className={
+                    reason === option.value
+                      ? "h-8 bg-secondary px-3 font-medium text-foreground"
+                      : "h-8 bg-background px-3 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {areas.length > 1 && (
+              <FilterSelect
+                label="Bereich"
+                value={area}
+                onChange={(value) => {
+                  setArea(value)
+                  setTopic(ALL)
+                }}
+                allLabel="Alle Bereiche"
+                options={areas}
+              />
+            )}
+            {area !== ALL && topics.length > 1 && (
+              <FilterSelect
+                label="Thema"
+                value={topic}
+                onChange={setTopic}
+                allLabel="Alle Themen des Bereichs"
+                options={topics}
+              />
+            )}
+            {bodies.length > 1 && (
+              <FilterSelect
+                label="Körperschaft"
+                value={body}
+                onChange={setBody}
+                allLabel="Alle Körperschaften"
+                options={bodies}
+              />
+            )}
+            {filtered && (
+              <Button size="sm" variant="ghost" onClick={reset}>
+                Filter zurücksetzen
+              </Button>
+            )}
+          </div>
+        )}
         {live.loading && (
           <p className="text-muted-foreground">Labels werden geladen …</p>
         )}
@@ -284,10 +476,17 @@ export function ReviewPage() {
           </p>
         )}
         {live.loading || live.error ? null : open.length > 0 ? (
-          <OpenTable rows={open} />
+          <OpenTable
+            key={`${reason}|${area}|${body}|${topic}`}
+            rows={open}
+          />
         ) : (
           <p className="text-muted-foreground">
-            {done.length > 0 ? "Alles geprüft." : "Nichts zu prüfen."}
+            {filtered
+              ? "Kein offenes Label passt zu diesen Filtern."
+              : done.length > 0
+                ? "Alles geprüft."
+                : "Nichts zu prüfen."}
           </p>
         )}
       </section>
