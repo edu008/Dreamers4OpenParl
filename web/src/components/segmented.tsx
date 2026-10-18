@@ -1,5 +1,5 @@
-// Leiser Umschalter aus aneinanderliegenden Knöpfen (eine Auswahl, `aria-pressed`). Für Ansicht,
-// Grund-Filter und Graph-Ansicht; Auswahl durch Tönung und Gewicht, nicht durch Farbe.
+// Leiser Umschalter (eine Auswahl, `aria-pressed`): eine eingedrückte Clay-Mulde, die Auswahl liegt
+// erhaben darin. Auswahl durch Form und Gewicht, nicht durch Farbe.
 export function Segmented<T extends string>({
   label,
   title,
@@ -19,7 +19,7 @@ export function Segmented<T extends string>({
       role="group"
       aria-label={label}
       title={title}
-      className="inline-flex overflow-hidden rounded-md border border-border text-xs"
+      className="inline-flex flex-wrap gap-1 self-start rounded-3xl bg-muted p-1 text-sm shadow-clay-pressed"
     >
       {options.map((option) => (
         <button
@@ -29,8 +29,8 @@ export function Segmented<T extends string>({
           onClick={() => onChange(option.value)}
           className={
             value === option.value
-              ? "h-8 bg-secondary px-3 font-medium text-foreground"
-              : "h-8 bg-background px-3 text-muted-foreground hover:bg-muted hover:text-foreground"
+              ? "h-9 rounded-full bg-card px-3.5 font-semibold text-foreground shadow-clay"
+              : "h-9 rounded-full px-3.5 text-muted-foreground transition-colors hover:text-foreground"
           }
         >
           {option.label}

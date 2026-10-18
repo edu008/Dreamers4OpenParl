@@ -1,59 +1,71 @@
 ---
 name: ParlTopics
-description: Amtliches Bulletin für Themen-Labels zu Schweizer Parlamentsgeschäften, ruhig, belegt, ohne Dekor.
+description: Schweizer Raster mit Oberflächen aus Ton. Eine öffentliche Seite mit einer Aufgabe (Geschäfte finden), ein Admin-Bereich für Review, Themen und Graph.
 colors:
-  paper: "#f8f9f8"
-  ink: "#1b2a27"
-  ink-soft: "#55655f"
-  surface: "#ffffff"
-  margin-tint: "#eff2f0"
-  accent-wash: "#e4ece8"
-  rule: "#d8dad3"
-  field-edge: "#7f8a84"
-  forest: "#1f4d3f"
+  ground: "#f1f1ee"
+  surface: "#fbfbf9"
+  well: "#e6e6e2"
+  ink: "#141414"
+  ink-soft: "#5c5c58"
+  rule: "#dcdcd7"
+  field-edge: "#8a8a85"
+  swiss-red: "#dc0018"
+  swiss-red-hover: "#b80014"
   evidence: "#fff1a8"
   evidence-line: "#b08900"
+  level-high: "#1e6b45"
   level-medium: "#8a5a00"
-  level-low: "#9b2c2c"
-  night: "#171918"
-  night-surface: "#1e2120"
-  night-ink: "#e4e6e5"
-  night-ink-soft: "#a4aaa7"
-  night-rule: "#34383a"
-  night-accent: "#a9bfb5"
+  level-low: "#4a5a8c"
+  data: "#3a3a37"
+  night: "#18191b"
+  night-surface: "#222326"
+  night-well: "#2b2c30"
+  night-ink: "#f2f2ef"
+  night-ink-soft: "#a9a9a4"
+  night-ring: "#ff5a5f"
   night-evidence: "#4a4020"
   night-evidence-line: "#d9b43a"
 typography:
   display:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.875rem"
-    fontWeight: 600
-    lineHeight: 1.25
+    fontFamily: "Helvetica Neue, Helvetica, Arial, system-ui, sans-serif"
+    fontSize: "clamp(2.5rem, 7vw, 5rem)"
+    fontWeight: 700
+    lineHeight: 0.95
+    letterSpacing: "-0.035em"
   headline:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.5rem"
-    fontWeight: 600
-    lineHeight: 1.25
+    fontFamily: "Helvetica Neue, Helvetica, Arial, system-ui, sans-serif"
+    fontSize: "1.875rem"
+    fontWeight: 700
+    lineHeight: 1.15
   title:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.125rem"
-    fontWeight: 500
+    fontFamily: "Helvetica Neue, Helvetica, Arial, system-ui, sans-serif"
+    fontSize: "1.25rem"
+    fontWeight: 600
   body:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Helvetica Neue, Helvetica, Arial, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.5
+  lead:
+    fontFamily: "Helvetica Neue, Helvetica, Arial, system-ui, sans-serif"
+    fontSize: "1.25rem"
+    lineHeight: 1.6
   reading:
     fontFamily: "Georgia, serif"
     fontSize: "1rem"
     lineHeight: 1.6
-  label:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
-    fontSize: "0.75rem"
-    fontWeight: 600
+  note:
+    fontFamily: "Helvetica Neue, Helvetica, Arial, system-ui, sans-serif"
+    fontSize: "0.875rem"
 rounded:
-  sm: "2px"
-  md: "4px"
+  pill: "9999px"
+  clay: "24px"
+  md: "16px"
+shadows:
+  clay: "aussen weich 0 10px 24px, innen Licht oben, innen Schatten unten"
+  clay-raised: "wie clay, aussen weiter und dunkler (Hover)"
+  clay-pressed: "nur innen: Schatten oben, Licht unten (Felder, Mulden, gedrückt)"
+  clay-primary: "rot getönter Aussenschatten, innen Licht und Schatten (Hauptaktion)"
 spacing:
   sm: "8px"
   md: "16px"
@@ -61,18 +73,27 @@ spacing:
   xl: "32px"
 components:
   button-primary:
-    backgroundColor: "{colors.forest}"
+    backgroundColor: "{colors.swiss-red}"
     textColor: "#ffffff"
-    rounded: "{rounded.md}"
-    padding: "8px 12px"
-  nav-item-active:
-    backgroundColor: "{colors.margin-tint}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.md}"
-  margin-notes:
-    backgroundColor: "{colors.margin-tint}"
-    textColor: "{colors.ink}"
-    padding: "16px"
+    rounded: "{rounded.pill}"
+    shadow: "{shadows.clay-primary}"
+  search-field:
+    backgroundColor: "{colors.well}"
+    rounded: "{rounded.pill}"
+    shadow: "{shadows.clay-pressed}"
+    height: "56px"
+  affair-card:
+    backgroundColor: "{colors.surface}"
+    rounded: "{rounded.clay}"
+    shadow: "{shadows.clay}"
+    padding: "24px"
+  topic-chip:
+    backgroundColor: "{colors.well}"
+    rounded: "{rounded.pill}"
+    shadow: "{shadows.clay-pressed}"
+  segmented:
+    backgroundColor: "{colors.well}"
+    selected: "{colors.surface} mit {shadows.clay}"
   evidence-mark:
     backgroundColor: "{colors.evidence}"
     textColor: "{colors.ink}"
@@ -82,89 +103,98 @@ components:
 
 ## Overview
 
-**Creative North Star: «Das Amtliche Bulletin»**
+**Creative North Star: «Schweizer Raster, Oberflächen aus Ton»**
 
-ParlTopics zeigt, welchen Themen ein Parlamentsgeschäft zugeordnet wurde, und weshalb. Die Oberfläche soll wie ein Bulletin der Bundesversammlung wirken: kühles Papier, dunkle Tinte, Haarlinien, eine einzige Farbe. Gestaltung tritt zurück, Text und Beleg tragen die Seite. Die Zielgruppe (Verwaltungsmitarbeitende, Reviewer, Journalisten) arbeitet damit, sie soll sich nicht beeindruckt fühlen, sondern verlässlich geführt.
+ParlTopics zeigt, welchen Themen ein Parlamentsgeschäft zugeordnet wurde, und weshalb. Die Gestaltung folgt dem Swiss Design: ein Raster, linksbündig, Helvetica, wenige grosse Schriftgrade, Rot als einziger Akzent. Die Flächen sind aus Ton (Claymorphism): weich, plastisch, mit Licht oben und Schatten unten. So wirkt die Seite ruhig und greifbar, ohne Dekor.
 
-Dichte und Takt sind die einer Arbeitsfläche: kleine Schrift in Tabellen und Randspalten, 16 px nur für Fliesstext. Hierarchie entsteht aus Gewicht, Grösse und Abstand, nicht aus Flächen, Schatten oder Farbe. Eine Aussage über das Modell wird nie nur durch Farbe getragen, sondern immer durch ein Wort daneben («hoch», «mittel», «tief», «Beleg nicht im Text gefunden»).
+Die öffentliche Seite hat eine Aufgabe: Geschäfte finden (Hick's Law). Ein Suchfeld, ein Knopf, die Filter hinter einem Schalter, darunter die neuesten Geschäfte oder die Treffer. Alles andere (Review, Themenbaum, Graph, Systemstand) liegt im Admin-Bereich unter `/admin`.
 
-Bestätigte Ablehnungen: kein dunkles Dashboard-Aussehen, kein graues Standard-shadcn, keine Karten um alles, keine vielen Trennlinien, kein dekorativer Verlauf, keine KI-Glanzoptik.
+Eine Aussage über das Modell wird nie nur durch Farbe getragen, sondern immer durch ein Wort daneben («hoch», «mittel», «tief», «Beleg nicht im Text gefunden»).
 
 **Key Characteristics:**
-- Papier und Tinte, ein Grün, Gelb nur für den Beleg
-- Haarlinien statt Flächen, keine Schatten
-- Kleine Ecken, Systemschriften (Air-Gap-tauglich, keine externen Ressourcen)
-- Jede Zahl hat eine Bezeichnung oder steht in einer Spalte mit Kopf
+- Ein Raster, eine linke Kante für Kopf, Inhalt und Fuss
+- Helvetica-Stapel aus Systemschriften, ein grosser Titel pro Seite
+- Schweizer Rot nur für die Hauptaktion und den Fokus
+- Clay-Flächen: Karten erhaben, Felder und Mulden eingedrückt
+- Gelb nur für den Beleg
 
 ## Colors
 
-Zurückhaltende Palette mit einer Markenfarbe. Die Dunkelansicht ist ein eigener neutraler Satz, kein Abbild des hellen.
-
-- **Papier** (`#f8f9f8`): Seitengrund, kaum getöntes Kühl-Weiss.
-- **Tinte** (`#1b2a27`): Text und Linien mit Gewicht, ein dunkles Grün-Schwarz.
-- **Tinte gedämpft** (`#55655f`): Nebentexte und Beschriftungen.
-- **Randspalten-Tönung** (`#eff2f0`): Fläche der Randspalte und aktiver Navigationspunkt.
-- **Haarlinie** (`#d8dad3`): Tabellen- und Trennlinien.
-- **Feldrand** (`#7f8a84`): Rand von Eingabefeldern, mindestens 3:1 gegen Papier.
-- **Waldgrün** (`#1f4d3f`): Einzige Markenfarbe. Hauptknopf, Fokus, hohe Konfidenz.
+- **Grund** (`#f1f1ee`): heller, warmer Ton als Seitengrund.
+- **Fläche** (`#fbfbf9`): Karten, Filterfeld, Randspalte.
+- **Mulde** (`#e6e6e2`): Suchfeld, Chips, Umschalter, Seitenfuss.
+- **Tinte** (`#141414`) und **Tinte gedämpft** (`#5c5c58`, etwa 6:1): Text und Nebenangaben.
+- **Feldrand** (`#8a8a85`): Rand von Eingabefeldern, mindestens 3:1 gegen den Grund.
+- **Schweizer Rot** (`#dc0018`, weisse Schrift 5.2:1): einzige Akzentfarbe. Hauptaktion («Suchen», «Bestätigen») und Fokusring.
 - **Beleggelb** (`#fff1a8`, Linie `#b08900`): ausschliesslich für die markierte Belegstelle im Text.
-- **Braun** (`#8a5a00`) und **Rot** (`#9b2c2c`): mittlere und tiefe Konfidenz, «Prüfung nötig».
-- **Dunkelansicht:** Grund `#171918`, Fläche `#1e2120`, Text `#e4e6e5`, Linie `#34383a`, Akzent gedämpftes Salbei `#a9bfb5`, Beleg `#4a4020`.
+- **Konfidenz:** hoch Grün (`#1e6b45`), mittel Ocker (`#8a5a00`), tief Schieferblau (`#4a5a8c`). Nie Rot.
+- **Daten** (`#3a3a37`): Balken in Auswertungen und Fortschritt, nie Rot.
+- **Fehler** in Tinte: das Wort trägt die Meldung, Rot bleibt bei der Hauptaktion.
+- **Dunkelansicht:** Grund `#18191b`, Fläche `#222326`, Mulde `#2b2c30`, Text `#f2f2ef`, Fokus `#ff5a5f`, Beleg `#4a4020`. Clay-Schatten dunkler, Licht innen schwach.
 
-Regeln: Farbe verstärkt nur, das Wort trägt die Bedeutung. Gelb steht nirgends ausser am Beleg. Grün ist keine Dekofarbe.
+Regeln: Rot hat eine Bedeutung. Farbe verstärkt nur, das Wort trägt die Bedeutung. Gelb steht nirgends ausser am Beleg.
 
 ## Typography
 
-Systemschrift (`ui-sans-serif, system-ui`) für die Oberfläche, `Georgia` als Platzhalter für Lesetext. Eine eigene, selbst gehostete Schrift ist noch offen und braucht eine Freigabe für den Download.
+Helvetica Neue, Helvetica, sonst Arial, alles Systemschriften (keine externen Ressourcen, PRD 9). `Georgia` bleibt Platzhalter für den Originaltext eines Geschäfts.
 
-- **Display** 30 px, 600: Titel der Startseite.
-- **Headline** 24 px, 600: Seitentitel.
-- **Title** 18 px, 500: Abschnittstitel.
-- **Body** 16 px: Fliesstext, Einleitungen, Hilfeseite. Zeilenlänge höchstens 62 bis 68 Zeichen.
-- **Label** 12 bis 14 px: Tabellen, Randspalte, Nebenangaben.
-- Zahlen in Tabellen sind tabellarisch ausgerichtet (`.tabular`).
+- **Display** `clamp(2.5rem, 7vw, 5rem)`, 700, eng gesetzt (-0.035em): einmal pro Seite, höchstens zwei Zeilen auch auf dem Handy.
+- **Headline** 30 px, 700: Titel eines Geschäfts.
+- **Title** 20 px, 600: Titel in Karten.
+- **Lead** 20 px: ein Satz unter dem Display.
+- **Body** 16 px, **Note** 14 px: Fliesstext und Nebenangaben. Zeilenlänge höchstens 62 bis 68 Zeichen.
+- Keine kleinen Versalien mit Sperrung, keine Monospace-Schrift. Zahlen tabellarisch (`.tabular`).
 
 ## Layout
 
-- Hauptspalte höchstens 56 rem breit, 24 px seitlicher Rand, 32 px oben und unten.
-- Geschäftsseite: Text links, Randspalte 14 rem rechts, bei breiten Fenstern mitlaufend (sticky). Auf schmalen Fenstern steht die Randspalte unter dem Text.
-- Tabellen mit festen Spaltenbreiten, damit Spalten über Seiten hinweg auf einer Linie bleiben.
-- Zwei Bereiche mit eigener Navigation: die öffentliche Seite unter `/` (Themen, Graph, So funktioniert's; rein lesend) und der Admin-Bereich unter `/admin` (Übersicht, Review). Die öffentliche Seite verlinkt nicht in den Admin-Bereich; der Admin-Bereich hat einen Link «Öffentliche Seite».
-- Kopfzeile bricht um: Navigation, Suche (öffentlich) oder Link zur öffentlichen Seite (Admin). Seitenfuss trägt den Darstellungsschalter.
-- Handybreite 375 px ohne seitliches Überlaufen. Bedienflächen mindestens 24 px hoch (WCAG 2.5.8).
+- Ein Rahmen für Kopf, Inhalt und Fuss: höchstens 64 rem (Review 72 rem), Rand 16 px auf dem Handy, 32 px ab `sm`.
+- **Öffentlich:** Kopf nur mit Wortmarke. Startseite: Display, Lead, Suchfeld, Zeile mit «Filter einblenden (n)», aktivem Thema und Trefferzahl, darunter die Liste. Fuss mit «So funktioniert's» und dem Darstellungsschalter.
+- **Admin:** Wortmarke «ParlTopics Admin», Navigation Übersicht, Review (offene Anzahl), Themen, Graph in einer Mulde, rechts «Öffentliche Seite».
+- Geschäftsseite: Text als Clay-Fläche links, Randspalte 16 rem rechts, bei breiten Fenstern mitlaufend (sticky); auf schmalen Fenstern darunter.
+- Handybreite 375 px ohne seitliches Überlaufen. Bedienflächen mindestens 32 px hoch.
 
 ## Elevation & Depth
 
-Flach. Keine Schatten. Tiefe entsteht durch Tönung (Randspalte) und Haarlinien. Hover und aktiver Zustand ändern den Grund leicht, nie die Erhebung.
+Clay in drei Zuständen, als Variablen in `web/src/index.css`:
+
+- **Ruhe** (`shadow-clay`): weicher Aussenschatten, Licht innen oben, Schatten innen unten. Karten, Filterfeld, Randspalte.
+- **Angehoben** (`shadow-clay-raised`): beim Hover, dazu höchstens 2 px nach oben (`motion-safe`).
+- **Eingedrückt** (`shadow-clay-pressed`): Suchfeld, Chips, Umschalter-Mulde, gedrückter Knopf.
+- **Hauptaktion** (`shadow-clay-primary`): roter Knopf mit rot getöntem Aussenschatten.
+
+Bewegung nur mit `motion-safe:`; bei `prefers-reduced-motion` fallen Wege und Übergänge weg, der Inhalt bleibt.
 
 ## Shapes
 
-Kleine Ecken: 2 bis 4 px. Ränder sind 1 px. Knöpfe und Felder sind rechteckig mit leichtem Radius, keine Pillen, keine Kreise ausser den Punkten im Graphen.
+Pillen (`rounded-full`) für Knöpfe, Felder, Chips und Umschalter. Karten und Flächen 24 px (`rounded-clay`), kleine Kacheln 16 px. Keine Haarlinien als Trenner: Abstand und Tonstufen trennen. Tabellen im Admin behalten ihre Linien.
 
 ## Components
 
-- **Knopf:** Primär in Waldgrün mit weisser Schrift, sonst Umriss oder Geist. Gedrückt/aktiv per `aria-pressed`.
-- **Darstellungsschalter:** leise segmentierte Knöpfe, Auswahl durch Tönung und Gewicht.
-- **Konfidenz:** Zahl mit zwei Stellen, daneben das Wort (hoch ab 0.8, mittel ab 0.6, sonst tief), Farbe verstärkt. In der Randspalte steht «Konfidenz» davor, in Tabellen im Spaltenkopf.
-- **Randspalte:** je Label Name, Konfidenz, Zustand des Belegs, Prüfstatus, Modellversion. Technische Angaben eingeklappt. Entscheiden nur in der Prüfansicht.
+- **Suchfeld:** eine Mulde, 56 px hoch, daneben der rote Knopf «Suchen». Leer abgeschickt zeigt die Seite wieder die neuesten Geschäfte.
+- **Filter:** ein Schalter «Filter einblenden (n)», darunter eine Clay-Fläche mit Ebene und Sprache (Umschalter), Parlament (Auswahl, nach Ebene gruppiert), Zeitraum (von, bis). «Filter zurücksetzen» erscheint nur bei aktiven Filtern.
+- **Geschäftskarte:** die ganze Karte ist der Link. Meta-Zeile (Typ · Nr. · Datum · Parlament), Titel, Ausschnitt mit Treffern bei einer Suche, höchstens drei Themen-Chips mit Konfidenz und «+n weitere». Rechts eine Kachel mit dem Kürzel (CHE, ZH; bei Städten und Gemeinden die Ebene).
+- **Themen-Chip:** Name und Konfidenz; ein Klick filtert die Suche nach diesem Thema. Das aktive Thema steht als entfernbarer Chip «Thema: Name ×».
+- **Konfidenz:** Zahl mit zwei Stellen, daneben das Wort (hoch ab 0.8, mittel ab 0.6, sonst tief), Farbe verstärkt.
+- **Randspalte:** je Thema Name (öffentlich ein Link zur Suche), Konfidenz, Zustand des Belegs, Prüfstatus, Modell. Entscheiden nur unter `/admin/review`.
 - **Belegmarkierung:** gelber Grund mit Unterlinie direkt im Originaltext.
-- **Tabellen:** Haarlinien zwischen Zeilen, Kopf mit Sortierknopf (`aria-sort`), Sortierknöpfe mit vergrösserter Trefferfläche.
-- **Themenbaum:** Bereiche aufklappbar, Zahl der Geschäfte neben dem Namen.
-- **Graph:** Punkte in einer Farbe je Bereich, dicke Linie = gemeinsame Geschäfte, Beschriftungen kollidieren nicht, Fokusring bei Tastaturbedienung.
-- **Hinweise und Fehler:** schlichte Zeile mit Titel und Erklärung, kein Dekor. Fehlerfarbe nur für echte Fehler.
+- **Umschalter (Segmented):** Mulde, die Auswahl liegt erhaben darin (`aria-pressed`).
+- **Hinweise und Fehler:** Clay-Fläche mit Titel und Erklärung, Text in Tinte.
 
 ## Do's and Don'ts
 
 **Do**
+- Eine Aufgabe pro Seite, wenige Wahlmöglichkeiten auf einen Blick (Hick's Law).
 - Ein Wort neben jede Zahl und jede Farbe.
 - Beleg im Text zeigen, nicht nur behaupten.
 - Systemschriften und keine externen Ressourcen (`scripts/check-web-dist.mjs` prüft das).
 - Seitentitel setzen, Skip-Link, sichtbarer Fokus, Dunkel- und Handyansicht prüfen.
-- Grenzen offen nennen: noch nicht von einem Menschen geprüft, erst wenige Geschäfte klassifiziert.
+- Grenzen offen nennen: noch nicht von einem Menschen geprüft, erst ein Teil der Geschäfte klassifiziert.
 
 **Don't**
-- Keine Karten um jeden Block, keine Schatten, keine Verläufe.
-- Kein Gelb ausser am Beleg, kein Grün als Dekoration.
-- Kein grosser Seitenbaum als Graph ohne Zoom oder Filter.
+- Kein Rot ausser für die Hauptaktion und den Fokus, keine roten Datenbalken, keine rote Konfidenz.
+- Kein Gelb ausser am Beleg.
+- Keine Verläufe, kein Glas, keine Haarlinien als Dekor.
+- Keine Kantonswappen (Wappenschutzgesetz), keine Schweizerkreuze als Schmuck.
+- Keine Menüpunkte auf der öffentlichen Seite, die nicht zum Finden von Geschäften gehören.
 - Keine Rollen vortäuschen: ohne Anmeldung ist `/admin` ein eigener Bereich, kein Schutz.
 - Kein Stand, der nicht stimmt: Zahlen aus echten Daten oder gar nicht anzeigen.
