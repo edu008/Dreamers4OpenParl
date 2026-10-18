@@ -57,7 +57,7 @@ export function Layout() {
       </a>
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
         <Link to="/" className="font-heading text-base font-medium">
-          Parl<span className="ml-px bg-evidence px-1">Topics</span>
+          ParlTopics
         </Link>
         <nav aria-label="Hauptnavigation" className="flex flex-wrap gap-1">
           {nav.map((item) => (
