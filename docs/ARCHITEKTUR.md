@@ -99,7 +99,7 @@ Der tägliche Lauf (F17) verkettet 2 bis 9 ohne Review. Diagramm: [02-pipeline](
    -- keine Zeile: Job gehört nicht mehr diesem Worker → ROLLBACK, job_events 'lost_lock'
    ```
 
-   Danach in derselben Transaktion: alte aktive Labels dieses Geschäfts und dieser Aufgabe auf `superseded`, neue Labels einfügen (8B-Labels bei Eskalation direkt als `superseded`), von Menschen verworfene Tags als `rejected` statt `active` einfügen, Rohvorschläge in `tag_proposal_raw`, Eintrag in `job_events`.
+   Danach in derselben Transaktion: alte aktive Labels dieses Geschäfts und dieser Aufgabe sowie aktive Labels anderer Aufgaben für dieselben Tags auf `superseded`, neue Labels einfügen (8B-Labels bei Eskalation direkt als `superseded`), von Menschen verworfene Tags als `rejected` statt `active` einfügen, Rohvorschläge in `tag_proposal_raw`, Eintrag in `job_events`.
 8. **Fehler:** vorübergehende Fehler (429, 5xx, Timeout) mit Backoff wiederholen; sind alle Wiederholungen erschöpft, geht der Job zurück auf `open` oder ab dem 3. Versuch auf `failed`. Dauerhafte Fehler (leerer Text, ungültiges JSON auch nach 70B) setzen sofort `failed` mit `last_error`.
 
 Neben der Verarbeitung laufen zwei Hintergrundaufgaben:
@@ -262,7 +262,7 @@ Diagramm: [05-agent-suche](architecture/05-agent-suche.html).
 Verbindlich ist [`migrations/0001_init.sql`](../migrations/0001_init.sql). Wichtige Regeln:
 
 - Quelltabellen haben keine Fremdschlüssel und behalten den Originaldatensatz in `raw`. So bricht ein Import nicht an einem einzelnen fehlerhaften Verweis.
-- Pro Geschäft, Tag, `input_hash` und `prompt_version` gibt es höchstens ein aktives Label (partieller Unique-Index).
+- Pro Geschäft und Tag gibt es höchstens ein aktives Label, egal aus welcher Aufgabe (partieller Unique-Index, `0002_one_active_label.sql`).
 - Labels werden nie gelöscht, nur auf `superseded` oder `rejected` gesetzt.
 - Rohvorschläge bleiben erhalten und zeigen nach der Gruppierung auf ihren Vorschlag.
 

@@ -433,9 +433,11 @@ Der Umfang dieses PRD bleibt vollständig. Er wird in drei Phasen umgesetzt, der
 5. Mapping APS-Themen ↔ Curia-Vista-Sachbereiche: wer prüft den Entwurf (Vorschlag: Apertus 70B erzeugt ihn, eine Person aus dem Team prüft und friert ihn ein)?
 6. Gold-Set: Umfang der manuellen Prüfung im Hack (Vorschlag: 100 Digitalisierung, 100 APS), wer labelt?
 7. OpenParlData: Nutzungsbedingungen, gewünschtes Exportformat, Übergabe (Datei, Repo, API), Interesse an Stufe 3.
-8. Regel „erstes Dokument“ für Kantone/Gemeinden: Auswahl nach `parent_type = affair`, ältestem Datum, `category_harmonized`?
+8. ~~Regel „erstes Dokument“ für Kantone/Gemeinden~~ Entschieden (18.10.2026): das älteste Dokument mit Text (`parent_type = affair`, kleinstes `doc_date`, bei Gleichstand kleinste `id`). Betrifft 126'719 Geschäfte mit mehreren Dokumenten.
 9. Veröffentlichung der Hack-Ergebnisse (Instanz, Lizenz der Labels).
 10. Teamname und Rollen für README und technischen Bericht.
+11. „Laufende Geschäfte“ (F12, DVS-Liste): Der harmonisierte Status ist nur bei 278 von 326'396 Geschäften gefüllt, `end_date` bei 18 %. Wie wird „laufend“ bestimmt (Status-Texte je Parlament, Enddatum, Datum der letzten Aktivität)? Bis dahin bleiben Status und Enddatum nur in `raw`.
+12. Dokumente ohne Geschäft (News, Traktanden, Sitzungen; 290'039 Dokumente, 3.6 GB) bleiben in `affair_docs` und sollen ebenfalls klassifiziert werden (Entscheid 18.10.2026). Offen: wie, denn Jobs und Labels hängen heute an `affair_id`.
 
 ## 16. Meilensteine
 
