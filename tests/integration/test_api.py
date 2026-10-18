@@ -194,6 +194,7 @@ def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
             " VALUES (%s, %s, %s, 'texts', 'h')",
             (affair_id, text, language),
         )
+    conn.execute("UPDATE affairs SET title_fr = 'Administration numérique' WHERE id = 70435")
     conn.execute(INDEX, ([70435, 70437, 80003],))
 
     def found(q, **params):
@@ -218,6 +219,7 @@ def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
         assert "&lt;" in headline  # maskiert: nur <mark> ist echtes HTML
         assert "<" not in headline.replace("<mark>", "").replace("</mark>", "")
 
+        assert found("administration") == (1, [70435])  # deutscher Text, französischer Titel
         assert found('"Verwaltung digitalisieren"') == (1, [70435])
         assert found("digitalisieren", topic="aps:6.1.9") == (1, [70435])
         assert found("digitalisieren", body_key="ZH") == (1, [80003])
