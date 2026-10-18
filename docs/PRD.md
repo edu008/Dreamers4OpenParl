@@ -21,6 +21,7 @@
 - Evaluation pro Hierarchiestufe (Bereich, Kapitel, Thema) mit Teiltreffern (F16, 13).
 - Datenmodell: Migration `0003_wiki_skos.sql` mit sieben neuen Tabellen (10.1, Anhang C).
 - Neu: Anhang F „Forschungsbezug“; Diagramme 09 und 10 (Anhang E).
+- Hack-MVP ohne Anmeldung und Rollen: Schreibende Endpunkte prüfen keinen Token; jeder Entscheid trägt Name und Zeit, steht in `reviews` und lässt sich zurücknehmen (F10).
 - Begriff: „Hierarchiestufe“ meint Bereich, Kapitel und Thema. „Ebene“ bleibt Bund, Kanton und Gemeinde.
 - Abweichungen vom Konzepttext, weil das PRD oder ein Entscheid vom 18.10.2026 gilt: Die Registry bleibt `registry/tags.yaml` statt `tags.md` (ADR 0001). Im Air-Gap-Betrieb bleibt ein interner Endpunkt statt Keera vorgesehen (10.3). Geschäftsseiten gibt es nur in der Web-App, nicht als Markdown-Datei (F14). Die Web-App ist eine React-SPA statt serverseitig gerendert. Alle Ad-hoc-Tags sind Querschnittsseiten unter Heart, auch mit nur einem `broader` (7.9, offene Frage 17).
 
