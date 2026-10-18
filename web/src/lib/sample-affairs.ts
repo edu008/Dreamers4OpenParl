@@ -1,5 +1,6 @@
 // Synthetische Beispieldaten für die Geschäftsseite, bis die Sidecar-API Labels liefert (M3).
-// Sie sind erfunden und erscheinen in der Oberfläche als "Beispieldaten".
+// Sie sind erfunden und erscheinen in der Oberfläche als "Beispieldaten". Keine Fremd-URLs im Bundle:
+// check-web-dist.mjs lehnt jeden unbekannten Host ab. Echte Quell-Links kommen später aus der API.
 
 export interface AffairLabel {
   tagId: string
@@ -18,7 +19,7 @@ export interface AffairRecord {
   language: "de" | "fr" | "it"
   title: string
   paragraphs: string[]
-  sourceUrl: string
+  sourceUrl: string | null
   labels: AffairLabel[]
   model: string
   promptVersion: string
@@ -38,7 +39,7 @@ export const SAMPLE_AFFAIRS: AffairRecord[] = [
       "Der Bundesrat wird beauftragt, eine staatlich anerkannte elektronische Identität zu schaffen, die für Behörden, Unternehmen und Private nutzbar ist.",
       "Dazu gehört, dass die E-ID den digitalen Zugang zu öffentlichen Dienstleistungen ermöglicht, ohne dass die Daten bei privaten Anbietern gespeichert werden.",
     ],
-    sourceUrl: "https://www.parlament.ch/",
+    sourceUrl: null,
     labels: [
       {
         tagId: "beispiel:digitalisierung",
@@ -71,7 +72,7 @@ export const SAMPLE_AFFAIRS: AffairRecord[] = [
       "Le Conseil d'État est invité à étudier la mise à disposition d'une plateforme commune permettant aux communes de proposer leurs démarches en ligne.",
       "Une telle plateforme réduirait les coûts et garantirait un niveau de sécurité homogène sur tout le territoire cantonal.",
     ],
-    sourceUrl: "https://www.ge.ch/",
+    sourceUrl: null,
     labels: [
       {
         tagId: "beispiel:digitalisierung",
@@ -96,7 +97,7 @@ export const SAMPLE_AFFAIRS: AffairRecord[] = [
     paragraphs: [
       "Die Stadt unterstützt Reparaturwerkstätten für Velos mit einem jährlichen Beitrag. Wir fragen den Stadtrat nach den Wartezeiten für Antragsstellende.",
     ],
-    sourceUrl: "https://www.stadt-zuerich.ch/",
+    sourceUrl: null,
     labels: [
       {
         tagId: "beispiel:strassenverkehr",

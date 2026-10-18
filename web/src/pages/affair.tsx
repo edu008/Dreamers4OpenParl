@@ -77,10 +77,16 @@ export function AffairPage() {
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            Originalsprache: {LANGUAGE_NAME[affair.language]} ·{" "}
-            <a href={affair.sourceUrl} className="underline underline-offset-2">
-              Quelle
-            </a>
+            Originalsprache: {LANGUAGE_NAME[affair.language]}
+            {affair.sourceUrl && (
+              <>
+                {" "}
+                ·{" "}
+                <a href={affair.sourceUrl} className="underline underline-offset-2">
+                  Quelle
+                </a>
+              </>
+            )}
           </p>
         </div>
         <MarginNotes
