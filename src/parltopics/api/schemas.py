@@ -687,3 +687,44 @@ class AffairsSummary(BaseModel):
     )
     by_year: list[YearCount] = Field(description="Geschäfte je Jahr, ohne die Filter from und to")
     by_type: list[TypeCount] = Field(description="Geschäfte je Typ, meiste zuerst, ohne type")
+
+
+class AgentIn(NavigateIn):
+    """Eine Frage an den Agenten, auch über mehrere Schritte oder für ein neues Thema."""
+
+
+class ToolCall(BaseModel):
+    name: str = Field(examples=["search_affairs"])
+    args: dict = Field(description="Argumente des Modells")
+    result_size: int = Field(description="Zeichen des Ergebnisses im Prompt")
+    ms: int
+    error: str | None = Field(None, description="ungültige Argumente oder Fehler des Werkzeugs")
+
+
+class AdhocDraft(BaseModel):
+    """Entwurf eines Ad-hoc-Themas; angelegt wird es erst mit POST /v1/adhoc."""
+
+    name_de: str
+    description_de: str
+    keywords: Keywords
+    candidates: int = Field(description="Geschäfte mit Stichworttreffer")
+    sample: int = Field(description="Stichprobe ohne Treffer")
+    examples: list[AffairHead] = Field(description="die neuesten Kandidaten, höchstens fünf")
+
+
+class AgentOut(BaseModel):
+    query: str
+    answer: str | None = Field(description="Antwort mit Belegen in eckigen Klammern, z. B. [70435]")
+    cited_affair_ids: list[int] = Field(description="zitierte Geschäfte; alle kamen aus Werkzeugen")
+    hits: list[NavigateHit] = Field(description="die zitierten Geschäfte mit ihren Themen")
+    tool_calls: list[ToolCall]
+    proposal: AdhocDraft | None = Field(
+        description="Entwurf aus propose_adhoc_topic; die Web-App zeigt ihn mit einem"
+        " Bestätigen-Knopf, der POST /v1/adhoc aufruft"
+    )
+    status: Literal["ok", "no_results", "limit_reached"] = Field(
+        description="ok: mit Zitaten; limit_reached: Antwort nach 6 Werkzeugen oder 60 s erzwungen"
+    )
+    steps: int = Field(description="Modellaufrufe des Agenten, ohne die in den Werkzeugen")
+    duration_ms: int
+    agent_run_id: int = Field(description="Zeile in agent_runs")

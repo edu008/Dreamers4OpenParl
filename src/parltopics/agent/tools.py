@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 MAX_TOOL_CALLS = 6
 TIMEOUT_SECONDS = 60
+TAGS = "Tag-IDs aus list_tags, z. B. aps:6.1.9; nur Geschäfte mit einem dieser Themen"
 
 
 class ToolArgs(BaseModel):
@@ -22,7 +23,7 @@ class SearchAffairsArgs(ToolArgs):
     """Volltextsuche über Titel und Klassifikationstext mit Filtern; liefert IDs und Ausschnitte."""
 
     query: str = Field(min_length=1, max_length=300, description="Suchbegriffe in DE, FR oder IT")
-    tags: list[str] = Field(default_factory=list, max_length=10, description="Tag-IDs")
+    tags: list[str] = Field(default_factory=list, max_length=10, description=TAGS)
     body_keys: list[str] = Field(
         default_factory=list, max_length=30, description="Parlamente, z. B. CHE, ZH oder 261"
     )
@@ -50,7 +51,7 @@ class CountAffairsArgs(ToolArgs):
     """Geschäfte zählen, gruppiert nach Parlament, Ebene oder Jahr."""
 
     group_by: Literal["body_key", "level", "year"]
-    tags: list[str] = Field(default_factory=list, max_length=10)
+    tags: list[str] = Field(default_factory=list, max_length=10, description=TAGS)
     body_keys: list[str] = Field(default_factory=list, max_length=30)
     year_from: int | None = Field(None, ge=1990, le=2100)
     year_to: int | None = Field(None, ge=1990, le=2100)

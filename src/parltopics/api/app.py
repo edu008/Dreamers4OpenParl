@@ -31,6 +31,7 @@ from psycopg_pool import ConnectionPool, PoolClosed, PoolTimeout
 from pydantic import ValidationError
 
 from parltopics import __version__
+from parltopics.agent import loop as agent_loop
 from parltopics.api import navigate, queries, reviews
 from parltopics.api.schemas import (
     AdhocActivated,
@@ -42,6 +43,8 @@ from parltopics.api.schemas import (
     AffairsSummary,
     AffairStar,
     AffairTopics,
+    AgentIn,
+    AgentOut,
     BodyDetail,
     BodyOut,
     Calibration,
@@ -89,6 +92,7 @@ from parltopics.wiki.tree import (
     children,
     linked_querschnitt,
     page_ids,
+    subtree_tag_ids,
 )
 
 ASSET_CACHE = "public, max-age=31536000, immutable"  # Dateinamen in assets/ tragen einen Hash
@@ -141,9 +145,9 @@ NO_BUILD_PAGE = """<!doctype html>
 """
 
 LangQuery = Annotated[Lang, Query(description="Sprache der Titel, sonst Deutsch")]
-# shortcut: höchstens zwei Suchen mit Modell gleichzeitig je API-Prozess; mit mehreren Prozessen
-# oder vielen Nutzern ein Limit je Nutzer und Minute (PRD F10, Rate-Limit).
-NAVIGATE_PARALLEL = 2
+# shortcut: höchstens zwei Suchen mit Modell (Navigation und Agent) gleichzeitig je API-Prozess;
+# mit mehreren Prozessen oder vielen Nutzern ein Limit je Nutzer und Minute (PRD F10, Rate-Limit).
+LLM_SEARCH_PARALLEL = 2
 
 
 def page_out(page: Page, lang: Lang) -> PageOut:
@@ -155,15 +159,6 @@ def page_out(page: Page, lang: Lang) -> PageOut:
         parent_id=page.parent_id,
         linked_from=list(page.linked_from),
     )
-
-
-def subtree_tag_ids(tree: dict[str, Page], page_id: str) -> list[str]:
-    """Tags dieser Seite und aller Seiten darunter; verlinkte Querschnittsseiten zählen nicht."""
-    return [
-        page.tag_id
-        for page in tree.values()
-        if page.tag_id and (page.page_id == page_id or page_id in ancestors(tree, page.page_id))
-    ]
 
 
 # CSV wie der Export der Web-App (web/src/lib/export.ts): Spalten, Ebenen, Formelzeichen.
@@ -296,7 +291,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     Conn = Annotated[psycopg.Connection, Depends(connection)]
     no_database = {503: {"description": "Datenbank nicht erreichbar"}}
     no_registry = {503: {"description": "Registry nicht lesbar"}}
-    navigations = asyncio.Semaphore(NAVIGATE_PARALLEL)
+    llm_searches = asyncio.Semaphore(LLM_SEARCH_PARALLEL)
 
     @app.get("/healthz", tags=["System"], summary="Lebenszeichen der API")
     def healthz() -> dict[str, str]:
@@ -937,11 +932,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         Geschäfte und antwortet in belegten Aussagen. Findet der Baum nichts, liefert die
         Volltextsuche die Kandidaten. Ohne Treffer keine Antwort. Dauert einige Sekunden; jede
         Suche steht in search_runs."""
-        if navigations.locked():
+        if llm_searches.locked():
             raise HTTPException(429, "Zu viele Suchen gleichzeitig, bitte gleich nochmals")
         registry, tree = load()
         start = time.perf_counter()
-        async with navigations:
+        async with llm_searches:
             try:
                 searched = await navigate.search(settings, conn, registry, tree, body.query)
             except openai.APIError as error:
@@ -979,6 +974,46 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             filters=result.filters.model_dump() if result.filters else None,
             duration_ms=searched.duration_ms,
             search_run_id=searched.run_id,
+        )
+
+    @api.post(
+        "/agent/search",
+        tags=["Suche"],
+        summary="Agent: Frage mit Werkzeugen beantworten",
+        responses={
+            429: {"description": "Zu viele Suchen gleichzeitig"},
+            503: {"description": "LLM, Registry oder Datenbank nicht erreichbar"},
+        },
+    )
+    async def agent_search(body: AgentIn, conn: Conn) -> AgentOut:
+        """Agent (F21, ARCHITEKTUR 4): Apertus 70B beantwortet die Frage mit höchstens sechs
+        lesenden Werkzeugen (Volltext, Tags, Geschäft, Zählung, Navigationssuche, Seite,
+        Stichwörter, Entwurf eines Ad-hoc-Themas) und zitiert nur Geschäfte, die ein Werkzeug
+        geliefert hat. Dauert bis zu einer Minute; jede Sitzung steht in agent_runs. Ein
+        Entwurf in proposal legt nichts an: Erst POST /v1/adhoc durch einen Menschen tut das."""
+        if llm_searches.locked():
+            raise HTTPException(429, "Zu viele Suchen gleichzeitig, bitte gleich nochmals")
+        registry, tree = load()
+        start = time.perf_counter()
+        async with llm_searches:
+            try:
+                ran = await agent_loop.search(settings, conn, registry, tree, body.query)
+            except openai.APIError as error:
+                elapsed = round((time.perf_counter() - start) * 1000)
+                await asyncio.to_thread(agent_loop.log_error, settings, conn, body.query, elapsed)
+                raise HTTPException(503, f"LLM nicht erreichbar: {type(error).__name__}") from error
+        outcome = ran.outcome
+        return AgentOut(
+            query=body.query,
+            answer=outcome.answer,
+            cited_affair_ids=outcome.cited_ids,
+            hits=await asyncio.to_thread(queries.hits, conn, outcome.cited_ids),
+            tool_calls=outcome.tool_calls,
+            proposal=outcome.proposal,
+            status=outcome.status,
+            steps=outcome.steps,
+            duration_ms=ran.duration_ms,
+            agent_run_id=ran.run_id,
         )
 
     @api.get("/pages", tags=["Seiten"], summary="Seitenbaum des ParlWiki", responses=no_registry)

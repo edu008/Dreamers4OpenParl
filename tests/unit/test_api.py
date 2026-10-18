@@ -99,6 +99,7 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/reviews/summary",
         "/v1/pages/{page_id}/affairs/summary",
         "/v1/pages/{page_id}/affairs.csv",
+        "/v1/agent/search",
     } <= set(paths)
     parameters = paths["/v1/reviews/queue"]["get"]["parameters"]
     assert {"state", "tag_id", "body_key", "page_id", "reason"} <= {p["name"] for p in parameters}

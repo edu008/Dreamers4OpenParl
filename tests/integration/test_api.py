@@ -614,3 +614,71 @@ def test_page_summary_and_csv_export(conn, repo_root, api_settings):
         assert filtered.count("\r\n") == 3  # Kopf und zwei Zeilen
         for unknown in ("/v1/pages/aps:9/affairs.csv", "/v1/pages/aps:9/affairs/summary"):
             assert client.get(unknown).status_code == 404
+
+
+def test_agent_search_cites_only_tool_results_and_logs(conn, repo_root, api_settings, monkeypatch):
+    import json
+
+    import httpx
+
+    from parltopics.llm import LLMClient
+    from tests.mock_llm.app import completion, fake_completion
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        return httpx.Response(
+            200, json=completion(fake_completion(body["messages"]), body["model"])
+        )
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("kein LLM")
+
+    def use(handler):
+        mock = httpx.MockTransport(handler)
+        monkeypatch.setattr(
+            "parltopics.agent.loop.LLMClient",
+            lambda settings, transport=None: LLMClient(settings, transport=mock),
+        )
+
+    migrate(conn, repo_root / "migrations")
+    sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
+    seed(conn)  # 70435: «Der Bundesrat soll die Verwaltung digitalisieren.», aktiv aps:6.1.9
+    conn.execute(INDEX, ([70435],))
+    use(answer)  # der Mock ruft search_affairs mit der Frage auf und zitiert den ersten Treffer
+    with TestClient(create_app(api_settings)) as client:
+        found = client.post("/v1/agent/search", json={"query": "Verwaltung digitalisieren"})
+        result = found.json()
+        assert (result["status"], result["cited_affair_ids"], result["steps"]) == (
+            "ok",
+            [70435],
+            2,
+        )
+        assert result["answer"] == "Geschäft [70435] passt zur Frage (Mock)."
+        (hit,) = result["hits"]
+        assert (hit["affair_id"], hit["topics"][0]["tag_id"]) == (70435, "aps:6.1.9")
+        (call,) = result["tool_calls"]
+        assert (call["name"], call["args"], call["error"]) == (
+            "search_affairs",
+            {"query": "Verwaltung digitalisieren"},
+            None,
+        )
+        assert (call["result_size"] > 0, result["proposal"]) == (True, None)
+
+        nothing = client.post("/v1/agent/search", json={"query": "Raumfahrt"}).json()
+        assert (nothing["status"], nothing["cited_affair_ids"], nothing["hits"]) == (
+            "no_results",
+            [],
+            [],
+        )
+        use(unreachable)
+        assert client.post("/v1/agent/search", json={"query": "Raumfahrt"}).status_code == 503
+        assert client.post("/v1/agent/search", json={"query": "ab"}).status_code == 422
+    runs = conn.execute(
+        "SELECT kind, status, cited_affair_ids, jsonb_array_length(tool_calls)"
+        " FROM agent_runs ORDER BY id"
+    ).fetchall()
+    assert runs == [
+        ("search", "ok", [70435], 1),
+        ("search", "no_results", [], 1),
+        ("search", "error", [], 0),
+    ]
