@@ -4,11 +4,11 @@ import type { PageKind, WikiPage } from "@/lib/api"
 export const HEART_ID = "heart"
 
 export const KIND_LABEL: Record<PageKind, string> = {
-  heart: "Heart",
+  heart: "Themen",
   bereich: "Bereich",
   kapitel: "Kapitel",
-  tag: "Tag-Seite",
-  querschnitt: "Querschnitt",
+  tag: "Thema",
+  querschnitt: "Querschnittsthema",
 }
 
 export function pageHref(page: WikiPage): string {
