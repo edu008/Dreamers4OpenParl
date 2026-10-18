@@ -1,3 +1,5 @@
+import { Link } from "react-router"
+
 import { PlainHeader } from "@/components/sort-header"
 import { useApi } from "@/hooks/use-api"
 import type { Health, JobCounts, JobsSummary, PageTree } from "@/lib/api"
@@ -113,5 +115,25 @@ export function JobTable() {
         </tbody>
       </table>
     </div>
+  )
+}
+
+/** Kurzer Stand der Klassifikation für die Seite "Review", mit Link zur Seite "Verarbeitungsstand". */
+export function ProcessingBadge() {
+  const jobs = useApi<JobsSummary>("/v1/jobs/summary")
+  if (!jobs.data || jobs.data.tasks.length === 0) return null
+  const done = jobs.data.tasks.reduce((sum, task) => sum + task.done, 0)
+  const total = jobs.data.tasks.reduce((sum, task) => sum + task.total, 0)
+  return (
+    <p className="text-xs text-muted-foreground">
+      Klassifikation:{" "}
+      <span className="tabular font-medium text-foreground">
+        {number.format(done)} von {number.format(total)}
+      </span>{" "}
+      fertig ·{" "}
+      <Link to="/status" className="underline underline-offset-2">
+        Details
+      </Link>
+    </p>
   )
 }

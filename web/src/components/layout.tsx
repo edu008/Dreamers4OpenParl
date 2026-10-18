@@ -56,11 +56,6 @@ export function Layout() {
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-8">
         <Outlet />
       </main>
-      <footer className="px-6 py-6 text-xs text-muted-foreground">
-        <Link to="/status" className="underline underline-offset-2">
-          Verarbeitungsstand
-        </Link>
-      </footer>
     </div>
   )
 }

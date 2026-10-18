@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Link } from "react-router"
 
 import { Confidence } from "@/components/confidence"
-import { JobTable, SystemList } from "@/components/job-summary"
+import { JobTable, ProcessingBadge, SystemList } from "@/components/job-summary"
 import { ReviewSignIn } from "@/components/review-signin"
 import { PlainHeader, SortHeader } from "@/components/sort-header"
 import { Button } from "@/components/ui/button"
@@ -212,9 +212,12 @@ export function ReviewPage() {
   return (
     <>
       <div className="flex flex-col gap-2">
-        <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
-          Review
-        </h1>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
+            Review
+          </h1>
+          <ProcessingBadge />
+        </div>
         <p className="max-w-[68ch] text-muted-foreground">
           Labels sind Vorschläge. Hier stehen die unsichersten zuerst: niedrige
           Konfidenz oder ein Beleg, der nicht im Text steht. Öffne das Geschäft,
