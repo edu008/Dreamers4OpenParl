@@ -66,3 +66,10 @@ def test_compose_prefers_the_long_title_in_each_language():
     assert compose(affair, [], None, lambda _: "de")[0] == "Motion Muster. Hitze in Städten"
     only_short_fr = {"title_fr": "Chaleur", "title_long_de": "Motion Muster. Hitze"}
     assert compose(only_short_fr, [("fr", "Texte")], None, never)[0] == "Chaleur\nTexte"
+
+
+def test_strip_html_survives_ocr_garbage():
+    """Echter Fall aus docs_VD: '<![' ohne gültige Marked Section liess den Parser abstürzen."""
+    assert strip_html("Rubattel Di?enl<![ilfl Zünd Georges\n<p>Ruch Daniel</p>") == (
+        "Rubattel Di?enl\nRuch Daniel"
+    )
