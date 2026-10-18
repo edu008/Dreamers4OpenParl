@@ -35,7 +35,7 @@ export function Layout() {
 
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="flex flex-wrap items-center gap-4 px-6 py-3">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
         <Link to="/" className="font-heading text-base font-medium">
           ParlTopics
         </Link>
@@ -54,7 +54,8 @@ export function Layout() {
             </Button>
           ))}
         </nav>
-        <div className="ml-auto flex flex-wrap items-center gap-4">
+        {/* Auf schmalen Fenstern in eine eigene Zeile, das Suchfeld nimmt den freien Platz. */}
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 lg:ml-auto lg:w-auto lg:flex-nowrap">
           {pathname !== "/" && !pathname.startsWith("/suche") && (
             <SearchForm compact />
           )}

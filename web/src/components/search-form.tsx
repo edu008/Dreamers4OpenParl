@@ -25,7 +25,9 @@ export function SearchForm({
     <form
       role="search"
       onSubmit={submit}
-      className={compact ? "flex gap-2" : "flex max-w-2xl gap-2"}
+      className={
+        compact ? "flex w-full min-w-0 gap-2 lg:w-auto" : "flex max-w-2xl gap-2"
+      }
     >
       <Input
         type="search"
@@ -37,7 +39,9 @@ export function SearchForm({
         }
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        className={compact ? "h-8 w-44" : "h-10 text-base"}
+        className={
+          compact ? "h-8 min-w-0 flex-1 lg:w-44 lg:flex-none" : "h-10 text-base"
+        }
       />
       <Button type="submit" size={compact ? "sm" : "lg"}>
         Suchen
