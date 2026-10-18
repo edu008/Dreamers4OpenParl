@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from parltopics.classify.adhoc import Keywords
 from parltopics.wiki.tree import PageKind
@@ -476,3 +476,105 @@ class NavigateOut(BaseModel):
     filters: dict | None = Field(description="aus der Frage gelesene Filter")
     duration_ms: int
     search_run_id: int = Field(description="Zeile in search_runs")
+
+
+# Gespeicherte OpenParlData-Datensätze. Sprachfelder sind geschachtelt wie bei OpenParlData
+# ({"de": …, "fr": …}, ohne Werte {}); weitere gespeicherte Felder kommen unverändert mit.
+Localized = dict[str, str]
+LINK = "Link nach aussen; die Web-App lädt nichts von dort (Offline)"
+
+
+class BodyRecord(BaseModel):
+    """Ein Parlament, wie es in bodies.raw liegt, mit Sitzen, Bevölkerung und Wikidata."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: int = Field(examples=[257])
+    body_key: str = Field(examples=["GE"])
+    url_api: str = Field(description=f"derselbe Datensatz bei OpenParlData; {LINK}")
+    name: Localized = Field(default_factory=dict, examples=[{"de": "Genf", "fr": "Genève"}])
+    type: str | None = Field(None, description=LEVEL, examples=["canton"])
+    type_name: Localized = Field(default_factory=dict, examples=[{"de": "Kanton"}])
+    legislative_name: Localized = Field(default_factory=dict, examples=[{"de": "Grosser Rat"}])
+    executive_name: Localized = Field(default_factory=dict, examples=[{"de": "Staatsrat"}])
+    canton_key: str | None = Field(None, examples=["GE"])
+    languages: str | None = Field(None, description="Amtssprachen, kommagetrennt", examples=["FR"])
+    flag_image_oparl_url: str | None = Field(None, description=f"Wappen; {LINK}")
+
+
+class BodyDetail(BodyRecord):
+    n_affairs: int = Field(description="Geschäfte dieses Parlaments in der Datenbank")
+    n_labelled: int = Field(description="davon mit mindestens einem aktiven Label")
+
+
+class TextRecord(BaseModel):
+    """Ein Text des Geschäfts (affair_texts) mit allen gespeicherten Sprachen."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+    type: Localized = Field(default_factory=dict, examples=[{"de": "Eingereichter Text"}])
+    text: Localized = Field(
+        default_factory=dict,
+        description="Text je Sprache wie aus der Quelle, oft HTML und nicht bereinigt: nur als"
+        " Text anzeigen oder vorher bereinigen. Ohne HTML: GET /v1/affairs/{affair_id}/topics",
+    )
+    text_format: str | None = None
+    text_date: str | None = None
+
+
+class DocRecord(BaseModel):
+    """Ein Dokument (affair_docs) ohne seinen Text."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+    name: str | None = None
+    category: Localized = Field(default_factory=dict)
+    category_harmonized: str | None = None
+    date: str | None = Field(None, examples=["2026-10-13T00:00:00"])
+    language: str | None = None
+    format: str | None = Field(None, examples=["application/pdf"])
+    size: int | None = Field(None, description="Grösse der Datei in Bytes")
+    url: str | None = Field(None, description=f"Datei beim Parlament; {LINK}")
+    url_oparl: str | None = Field(None, description=f"Kopie bei OpenParlData; {LINK}")
+    has_text: bool = Field(description="Text extrahiert und gespeichert: GET /v1/docs/{doc_id}")
+
+
+class DocDetail(DocRecord):
+    parent_type: str | None = Field(description="affair, agenda, meeting, news oder session")
+    parent_id: int | None
+    text: str | None = Field(description="aus der Datei extrahierter Text, bis einige MB")
+
+
+class DocList(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    items: list[DocRecord] = Field(description="nach Datum, ohne Datum zuletzt")
+
+
+class AffairRecord(BaseModel):
+    """Ein Geschäft, wie es in affairs.raw liegt, mit Parlament, Texten und Dokumenten."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: int = Field(description="OpenParlData-ID", examples=[341579])
+    body_key: str = Field(examples=["GE"])
+    url_api: str = Field(description=f"derselbe Datensatz bei OpenParlData; {LINK}")
+    number: str | None = Field(None, examples=["E 3265"])
+    title: Localized = Field(default_factory=dict, examples=[{"fr": "Election d'une juge …"}])
+    title_long: Localized = Field(default_factory=dict)
+    type_name: Localized = Field(default_factory=dict, description="Typ beim Parlament")
+    type_harmonized: Localized = Field(default_factory=dict, examples=[{"de": "Wahl"}])
+    state_name: Localized = Field(default_factory=dict, description="Stand beim Parlament")
+    state_name_harmonized: Localized = Field(default_factory=dict)
+    url_external: Localized = Field(default_factory=dict, description=f"beim Parlament; {LINK}")
+    begin_date: str | None = Field(None, examples=["2026-10-29T00:00:00"])
+    end_date: str | None = None
+    body: BodyRecord | None = Field(description="null, wenn das Parlament nicht gespeichert ist")
+    texts: list[TextRecord]
+    docs: list[DocRecord] = Field(
+        description="die ersten 20 nach Datum; alle unter GET /v1/affairs/{affair_id}/docs"
+    )
+    n_docs: int = Field(description="Dokumente des Geschäfts insgesamt")

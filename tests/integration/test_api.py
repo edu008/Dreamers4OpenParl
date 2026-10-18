@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from psycopg.types.json import Jsonb
 
 from parltopics.api.app import create_app
 from parltopics.db import migrate
@@ -388,3 +389,113 @@ def test_navigation_search_walks_back_falls_back_and_logs(
         ("no_results", True, []),
         ("error", False, []),
     ]
+
+
+# Ausschnitte der Datensätze, wie sie in der geteilten Datenbank liegen (Genf, Geschäft 341579).
+GENEVA = {
+    "id": 257,
+    "body_key": "GE",
+    "type": "canton",
+    "name": "Genf",
+    "name_de": "Genf",
+    "name_fr": "Genève",
+    "legislative_name": "Grand Conseil du canton de Genève",
+    "legislative_name_de": "Grosser Rat",
+    "legislative_seats": 100,
+    "languages": "FR",
+}
+ELECTION = {
+    "id": 341579,
+    "body_key": "GE",
+    "number": "E 3265",
+    "title_de": None,
+    "title_fr": "Election d'une juge assesseure",
+    "state_name_de": None,
+    "type_harmonized_de": "Wahl",
+    "type_harmonized_id": 6,
+    "url_external_fr": "https://ge.ch/grandconseil/search?search=E+3265",
+    "end_date": None,
+}
+
+
+def test_stored_records_of_affairs_bodies_texts_and_docs(conn, repo_root, api_settings):
+    migrate(conn, repo_root / "migrations")
+    conn.execute(
+        "INSERT INTO bodies (id, body_key, name, level, raw)"
+        " VALUES (257, 'GE', 'Genf', 'canton', %s)",
+        (Jsonb(GENEVA),),
+    )
+    conn.execute(
+        "INSERT INTO affairs (id, body_key, title_fr, raw) VALUES"
+        " (341579, 'GE', 'Election', %s), (341580, 'ZZ', 'Ohne Parlament', '{}')",
+        (Jsonb(ELECTION),),
+    )
+    # Wie ingest.text_row: die erste Sprache in text, die übrigen in raw.
+    raw = {"type_fr": "Exposé des motifs", "type_de": None, "text_it": "Elezione", "text_rm": None}
+    conn.execute(
+        "INSERT INTO affair_texts (id, affair_id, text_type, language, format, text, raw) VALUES"
+        " (11, 341579, 'Exposé des motifs', 'fr', 'html', '<p>Election</p>', %s),"
+        " (12, 341579, NULL, NULL, NULL, NULL, '{}')",
+        (Jsonb(raw),),
+    )
+    doc = (
+        "INSERT INTO affair_docs (id, parent_type, parent_id, name, doc_date, text, raw)"
+        " VALUES (%s, %s, 341579, %s, %s, %s, %s)"
+    )
+    conn.execute(doc, (21, "affair", "Rapport", None, None, Jsonb({"category_fr": "Rapport"})))
+    conn.execute(doc, (22, "affair", "Projet", "2026-10-01", "Texte du projet", Jsonb({})))
+    conn.execute(doc, (23, "agenda", "Ordre du jour", "2026-10-29", None, Jsonb({})))
+    with TestClient(create_app(api_settings)) as client:
+        record = client.get("/v1/affairs/341579").json()
+        assert (record["title"], record["state_name"], record["type_harmonized"]) == (
+            {"fr": "Election d'une juge assesseure"},
+            {},
+            {"de": "Wahl"},
+        )
+        assert (record["number"], record["type_harmonized_id"], record["end_date"]) == (
+            "E 3265",
+            6,
+            None,
+        )
+        assert record["url_external"] == {"fr": "https://ge.ch/grandconseil/search?search=E+3265"}
+        assert record["url_api"] == "https://api.openparldata.ch/v1/affairs/341579"
+        body = record["body"]
+        assert (body["name"], body["legislative_name"], body["legislative_seats"]) == (
+            {"de": "Genf", "fr": "Genève"},
+            {"de": "Grosser Rat"},
+            100,
+        )
+        first, empty = record["texts"]
+        assert (first["text"], first["type"]) == (
+            {"fr": "<p>Election</p>", "it": "Elezione"},
+            {"fr": "Exposé des motifs"},
+        )
+        assert (empty["id"], empty["text"]) == (12, {})
+        # Nach Datum, ohne Datum zuletzt; das Dokument der Agenda gehört nicht zum Geschäft.
+        assert record["n_docs"] == 2
+        assert [(item["id"], item["has_text"]) for item in record["docs"]] == [
+            (22, True),
+            (21, False),
+        ]
+        assert record["docs"][1]["category"] == {"fr": "Rapport"}
+        lonely = client.get("/v1/affairs/341580").json()
+        assert (lonely["body"], lonely["texts"], lonely["n_docs"]) == (None, [], 0)
+
+        page = client.get("/v1/affairs/341579/docs", params={"limit": 1, "offset": 1}).json()
+        assert (page["total"], [item["id"] for item in page["items"]]) == (2, [21])
+        assert client.get("/v1/affairs/341580/docs").json()["items"] == []
+        found = client.get("/v1/docs/22").json()
+        assert (found["text"], found["parent_type"], found["parent_id"]) == (
+            "Texte du projet",
+            "affair",
+            341579,
+        )
+        assert client.get("/v1/docs/23").json()["parent_type"] == "agenda"
+        geneva = client.get("/v1/bodies/GE").json()
+        assert (geneva["n_affairs"], geneva["n_labelled"], geneva["url_api"]) == (
+            1,
+            0,
+            "https://api.openparldata.ch/v1/bodies/257",
+        )
+        for path in ("/v1/affairs/1", "/v1/affairs/1/docs", "/v1/docs/1", "/v1/bodies/XX"):
+            assert client.get(path).status_code == 404, path

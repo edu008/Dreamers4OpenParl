@@ -1,6 +1,7 @@
 """Lesende Abfragen der Sidecar-API (PRD F10) auf einer Verbindung im Autocommit."""
 
 import html
+import re
 from datetime import date
 
 import psycopg
@@ -478,3 +479,115 @@ def hits(conn: psycopg.Connection, ids: list[int]) -> list[dict]:
               FROM affairs a LEFT JOIN bodies b ON b.body_key = a.body_key WHERE a.id = ANY(%s)"""
     rows = {row["affair_id"]: row for row in conn.cursor(row_factory=dict_row).execute(sql, (ids,))}
     return [rows[affair_id] for affair_id in ids if affair_id in rows]
+
+
+# Gespeicherte OpenParlData-Datensätze (raw), Sprachfelder geschachtelt wie bei OpenParlData.
+OPENPARLDATA = "https://api.openparldata.ch/v1"  # nur als Link in den Antworten, nie aufgerufen
+LANGUAGE_KEY = re.compile(r"(.+)_(de|fr|it|rm|en)")
+AFFAIR_RECORD = """
+SELECT a.id, a.body_key, a.raw, b.id AS body_row_id, b.raw AS body_raw
+FROM affairs a LEFT JOIN bodies b ON b.body_key = a.body_key
+WHERE a.id = %s
+"""
+BODY_RECORD = """
+SELECT b.id, b.body_key, b.raw,
+       (SELECT count(*) FROM affairs a WHERE a.body_key = b.body_key) AS n_affairs,
+       (SELECT count(DISTINCT l.affair_id) FROM affair_tags l JOIN affairs a ON a.id = l.affair_id
+        WHERE a.body_key = b.body_key AND l.status = 'active') AS n_labelled
+FROM bodies b WHERE b.body_key = %s
+"""
+DOCS_OF_AFFAIR = "FROM affair_docs WHERE parent_type = 'affair' AND parent_id = %(affair_id)s"
+# Der Text der Dokumente bleibt in der Liste weg (bis einige MB je Dokument).
+DOC_COLUMNS = "id, raw, coalesce(text, '') <> '' AS has_text"
+FIRST_DOCS = 20
+
+
+def nest_languages(record: dict) -> dict:
+    """title_de, title_fr → title {"de": …, "fr": …}. Leere Sprachen fallen weg, der Schlüssel
+    bleibt ({}); ein gleichnamiges Feld ohne Sprache (bodies: name) weicht der Schachtelung."""
+    flat: dict = {}
+    nested: dict[str, dict] = {}
+    for key, value in record.items():
+        match = LANGUAGE_KEY.fullmatch(key)
+        if match is None:
+            flat[key] = value
+            continue
+        languages = nested.setdefault(match[1], {})
+        if value is not None:
+            languages[match[2]] = value
+    return flat | nested
+
+
+def _body(body_id: int, body_key: str, raw: dict) -> dict:
+    url = f"{OPENPARLDATA}/bodies/{body_id}"
+    return {**nest_languages(raw), "id": body_id, "body_key": body_key, "url_api": url}
+
+
+def _text(row: dict) -> dict:
+    """Ein Text mit allen Sprachen: Ingest legt die erste in text ab, die übrigen bleiben in raw."""
+    raw = dict(row["raw"])
+    if row["language"]:
+        raw[f"text_{row['language']}"] = row["text"]
+    return {**nest_languages(raw), "id": row["id"]}
+
+
+def _doc(row: dict) -> dict:
+    return {**nest_languages(row.pop("raw")), **row}
+
+
+def affair_exists(conn: psycopg.Connection, affair_id: int) -> bool:
+    return conn.execute("SELECT 1 FROM affairs WHERE id = %s", (affair_id,)).fetchone() is not None
+
+
+def affair_record(conn: psycopg.Connection, affair_id: int) -> dict | None:
+    """affairs.raw mit Parlament, Texten und den ersten Dokumenten; None, wenn es fehlt."""
+    cursor = conn.cursor(row_factory=dict_row)
+    row = cursor.execute(AFFAIR_RECORD, (affair_id,)).fetchone()
+    if row is None:
+        return None
+    texts = cursor.execute(
+        "SELECT id, language, text, raw FROM affair_texts WHERE affair_id = %s ORDER BY id",
+        (affair_id,),
+    ).fetchall()
+    n_docs, docs = affair_docs(conn, affair_id, limit=FIRST_DOCS, offset=0)
+    body = row["body_row_id"]
+    return {
+        **nest_languages(row["raw"]),
+        "id": affair_id,
+        "body_key": row["body_key"],
+        "url_api": f"{OPENPARLDATA}/affairs/{affair_id}",
+        "body": _body(body, row["body_key"], row["body_raw"]) if body is not None else None,
+        "texts": [_text(text) for text in texts],
+        "docs": docs,
+        "n_docs": n_docs,
+    }
+
+
+def affair_docs(
+    conn: psycopg.Connection, affair_id: int, *, limit: int, offset: int
+) -> tuple[int, list[dict]]:
+    """Dokumente eines Geschäfts ohne Text, nach Datum: (Treffer insgesamt, eine Seite)."""
+    params = {"affair_id": affair_id, "limit": limit, "offset": offset}
+    cursor = conn.cursor(row_factory=dict_row)
+    total = cursor.execute(f"SELECT count(*) AS n {DOCS_OF_AFFAIR}", params).fetchone()["n"]
+    rows = cursor.execute(
+        f"SELECT {DOC_COLUMNS} {DOCS_OF_AFFAIR}"
+        " ORDER BY doc_date NULLS LAST, id LIMIT %(limit)s OFFSET %(offset)s",
+        params,
+    ).fetchall()
+    return total, [_doc(row) for row in rows]
+
+
+def doc(conn: psycopg.Connection, doc_id: int) -> dict | None:
+    """Ein Dokument mit extrahiertem Text, zu welchem Elternteil auch immer."""
+    sql = f"SELECT {DOC_COLUMNS}, parent_type, parent_id, text FROM affair_docs WHERE id = %s"
+    row = conn.cursor(row_factory=dict_row).execute(sql, (doc_id,)).fetchone()
+    return _doc(row) if row else None
+
+
+def body_record(conn: psycopg.Connection, body_key: str) -> dict | None:
+    row = conn.cursor(row_factory=dict_row).execute(BODY_RECORD, (body_key,)).fetchone()
+    if row is None:
+        return None
+    counts = {"n_affairs": row["n_affairs"], "n_labelled": row["n_labelled"]}
+    return {**_body(row["id"], row["body_key"], row["raw"]), **counts}

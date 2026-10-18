@@ -35,9 +35,13 @@ from parltopics.api.schemas import (
     AdhocIn,
     AdhocPreview,
     AdhocScope,
+    AffairRecord,
     AffairTopics,
+    BodyDetail,
     BodyOut,
     Calibration,
+    DocDetail,
+    DocList,
     GoldLabel,
     GraphNode,
     JobCounts,
@@ -266,6 +270,69 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if affair is None:
             raise HTTPException(404, f"Geschäft {affair_id} unbekannt")
         return AffairTopics(**affair)
+
+    @api.get(
+        "/affairs/{affair_id}",
+        tags=["Geschäfte"],
+        summary="Gespeicherte Daten eines Geschäfts",
+        responses={404: {"description": "Geschäft unbekannt"}, **no_database},
+    )
+    def affair_record(affair_id: int, conn: Conn) -> AffairRecord:
+        """Das Geschäft, wie es aus OpenParlData in der Datenbank liegt: alle Felder von
+        affairs.raw, Sprachfelder geschachtelt wie bei OpenParlData ({"de": …, "fr": …}), dazu
+        das Parlament, alle Texte und die ersten 20 Dokumente. Nicht gespeichert und darum nicht
+        dabei: Events, Contributors, Votings, Speeches, Agendas, Meetings und externe Links."""
+        record = queries.affair_record(conn, affair_id)
+        if record is None:
+            raise HTTPException(404, f"Geschäft {affair_id} unbekannt")
+        return AffairRecord(**record)
+
+    @api.get(
+        "/affairs/{affair_id}/docs",
+        tags=["Geschäfte"],
+        summary="Dokumente eines Geschäfts",
+        responses={404: {"description": "Geschäft unbekannt"}, **no_database},
+    )
+    def affair_docs(
+        affair_id: int,
+        conn: Conn,
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> DocList:
+        """Alle Dokumente des Geschäfts seitenweise, nach Datum, ohne ihren Text."""
+        total, items = queries.affair_docs(conn, affair_id, limit=limit, offset=offset)
+        if total == 0 and not queries.affair_exists(conn, affair_id):
+            raise HTTPException(404, f"Geschäft {affair_id} unbekannt")
+        return DocList(total=total, limit=limit, offset=offset, items=items)
+
+    @api.get(
+        "/docs/{doc_id}",
+        tags=["Geschäfte"],
+        summary="Ein Dokument mit Text",
+        responses={404: {"description": "Dokument unbekannt"}, **no_database},
+    )
+    def doc_detail(doc_id: int, conn: Conn) -> DocDetail:
+        """Ein Dokument mit dem Text, der aus der Datei extrahiert wurde; er kann sehr lang sein.
+        Nicht verwechseln: Die API-Dokumentation liegt unter /v1/docs."""
+        found = queries.doc(conn, doc_id)
+        if found is None:
+            raise HTTPException(404, f"Dokument {doc_id} unbekannt")
+        return DocDetail(**found)
+
+    @api.get(
+        "/bodies/{body_key}",
+        tags=["Geschäfte"],
+        summary="Gespeicherte Daten eines Parlaments",
+        responses={404: {"description": "Parlament unbekannt"}, **no_database},
+    )
+    def body_detail(body_key: str, conn: Conn) -> BodyDetail:
+        """Das Parlament, wie es in bodies.raw liegt (Namen, Typ, Sprachen, Sitze, Wappen), mit
+        der Zahl seiner Geschäfte und der klassifizierten. GET /v1/bodies listet nur Parlamente
+        mit Labels."""
+        found = queries.body_record(conn, body_key)
+        if found is None:
+            raise HTTPException(404, f"Parlament {body_key} unbekannt")
+        return BodyDetail(**found)
 
     @api.get("/topics", tags=["Themen"], summary="Alle Themen", responses=no_database)
     def topics(
