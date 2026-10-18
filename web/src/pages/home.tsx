@@ -2,11 +2,15 @@ import { PageTree } from "@/components/page-tree"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
-import type { PageTree as PageTreeData } from "@/lib/api"
+import type { PageTree as PageTreeData, TopicOut } from "@/lib/api"
 import { HEART_ID } from "@/lib/tree"
 
 export function HomePage() {
   const tree = useApi<PageTreeData>("/v1/pages")
+  const topics = useApi<TopicOut[]>("/v1/topics")
+  const counts = new Map(
+    (topics.data ?? []).map((topic) => [topic.tag_id, topic.n_affairs])
+  )
   const heart = tree.data?.pages.find((page) => page.page_id === HEART_ID)
   return (
     <>
@@ -41,7 +45,11 @@ export function HomePage() {
           </Alert>
         )}
         {tree.data && heart && (
-          <PageTree pages={tree.data.pages} root={heart} />
+          <PageTree
+            pages={tree.data.pages}
+            root={heart}
+            counts={topics.data ? counts : undefined}
+          />
         )}
       </section>
     </>

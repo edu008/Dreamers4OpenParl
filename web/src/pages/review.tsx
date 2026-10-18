@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { compareValues, useSort, type SortDir } from "@/hooks/use-sort"
 import { useReview } from "@/hooks/use-review"
 import { reviewKey } from "@/lib/review"
+import { useReviewQueue } from "@/hooks/use-review-queue"
 import { buildQueue, type QueueRow } from "@/lib/review-queue"
 
 const ALL = "alle"
@@ -24,11 +25,11 @@ function formatDate(iso: string): string {
 function sortValue(row: QueueRow, key: DoneKey): string | number {
   switch (key) {
     case "affair":
-      return row.affair.title
+      return row.title
     case "label":
-      return row.label.name
+      return row.labelName
     case "confidence":
-      return row.label.confidence
+      return row.confidence
     case "date":
       return row.entry?.at ?? ""
   }
@@ -41,18 +42,16 @@ function sortRows(rows: QueueRow[], key: DoneKey, dir: SortDir): QueueRow[] {
 }
 
 function AffairCell({ row }: { row: QueueRow }) {
-  const { affair } = row
   return (
     <td className="max-w-[22rem] px-3 py-3">
       <p className="tabular text-xs text-muted-foreground">
-        {affair.number} · {affair.body}
+        {[row.number, row.body].filter(Boolean).join(" · ")}
       </p>
       <Link
-        to={`/review/geschaefte/${affair.id}`}
-        lang={affair.language}
+        to={`/review/geschaefte/${row.affairId}`}
         className="text-base leading-snug font-medium underline-offset-4 hover:underline"
       >
-        {affair.title}
+        {row.title}
       </Link>
     </td>
   )
@@ -97,13 +96,13 @@ function OpenTable({ rows }: { rows: QueueRow[] }) {
         <tbody>
           {sorted.map((row) => (
             <tr
-              key={`${row.affair.id}|${row.label.tagId}`}
+              key={`${row.affairId}|${row.tagId}`}
               className="border-b border-border align-top"
             >
               <AffairCell row={row} />
-              <td className="px-3 py-3">{row.label.name}</td>
+              <td className="px-3 py-3">{row.labelName}</td>
               <td className="px-3 py-3 whitespace-nowrap">
-                <Confidence value={row.label.confidence} />
+                <Confidence value={row.confidence} />
               </td>
               <td className="px-3 py-3 text-xs">{row.reasons.join(", ")}</td>
             </tr>
@@ -160,13 +159,13 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
           {sorted.map((row) => {
             const entry = row.entry
             if (!entry) return null
-            const key = reviewKey(row.affair.id, row.label.tagId)
+            const key = reviewKey(row.affairId, row.tagId)
             return (
               <tr key={key} className="border-b border-border align-top">
                 <AffairCell row={row} />
-                <td className="px-3 py-3">{row.label.name}</td>
+                <td className="px-3 py-3">{row.labelName}</td>
                 <td className="px-3 py-3 whitespace-nowrap">
-                  <Confidence value={row.label.confidence} />
+                  <Confidence value={row.confidence} />
                 </td>
                 <td className="px-3 py-3 text-xs">
                   <span className="font-semibold">
@@ -202,10 +201,11 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
 export function ReviewPage() {
   const review = useReview()
   const [topic, setTopic] = useState(ALL)
-  const queue = buildQueue(review.decisions)
-  const topics = [...new Set(queue.map((row) => row.label.name))].sort()
+  const live = useReviewQueue()
+  const queue = buildQueue(live.candidates, review.decisions)
+  const topics = [...new Set(queue.map((row) => row.labelName))].sort()
   const rows =
-    topic === ALL ? queue : queue.filter((row) => row.label.name === topic)
+    topic === ALL ? queue : queue.filter((row) => row.labelName === topic)
   const open = rows.filter((row) => !row.entry)
   const done = rows.filter((row) => row.entry)
 
@@ -224,8 +224,8 @@ export function ReviewPage() {
           <ReviewSignIn />
         </div>
         <p className="text-xs text-muted-foreground">
-          Beispieldaten, nicht aus OpenParlData. Entscheide gelten nur in diesem
-          Browser.
+          Echte Labels aus der API. Entscheide gelten vorerst nur in diesem
+          Browser; zum Speichern fehlt noch der Endpunkt im Backend.
         </p>
       </div>
       <section
@@ -254,7 +254,15 @@ export function ReviewPage() {
             </label>
           )}
         </div>
-        {open.length > 0 ? (
+        {live.loading && (
+          <p className="text-muted-foreground">Labels werden geladen …</p>
+        )}
+        {live.error && (
+          <p className="text-sm text-destructive">
+            Labels nicht geladen: {live.error}
+          </p>
+        )}
+        {live.loading || live.error ? null : open.length > 0 ? (
           <OpenTable rows={open} />
         ) : (
           <p className="text-muted-foreground">

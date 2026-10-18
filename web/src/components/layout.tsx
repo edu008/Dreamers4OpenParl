@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useReview } from "@/hooks/use-review"
+import { useReviewQueue } from "@/hooks/use-review-queue"
 import { buildQueue, openRows } from "@/lib/review-queue"
 
 // Der Verarbeitungsstand steht bewusst nicht in der Hauptnavigation (Council 18.10.2026).
@@ -27,7 +28,8 @@ function isActive(pathname: string, to: string): boolean {
 export function Layout() {
   const { pathname } = useLocation()
   const { decisions } = useReview()
-  const openReviews = openRows(buildQueue(decisions)).length
+  const queue = useReviewQueue()
+  const openReviews = openRows(buildQueue(queue.candidates, decisions)).length
   return (
     <div className="flex min-h-svh flex-col">
       <header className="flex flex-wrap items-center gap-4 px-6 py-3">

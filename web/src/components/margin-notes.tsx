@@ -3,15 +3,23 @@ import { Link } from "react-router"
 import { Confidence } from "@/components/confidence"
 import { Button } from "@/components/ui/button"
 import { useReview } from "@/hooks/use-review"
+import type { Stage } from "@/lib/api"
 import { reviewKey } from "@/lib/review"
-import type { AffairLabel } from "@/lib/sample-affairs"
 
-export interface MarginLabel extends AffairLabel {
-  evidenceFound: boolean
+export interface MarginLabel {
+  tagId: string
+  name: string
+  confidence: number
+  evidence: string | null
+  stage: Stage
+  /** Der Server hat die Textstelle im Text gefunden (evidence_verified). */
+  evidenceVerified: boolean
+  /** Die Textstelle lässt sich im Text markieren (wörtliche Übereinstimmung). */
+  evidenceMarked: boolean
   needsReview: boolean
 }
 
-const STAGE_NAME: Record<AffairLabel["stage"], string> = {
+const STAGE_NAME: Record<Stage, string> = {
   "8b": "Apertus 8B",
   "70b": "Apertus 70B",
   human: "Mensch",
@@ -23,8 +31,8 @@ export interface Versions {
   registry: string
 }
 
-// Randspalte neben dem Text: je Label Name, Konfidenz, Zustand des Belegs, Prüfbedarf und, im
-// Review-Modus, die Entscheide. Ein verworfenes Label bleibt sichtbar (durchgestrichen).
+// Randspalte neben dem Text: je Label Name, Konfidenz, Zustand des Belegs, Prüfbedarf und, in
+// der Prüfansicht, die Entscheide. Ein verworfenes Label bleibt sichtbar (durchgestrichen).
 export function MarginNotes({
   mode,
   affairId,
@@ -34,7 +42,7 @@ export function MarginNotes({
   mode: "public" | "review"
   affairId: string
   labels: MarginLabel[]
-  versions: Versions
+  versions: Versions | null
 }) {
   const review = useReview()
   return (
@@ -45,6 +53,9 @@ export function MarginNotes({
       <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
         Labels
       </h2>
+      {labels.length === 0 && (
+        <p className="text-muted-foreground">Noch kein Label vergeben.</p>
+      )}
       <ul className="flex flex-col gap-4">
         {labels.map((label) => {
           const key = reviewKey(affairId, label.tagId)
@@ -64,14 +75,18 @@ export function MarginNotes({
               <Confidence value={label.confidence} />
               {label.evidence === null ? (
                 <p className="text-muted-foreground">Kein Beleg angegeben</p>
-              ) : label.evidenceFound ? (
+              ) : label.evidenceVerified ? (
                 <p className="text-level-high">
-                  <a
-                    href={`#evidence-${label.tagId}`}
-                    className="underline underline-offset-2"
-                  >
-                    Beleg im Text gefunden
-                  </a>
+                  {label.evidenceMarked ? (
+                    <a
+                      href={`#evidence-${label.tagId}`}
+                      className="underline underline-offset-2"
+                    >
+                      Beleg im Text gefunden
+                    </a>
+                  ) : (
+                    "Beleg im Text gefunden"
+                  )}
                 </p>
               ) : (
                 <p className="font-semibold text-level-medium">
@@ -129,7 +144,7 @@ export function MarginNotes({
           )
         })}
       </ul>
-      {mode === "public" && (
+      {mode === "public" && labels.length > 0 && (
         <p>
           <Link
             to={`/review/geschaefte/${affairId}`}
@@ -139,27 +154,31 @@ export function MarginNotes({
           </Link>
         </p>
       )}
-      <details className="border-t border-border pt-3 text-muted-foreground">
-        <summary className="cursor-pointer underline-offset-2 hover:underline">
-          Technische Angaben
-        </summary>
-        <dl className="mt-2 flex flex-col gap-1.5">
-          <div>
-            <dt>Modell</dt>
-            <dd className="tabular break-all text-foreground">
-              {versions.model}
-            </dd>
-          </div>
-          <div>
-            <dt>Prompt</dt>
-            <dd className="tabular text-foreground">{versions.prompt}</dd>
-          </div>
-          <div>
-            <dt>Registry</dt>
-            <dd className="tabular text-foreground">{versions.registry}</dd>
-          </div>
-        </dl>
-      </details>
+      {versions && (
+        <details className="border-t border-border pt-3 text-muted-foreground">
+          <summary className="cursor-pointer underline-offset-2 hover:underline">
+            Technische Angaben
+          </summary>
+          <dl className="mt-2 flex flex-col gap-1.5">
+            <div>
+              <dt>Modell</dt>
+              <dd className="tabular break-all text-foreground">
+                {versions.model}
+              </dd>
+            </div>
+            <div>
+              <dt>Prompt</dt>
+              <dd className="tabular break-all text-foreground">
+                {versions.prompt}
+              </dd>
+            </div>
+            <div>
+              <dt>Registry</dt>
+              <dd className="tabular text-foreground">{versions.registry}</dd>
+            </div>
+          </dl>
+        </details>
+      )}
     </aside>
   )
 }

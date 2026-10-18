@@ -1,38 +1,11 @@
 import { PlainHeader } from "@/components/sort-header"
 import { useApi } from "@/hooks/use-api"
-import type { Health, PageTree } from "@/lib/api"
-
-interface JobRow {
-  task: string
-  open: number
-  pending: number
-  done: number
-  failed: number
-}
-
-// Beispielzahlen, bis GET /v1/jobs/summary die Jobs aus classification_jobs liefert (M3).
-const SAMPLE_JOBS: JobRow[] = [
-  {
-    task: "classify:aps",
-    open: 41230,
-    pending: 16,
-    done: 28774,
-    failed: 52,
-  },
-  {
-    task: "classify:adhoc:digitalisierung-breit",
-    open: 5120,
-    pending: 8,
-    done: 2290,
-    failed: 3,
-  },
-]
+import type { Health, JobCounts, JobsSummary, PageTree } from "@/lib/api"
 
 const number = new Intl.NumberFormat("de-CH")
 
-function percentDone(row: JobRow): string {
-  const total = row.open + row.pending + row.done + row.failed
-  return total === 0 ? "–" : `${Math.round((row.done / total) * 100)} %`
+function percentDone(row: JobCounts): string {
+  return row.total === 0 ? "–" : `${Math.round((row.done / row.total) * 100)} %`
 }
 
 function Cell({ value }: { value: number }) {
@@ -76,61 +49,69 @@ export function SystemList() {
   )
 }
 
-/** Jobs je Aufgabe und Status. Aktuell Beispielzahlen, klar gekennzeichnet. */
+/** Jobs je Aufgabe und Status aus GET /v1/jobs/summary. */
 export function JobTable() {
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-xs text-muted-foreground">
-        Beispielzahlen, nicht aus der Datenbank. Echte Zahlen folgen mit der
-        Klassifikation.
+  const jobs = useApi<JobsSummary>("/v1/jobs/summary")
+  if (jobs.loading) {
+    return <p className="text-muted-foreground">Wird geladen …</p>
+  }
+  if (jobs.error || !jobs.data) {
+    return (
+      <p className="text-sm text-destructive">
+        Jobs nicht geladen: {jobs.error}
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[38rem] table-fixed border-collapse text-sm">
-          <caption className="sr-only">Jobs je Aufgabe und Status</caption>
-          <colgroup>
-            <col style={{ width: "34%" }} />
-            <col style={{ width: "13%" }} />
-            <col style={{ width: "13%" }} />
-            <col style={{ width: "13%" }} />
-            <col style={{ width: "14%" }} />
-            <col style={{ width: "13%" }} />
-          </colgroup>
-          <thead className="border-b border-border bg-margin-tint">
-            <tr>
-              <PlainHeader>Aufgabe</PlainHeader>
-              <th scope="col" className={NUM_HEAD}>
-                Offen
-              </th>
-              <th scope="col" className={NUM_HEAD}>
-                In Arbeit
-              </th>
-              <th scope="col" className={NUM_HEAD}>
-                Fertig
-              </th>
-              <th scope="col" className={NUM_HEAD}>
-                Fehlgeschlagen
-              </th>
-              <th scope="col" className={NUM_HEAD}>
-                Anteil fertig
-              </th>
+    )
+  }
+  if (jobs.data.tasks.length === 0) {
+    return <p className="text-muted-foreground">Noch keine Jobs angelegt.</p>
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[38rem] table-fixed border-collapse text-sm">
+        <caption className="sr-only">Jobs je Aufgabe und Status</caption>
+        <colgroup>
+          <col style={{ width: "34%" }} />
+          <col style={{ width: "13%" }} />
+          <col style={{ width: "13%" }} />
+          <col style={{ width: "13%" }} />
+          <col style={{ width: "14%" }} />
+          <col style={{ width: "13%" }} />
+        </colgroup>
+        <thead className="border-b border-border bg-margin-tint">
+          <tr>
+            <PlainHeader>Aufgabe</PlainHeader>
+            <th scope="col" className={NUM_HEAD}>
+              Offen
+            </th>
+            <th scope="col" className={NUM_HEAD}>
+              In Arbeit
+            </th>
+            <th scope="col" className={NUM_HEAD}>
+              Fertig
+            </th>
+            <th scope="col" className={NUM_HEAD}>
+              Fehlgeschlagen
+            </th>
+            <th scope="col" className={NUM_HEAD}>
+              Anteil fertig
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {jobs.data.tasks.map((row) => (
+            <tr key={row.task} className="border-b border-border align-top">
+              <td className="px-3 py-3 break-words">{row.task}</td>
+              <Cell value={row.open} />
+              <Cell value={row.pending} />
+              <Cell value={row.done} />
+              <Cell value={row.failed} />
+              <td className="tabular px-3 py-3 text-right font-semibold whitespace-nowrap">
+                {percentDone(row)}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {SAMPLE_JOBS.map((row) => (
-              <tr key={row.task} className="border-b border-border align-top">
-                <td className="px-3 py-3 break-words">{row.task}</td>
-                <Cell value={row.open} />
-                <Cell value={row.pending} />
-                <Cell value={row.done} />
-                <Cell value={row.failed} />
-                <td className="tabular px-3 py-3 text-right font-semibold whitespace-nowrap">
-                  {percentDone(row)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
