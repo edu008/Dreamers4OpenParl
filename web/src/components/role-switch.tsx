@@ -1,3 +1,4 @@
+import { Segmented } from "@/components/segmented"
 import { useReview } from "@/hooks/use-review"
 import { ROLES } from "@/lib/review"
 
@@ -6,27 +7,12 @@ import { ROLES } from "@/lib/review"
 export function RoleSwitch() {
   const { role, setRole } = useReview()
   return (
-    <div
-      role="group"
-      aria-label="Ansicht"
+    <Segmented
+      label="Ansicht"
       title="Demo-Ansicht: was sieht ein Leser, Reviewer oder Admin?"
-      className="inline-flex overflow-hidden rounded-md border border-border text-xs"
-    >
-      {ROLES.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          aria-pressed={role === option.value}
-          onClick={() => setRole(option.value)}
-          className={
-            role === option.value
-              ? "bg-secondary px-3 py-2 font-medium text-foreground"
-              : "bg-background px-3 py-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-          }
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
+      options={ROLES}
+      value={role}
+      onChange={setRole}
+    />
   )
 }

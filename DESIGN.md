@@ -69,6 +69,11 @@ components:
     backgroundColor: "{colors.margin-tint}"
     textColor: "{colors.ink}"
     rounded: "{rounded.md}"
+  segmented-active:
+    backgroundColor: "{colors.margin-tint}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+    height: "32px"
   margin-notes:
     backgroundColor: "{colors.margin-tint}"
     textColor: "{colors.ink}"
@@ -111,6 +116,25 @@ Zurückhaltende Palette mit einer Markenfarbe. Die Dunkelansicht ist ein eigener
 - **Braun** (`#8a5a00`) und **Rot** (`#9b2c2c`): mittlere und tiefe Konfidenz, «Prüfung nötig».
 - **Dunkelansicht:** Grund `#171918`, Fläche `#1e2120`, Text `#e4e6e5`, Linie `#34383a`, Akzent gedämpftes Salbei `#a9bfb5`, Beleg `#4a4020`.
 
+**Code-Namen.** Im Code stehen CSS-Variablen in `web/src/index.css`, Tailwind-Klassen daraus. Neue Farben nur dort anlegen, nie als Hexwert in einer Komponente.
+
+| Name oben | CSS-Variable | Tailwind-Klasse |
+|---|---|---|
+| Papier | `--background` | `bg-background` |
+| Tinte | `--foreground` | `text-foreground` |
+| Tinte gedämpft | `--muted-foreground` | `text-muted-foreground` |
+| Fläche (Karte, Popover) | `--card` | `bg-card` |
+| Randspalten-Tönung | `--margin-tint`, `--secondary`, `--muted` | `bg-margin-tint`, `bg-secondary`, `bg-muted` |
+| Akzent-Tönung | `--accent` | `bg-accent` |
+| Haarlinie | `--border` | `border-border` |
+| Feldrand | `--input` | `border-input` |
+| Waldgrün | `--primary`, `--ring` | `bg-primary`, `text-primary`, `ring-ring` |
+| Markiergelb | `--evidence`, `--evidence-line` | `bg-evidence`, `border-evidence-line` |
+| Konfidenz hoch, mittel, tief | `--level-high`, `--level-medium`, `--level-low` | `text-level-high`, `text-level-medium`, `text-level-low` |
+| Fehler | `--destructive` | `text-destructive` |
+
+Die Dunkelansicht überschreibt dieselben Variablen unter `:root[data-theme="dark"]`. Das Attribut setzt ein Skript in `index.html` vor dem ersten Zeichnen, der Schalter im Seitenfuss ändert es. Eigene Dunkel-Sonderfälle mit `dark:` nur, wenn eine Variable nicht reicht.
+
 Regeln: Farbe verstärkt nur, das Wort trägt die Bedeutung. Gelb steht nirgends ausser am Beleg. Grün ist keine Dekofarbe.
 
 ## Typography
@@ -126,7 +150,7 @@ Systemschrift (`ui-sans-serif, system-ui`) für die Oberfläche, `Georgia` als P
 
 ## Layout
 
-- Hauptspalte höchstens 56 rem breit, 24 px seitlicher Rand, 32 px oben und unten.
+- Hauptspalte höchstens 56 rem breit (`max-w-4xl`), 24 px seitlicher Rand, 32 px oben und unten. Arbeitstabellen wie die Review-Liste dürfen breiter sein (72 rem, `max-w-6xl`); Lesetext bleibt bei 62 bis 68 Zeichen.
 - Geschäftsseite: Text links, Randspalte 14 rem rechts, bei breiten Fenstern mitlaufend (sticky). Auf schmalen Fenstern steht die Randspalte unter dem Text.
 - Tabellen mit festen Spaltenbreiten, damit Spalten über Seiten hinweg auf einer Linie bleiben.
 - Kopfzeile bricht um: Navigation, Suche, Ansichtsschalter. Seitenfuss trägt den Darstellungsschalter.
@@ -143,7 +167,7 @@ Kleine Ecken: 2 bis 4 px. Ränder sind 1 px. Knöpfe und Felder sind rechteckig 
 ## Components
 
 - **Knopf:** Primär in Waldgrün mit weisser Schrift, sonst Umriss oder Geist. Gedrückt/aktiv per `aria-pressed`.
-- **Ansichtsschalter (Leser, Reviewer, Admin) und Darstellungsschalter:** leise segmentierte Knöpfe, Auswahl durch Tönung und Gewicht. Der Ansichtsschalter ist eine Demo-Ansicht ohne Zugriffskontrolle.
+- **Segmentierter Umschalter** (`Segmented`): leise aneinanderliegende Knöpfe, Auswahl durch Tönung und Gewicht, `aria-pressed`, 32 px hoch. Verwendet für die Ansicht (Leser, Admin), Filter und Graph-Ansicht. Der Ansichtsschalter ist eine Demo-Ansicht ohne Zugriffskontrolle; Admin sieht Review und Admin und darf Labels entscheiden. Der Darstellungsschalter im Seitenfuss (Automatisch, Hell, Dunkel) ist die noch leisere Textvariante.
 - **Konfidenz:** Zahl mit zwei Stellen, daneben das Wort (hoch ab 0.8, mittel ab 0.6, sonst tief), Farbe verstärkt. In der Randspalte steht «Konfidenz» davor, in Tabellen im Spaltenkopf.
 - **Randspalte:** je Label Name, Konfidenz, Zustand des Belegs, Prüfstatus, Modellversion. Technische Angaben eingeklappt. Entscheiden nur in der Prüfansicht.
 - **Belegmarkierung:** gelber Grund mit Unterlinie direkt im Originaltext.
@@ -165,5 +189,49 @@ Kleine Ecken: 2 bis 4 px. Ränder sind 1 px. Knöpfe und Felder sind rechteckig 
 - Keine Karten um jeden Block, keine Schatten, keine Verläufe.
 - Kein Gelb ausser am Beleg, kein Grün als Dekoration.
 - Kein grosser Seitenbaum als Graph ohne Zoom oder Filter.
-- Keine Rollen vortäuschen: ohne Anmeldung ist «Reviewer» eine Ansicht, kein Schutz.
+- Keine Rollen vortäuschen: ohne Anmeldung ist «Admin» eine Ansicht, kein Schutz.
 - Kein Stand, der nicht stimmt: Zahlen aus echten Daten oder gar nicht anzeigen.
+
+## Handbuch für Weiterbauende
+
+### Bausteine im Code
+Zuerst nachsehen, ob es das schon gibt. Pfade unter `web/src/`.
+
+| Baustein | Ort | Wofür |
+|---|---|---|
+| `Layout` | `components/layout.tsx` | Kopfzeile, Navigation, Skip-Link, Hauptspalte, Seitenfuss; setzt Tab-Titel der festen Seiten |
+| `Segmented` | `components/segmented.tsx` | Umschalter mit einer Auswahl; `RoleSwitch` nutzt ihn |
+| `ThemeSwitch` | `components/theme-switch.tsx` | Darstellung Automatisch, Hell, Dunkel |
+| `Confidence` | `components/confidence.tsx` | Zahl mit Wort (hoch, mittel, tief); `labelled` schreibt «Konfidenz» davor |
+| `EvidenceText`, `isEvidenceFound` | `components/evidence-text.tsx` | Originaltext mit markierter Belegstelle |
+| `MarginNotes` | `components/margin-notes.tsx` | Randspalte der Geschäftsseite |
+| `AffairTable`, `SortHeader`, `PlainHeader` | `components/affair-table.tsx`, `sort-header.tsx` | Tabelle mit festen Spalten und Sortierung (`useSort`) |
+| `PageTree`, `PageRow` | `components/page-tree.tsx` | Themenbaum |
+| `JobSummary` (`SystemList`, `JobTable`, `ProcessingBadge`) | `components/job-summary.tsx` | Verarbeitungsstand |
+| shadcn-Bausteine | `components/ui/` | Button, Alert, Card, Breadcrumb, Skeleton, Badge, Input, Separator. Verwenden, nicht kopieren; Karten sparsam |
+
+Hooks in `hooks/`: `useApi` (Laden, Fehler, Daten), `usePageTitle`, `useSort`, `useReview`, `useReviewQueue`. Typen und `fetchJson` stehen in `lib/api.ts`, Prüfgründe und Schwelle in `lib/label-state.ts`, Zeichnung des Graphen in `lib/graph.ts`.
+
+### Rezept für eine neue Seite
+1. Route in `App.tsx`, Seite in `pages/`.
+2. Tab-Titel: feste Seiten in `STATIC_TITLES` (`layout.tsx`), dynamische mit `usePageTitle("…")`.
+3. Aufbau: `h1` (`font-heading text-2xl font-semibold`), darunter ein kurzer Einleitungssatz in `text-muted-foreground`, nicht breiter als 62 bis 68 Zeichen.
+4. Daten über `useApi`. Jede Seite kennt drei Zustände: **Laden** (`Skeleton`), **Fehler** (`Alert` mit Text, was fehlt und was man tun kann) und **leer** (ein erklärender Satz, nie eine leere Fläche).
+5. Tabellen mit `colgroup` und festen Breiten, Rahmen mit `overflow-x-auto`, Sortierknopf im Kopf.
+6. Prüfen bei 375 px Breite, im Dunkeln und mit der Tastatur. Kein seitliches Überlaufen der Seite.
+7. Vor dem Commit im Ordner `web/`: `npx tsc -b`, `npm run lint`, `npm run build`, `node ../scripts/check-web-dist.mjs dist` (verbietet externe Hosts im Bundle).
+
+### Textregeln
+- Deutsch, Schweizer Schreibweise (ss statt ß), Du-Form. Anführungszeichen «so».
+- Keine internen Begriffe in der Oberfläche (Sidecar, Endpunkt, Worker). Technische Angaben nur eingeklappt oder im Admin-Bereich.
+- Zahlen mit Tausendertrenner (`Intl.NumberFormat("de-CH")`, also 1'499), Datum als TT.MM.JJJJ, Konfidenz mit zwei Stellen und Wort.
+- Ehrlich benennen, was nicht gesichert ist: «Noch nicht von einem Menschen geprüft», «vorläufig». Nie Zahlen oder Zustände zeigen, die nicht aus den echten Daten stammen.
+- Neutral: Themen beschreiben, wovon ein Geschäft handelt, und bewerten keine politische Haltung.
+
+### Zustände
+- **Fokus:** Umriss in Waldgrün (globaler Stil in `index.css`), immer sichtbar bei Tastatur. Nie `outline: none` ohne Ersatz.
+- **Hover:** Grund leicht tönen (`hover:bg-muted`), Links unterstreichen (`underline-offset-2`).
+- **Gewählt oder gedrückt:** `aria-pressed` plus Tönung und Gewicht, nicht nur Farbe.
+- **Deaktiviert:** verminderte Deckkraft und ein Hinweis, warum.
+- **Fehler:** Text plus `text-destructive`, nie nur Rot.
+- **Bedienflächen:** mindestens 24 px hoch, besser 32 px; bei Textlinks `py-1.5` bis `py-2` für die Trefferfläche.
