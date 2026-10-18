@@ -12,7 +12,7 @@ export PARLTOPICS_VERSION
 export ARCHIFY_UPDATE_CHECK_DISABLED := 1
 
 .PHONY: help setup lint format test test-integration db db-down migrate api \
-        diagrams diagrams-check wheels image offline-test bundle clean
+        data diagrams diagrams-check wheels image offline-test bundle clean
 
 help: ## Ziele anzeigen
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -42,6 +42,10 @@ db-down: ## Container stoppen (Daten bleiben im Volume pgdata)
 
 migrate: ## Migrationen anwenden
 	$(UV) run parltopics db migrate
+
+data: ## OpenParlData laden (online, ~6 GB) und in die Datenbank importieren
+	$(UV) run parltopics download --bundle data/import
+	$(UV) run parltopics ingest --bundle data/import
 
 api: ## Web-App und API lokal mit Reload auf http://127.0.0.1:8000
 	$(UV) run uvicorn parltopics.api.app:app --reload --host 127.0.0.1 --port 8000
