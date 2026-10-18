@@ -41,7 +41,7 @@ TSQUERY = """(websearch_to_tsquery('german', %(q)s) || websearch_to_tsquery('fre
 SEARCH_FILTER = f"""
 FROM search_documents d JOIN affairs a ON a.id = d.affair_id
 LEFT JOIN bodies b ON b.body_key = a.body_key
-WHERE d.document @@ {TSQUERY}
+WHERE (%(q)s::text IS NULL OR d.document @@ {TSQUERY})
   AND (%(body_key)s::text IS NULL OR a.body_key = %(body_key)s::text)
   AND (%(level)s::text IS NULL OR b.level = %(level)s::text)
   AND (%(date_from)s::date IS NULL OR a.begin_date >= %(date_from)s::date)
@@ -343,7 +343,7 @@ def review_queue(
 def search(
     conn: psycopg.Connection,
     *,
-    q: str,
+    q: str | None,
     topic: str | None,
     body_key: str | None,
     level: str | None,
@@ -353,10 +353,13 @@ def search(
     limit: int,
     offset: int,
 ) -> tuple[int, list[dict]]:
-    """Volltextsuche: (Treffer insgesamt, eine Seite mit Ausschnitt als sicherem HTML).
+    """Volltextsuche: (Treffer insgesamt, eine Seite mit Ausschnitt als sicherem HTML). Ohne q
+    alle Geschäfte mit Klassifikationstext, neueste zuerst, ohne Rang und Ausschnitt.
 
     shortcut: rechnet den Rang für alle Treffer; bei sehr häufigen Wörtern über 326k Geschäfte
     wird das langsam, dann Treffer vor dem Rang begrenzen.
+    shortcut: ohne q zählt und sortiert die Abfrage alle Dokumente ohne Index auf begin_date;
+    wird das zu langsam, Index affairs(begin_date DESC, id DESC) per Migration (vorher fragen).
     """
     params = {
         "q": q,
@@ -374,6 +377,8 @@ def search(
     total = cursor.execute(f"SELECT count(*) AS n {SEARCH_FILTER}", params).fetchone()["n"]
     rows = cursor.execute(SEARCH, params).fetchall()
     for row in rows:
+        if row["headline"] is None:  # ohne q gibt es keinen Ausschnitt
+            continue
         # Der Text ist frei von Tags, kann aber Zeichen wie < enthalten: erst maskieren.
         escaped = html.escape(row["headline"])
         row["headline"] = escaped.replace(MARK[0], "<mark>").replace(MARK[1], "</mark>")

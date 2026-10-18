@@ -263,6 +263,16 @@ def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
         assert found("digitalisieren", language="fr") == (0, [])
         assert client.get("/v1/search", params={"q": "a"}).status_code == 422
 
+        def newest(**params):  # ohne q: alle mit Klassifikationstext, neueste zuerst
+            return client.get("/v1/search", params=params).json()
+
+        result = newest()
+        assert (result["q"], result["total"]) == (None, 3)
+        assert [item["affair_id"] for item in result["items"]] == [70435, 70437, 80003]
+        assert {(item["rank"], item["headline"]) for item in result["items"]} == {(None, None)}
+        assert [item["affair_id"] for item in newest(body_key="ZH")["items"]] == [80003]
+        assert [item["affair_id"] for item in newest(topic="aps:6.1.9")["items"]] == [70435]
+
 
 def test_topic_graph_by_area_and_related_topics(conn, repo_root, api_settings):
     migrate(conn, repo_root / "migrations")

@@ -629,14 +629,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def search(
         conn: Conn,
         q: Annotated[
-            str,
+            str | None,
             Query(
                 min_length=2,
                 max_length=200,
                 description='Suchbegriffe; "…" für eine Wortfolge, -wort schliesst aus,'
-                " or für oder",
+                " or für oder; ohne q die neuesten Geschäfte",
             ),
-        ],
+        ] = None,
         topic: Annotated[str | None, Query(description="nur mit diesem aktiven Thema")] = None,
         body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
         level: Annotated[
@@ -654,7 +654,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Volltextsuche über die Klassifikationstexte (Titel und Texte), ohne Sprachangabe: Die
         Begriffe werden deutsch, französisch und italienisch auf ihren Stamm zurückgeführt. Rang
         nach ts_rank_cd, Treffer im Titel zählen mehr. Je Treffer ein Ausschnitt mit markierten
-        Begriffen und die aktiven Themen."""
+        Begriffen und die aktiven Themen. Ohne q: alle Geschäfte mit Klassifikationstext,
+        neueste zuerst, ohne Rang und Ausschnitt; die Filter gelten gleich."""
         start = time.perf_counter()
         total, items = queries.search(
             conn,
