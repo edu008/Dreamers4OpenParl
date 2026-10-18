@@ -72,7 +72,7 @@ export function MarginNotes({
               >
                 {label.name}
               </p>
-              <Confidence value={label.confidence} />
+              <Confidence value={label.confidence} labelled />
               {label.evidence === null ? (
                 <p className="text-muted-foreground">Kein Beleg angegeben</p>
               ) : label.evidenceVerified ? (

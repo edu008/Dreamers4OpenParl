@@ -15,7 +15,7 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section aria-labelledby={id} className="flex max-w-[68ch] flex-col gap-2">
+    <section aria-labelledby={id} className="flex max-w-[62ch] flex-col gap-2">
       <h2 id={id} className="font-heading text-lg font-medium">
         {title}
       </h2>
@@ -35,7 +35,7 @@ export function HelpPage() {
         <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
           So funktioniert's
         </h1>
-        <p className="max-w-[68ch] text-muted-foreground">
+        <p className="max-w-[62ch] text-muted-foreground">
           ParlTopics ordnet Geschäfte der Schweizer Parlamente nach Themen. Hier
           steht, was du auf den Seiten siehst und wie du es lesen kannst.
         </p>
@@ -105,7 +105,7 @@ export function HelpPage() {
         </ul>
       </Section>
 
-      <p className="max-w-[68ch] text-sm text-muted-foreground">
+      <p className="max-w-[62ch] text-sm text-muted-foreground">
         Zurück zu den{" "}
         <Link to="/" className="underline underline-offset-2">
           Themen

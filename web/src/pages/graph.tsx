@@ -7,13 +7,10 @@ import {
   groupColor,
   HEIGHT,
   loadGraphData,
+  radius,
   WIDTH,
   type GraphData,
 } from "@/lib/graph"
-
-function radius(count: number, kind: "bereich" | "thema"): number {
-  return kind === "bereich" ? 9 : 5 + Math.sqrt(count) * 2
-}
 
 // Themengraph: zeigt, welche Themen zusammenhängen. Klick auf einen Punkt öffnet die Seite.
 export function GraphPage() {
@@ -88,7 +85,7 @@ export function GraphPage() {
         <>
           <svg
             viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-            role="img"
+            role="group"
             aria-label={`Themengraph mit ${graph.nodes.length} Punkten und ${graph.edges.length} Linien`}
             className="w-full rounded border border-border bg-background"
           >
@@ -136,8 +133,14 @@ export function GraphPage() {
                   onFocus={() => setHovered(node.id)}
                   onBlur={() => setHovered(null)}
                   opacity={dim ? 0.25 : 1}
-                  className="cursor-pointer outline-none focus-visible:[&>circle]:stroke-[3px]"
+                  className="cursor-pointer outline-none focus-visible:[&>circle:last-of-type]:stroke-[var(--ring)] focus-visible:[&>circle:last-of-type]:stroke-[4px]"
                 >
+                  <circle
+                    cx={node.x}
+                    cy={node.y}
+                    r={Math.max(r, 18)}
+                    fill="transparent"
+                  />
                   <circle
                     cx={node.x}
                     cy={node.y}

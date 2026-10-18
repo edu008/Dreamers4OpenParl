@@ -20,8 +20,8 @@ export function RoleSwitch() {
           onClick={() => setRole(option.value)}
           className={
             role === option.value
-              ? "bg-secondary px-2.5 py-1 font-medium text-foreground"
-              : "bg-background px-2.5 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              ? "bg-secondary px-3 py-2 font-medium text-foreground"
+              : "bg-background px-3 py-2 text-muted-foreground hover:bg-muted hover:text-foreground"
           }
         >
           {option.label}

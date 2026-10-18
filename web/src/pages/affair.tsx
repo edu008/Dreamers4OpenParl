@@ -6,6 +6,8 @@ import { MarginNotes, type MarginLabel } from "@/components/margin-notes"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
+import { usePageTitle } from "@/hooks/use-page-title"
+import { affairTypeDe } from "@/lib/affair-type"
 import { useReview } from "@/hooks/use-review"
 import { useReviewQueue } from "@/hooks/use-review-queue"
 import type { AffairTopics } from "@/lib/api"
@@ -40,6 +42,11 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
   const { affairId = "" } = useParams()
   const found = useApi<AffairTopics>(
     `/v1/affairs/${encodeURIComponent(affairId)}/topics`
+  )
+  usePageTitle(
+    found.data
+      ? `${found.data.number ?? found.data.affair_id} ${found.data.title}`
+      : "Geschäft"
   )
   const review = useReview()
   const queue = useReviewQueue()
@@ -151,7 +158,7 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
           <p className="tabular text-xs text-muted-foreground">
             {[
               affair.number,
-              affair.type,
+              affairTypeDe(affair.type),
               affair.body_name ?? affair.body_key,
               formatDate(affair.begin_date),
             ]
@@ -190,12 +197,16 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
             )}
           </p>
         </div>
-        <MarginNotes
-          mode={mode}
-          affairId={String(affair.affair_id)}
-          labels={labels}
-          versions={versions}
-        />
+        <div className="lg:border-l lg:border-border">
+          <div className="lg:sticky lg:top-6">
+            <MarginNotes
+              mode={mode}
+              affairId={String(affair.affair_id)}
+              labels={labels}
+              versions={versions}
+            />
+          </div>
+        </div>
       </div>
     </article>
   )

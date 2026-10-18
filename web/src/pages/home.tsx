@@ -38,7 +38,7 @@ export function HomePage() {
                 {index > 0 && " · "}
                 <Link
                   to={`/tags/${topic.tag_id}`}
-                  className="underline underline-offset-2"
+                  className="inline-block py-2 underline underline-offset-2"
                 >
                   {topic.name_de}
                 </Link>

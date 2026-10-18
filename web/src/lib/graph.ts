@@ -35,8 +35,63 @@ export interface GraphData {
   edges: GraphEdge[]
 }
 
+export function radius(count: number, kind: "bereich" | "thema"): number {
+  return kind === "bereich" ? 9 : 5 + Math.sqrt(count) * 2
+}
+
+/** Platzbedarf eines Punktes samt Beschriftung (Näherung nach Zeichenzahl), Mitte = Punktmitte. */
+function box(node: GraphNode): { halfW: number; up: number; down: number } {
+  const r = radius(node.count, node.kind)
+  const perChar = node.kind === "bereich" ? 6.6 : 5.4
+  return {
+    halfW: Math.max(r, (node.label.length * perChar) / 2) + 3,
+    up: r + 2,
+    down: r + 18,
+  }
+}
+
+/** Schiebt Punkte auseinander, bis sich keine Beschriftung mehr mit einer anderen überlappt. */
+function separate(nodes: GraphNode[]): void {
+  for (let pass = 0; pass < 120; pass++) {
+    let moved = false
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i]
+        const b = nodes[j]
+        const ba = box(a)
+        const bb = box(b)
+        const overlapX = ba.halfW + bb.halfW - Math.abs(b.x - a.x)
+        const overlapY =
+          b.y >= a.y
+            ? ba.down + bb.up - (b.y - a.y)
+            : bb.down + ba.up - (a.y - b.y)
+        if (overlapX <= 0 || overlapY <= 0) continue
+        moved = true
+        // Entlang der Achse mit dem kleineren Überlapp auseinanderrücken.
+        if (overlapX < overlapY) {
+          const push = overlapX / 2 + 0.5
+          const dir = b.x >= a.x ? 1 : -1
+          a.x -= dir * push
+          b.x += dir * push
+        } else {
+          const push = overlapY / 2 + 0.5
+          const dir = b.y >= a.y ? 1 : -1
+          a.y -= dir * push
+          b.y += dir * push
+        }
+      }
+    }
+    for (const node of nodes) {
+      const { halfW, up, down } = box(node)
+      node.x = Math.min(WIDTH - halfW - 4, Math.max(halfW + 4, node.x))
+      node.y = Math.min(HEIGHT - down - 2, Math.max(up + 4, node.y))
+    }
+    if (!moved) return
+  }
+}
+
 export const WIDTH = 800
-export const HEIGHT = 520
+export const HEIGHT = 600
 
 interface RawData {
   pages: WikiPage[]
@@ -175,7 +230,7 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]): void {
         const dx = nodes[j].x - nodes[i].x
         const dy = nodes[j].y - nodes[i].y
         const distSq = dx * dx + dy * dy + 0.01
-        const force = 2600 / distSq
+        const force = 6000 / distSq
         const dist = Math.sqrt(distSq)
         const fx = (dx / dist) * force
         const fy = (dy / dist) * force
@@ -189,7 +244,7 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]): void {
       const a = byId.get(edge.a)
       const b = byId.get(edge.b)
       if (!a || !b) continue
-      const rest = edge.kind === "bereich" ? 70 : 45
+      const rest = edge.kind === "bereich" ? 90 : 70
       const dx = b.x - a.x
       const dy = b.y - a.y
       const dist = Math.sqrt(dx * dx + dy * dy) || 1
@@ -213,6 +268,7 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]): void {
       node.y = Math.min(HEIGHT - 28, Math.max(28, node.y))
     }
   }
+  separate(nodes)
 }
 
 /** Farbe je Bereich: gleiche Helligkeit, verschiedene Farbtöne, gut lesbar auf hellem Grund. */
