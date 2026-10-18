@@ -28,7 +28,7 @@ function formatDate(iso: string | null): string {
 }
 
 /** Der Klassifikationstext beginnt mit dem Titel, danach folgen die Absätze (durch \n getrennt). */
-function paragraphsOf(text: string | null): string[] {
+export function paragraphsOf(text: string | null): string[] {
   const lines = (text ?? "")
     .split("\n")
     .map((line) => line.trim())
@@ -183,7 +183,7 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
         </nav>
       )}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-10">
-        <div className="flex flex-col gap-4 rounded-clay bg-card p-6 shadow-clay sm:p-8">
+        <div className="flex flex-col gap-4 border-t-2 border-foreground pt-6">
           <p className="tabular text-sm text-muted-foreground">
             {[
               affair.number,

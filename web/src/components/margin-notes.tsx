@@ -63,7 +63,7 @@ export function MarginNotes({
   return (
     <aside
       aria-label="Labels dieses Geschäfts"
-      className="flex flex-col gap-4 rounded-clay bg-card p-5 text-xs shadow-clay"
+      className="flex flex-col gap-4 bg-muted p-5 text-xs"
     >
       <h2 className="text-base font-semibold">Themen</h2>
       {labels.length === 0 && (

@@ -3,21 +3,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-none border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-colors select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        // Rot nur für die Hauptaktion (Suchen, Bestätigen).
+        // Schweizer Rot für die Hauptaktion (Suchen, Bestätigen).
         default:
-          "bg-primary font-semibold text-primary-foreground shadow-clay-primary hover:bg-primary-hover active:shadow-clay-pressed",
+          "bg-primary font-bold text-primary-foreground hover:bg-primary-hover",
+        // Swiss: schwarzer Rahmen, beim Hover und offen invertiert.
         outline:
-          "bg-card text-foreground shadow-clay hover:shadow-clay-raised active:shadow-clay-pressed aria-expanded:bg-muted aria-expanded:shadow-clay-pressed",
-        secondary:
-          "bg-muted text-foreground shadow-clay-pressed hover:bg-secondary",
+          "border-foreground bg-background text-foreground hover:bg-foreground hover:text-background aria-expanded:bg-foreground aria-expanded:text-background",
+        secondary: "bg-muted text-foreground hover:bg-secondary",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
         destructive:
-          "bg-card text-destructive shadow-clay hover:shadow-clay-raised active:shadow-clay-pressed",
+          "border-foreground bg-background text-destructive hover:bg-foreground hover:text-background",
         link: "text-foreground underline-offset-4 hover:underline",
       },
       size: {

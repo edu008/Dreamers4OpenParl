@@ -49,12 +49,6 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  /* Clay: Flächen aus Ton. Ruhe (clay), angehoben (raised), eingedrückt (pressed), Hauptaktion. */
-  --shadow-clay: var(--clay);
-  --shadow-clay-raised: var(--clay-raised);
-  --shadow-clay-pressed: var(--clay-pressed);
-  --shadow-clay-primary: var(--clay-primary);
-  --radius-clay: 1.5rem;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -64,119 +58,93 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Swiss Design mit Clay-Oberflächen (DESIGN.md). Heller Ton als Grund, Tinte fast schwarz, Schweizer
-   Rot nur für die Hauptaktion und den Fokus. Konfidenz in Grün, Ocker und Schieferblau, nie in Rot.
-   Gelb nur für den Beleg. Tiefe entsteht durch weiche Schatten aussen und Licht innen. */
+/* Swiss Design (DESIGN.md): weisser Grund, schwarze Schrift, Schweizer Rot als Markenfarbe (Kopfband,
+   Hauptaktion, Fokus). Keine Rundungen, keine Schatten: Raster, Linien und Tonstufen ordnen die Seite.
+   Konfidenz (nur im Admin) in Grün, Ocker und Schieferblau, nie in Rot. Gelb nur für den Beleg. */
 :root {
-  --background: #f1f1ee;
-  --foreground: #141414;
-  --card: #fbfbf9;
-  --card-foreground: #141414;
-  --popover: #fbfbf9;
-  --popover-foreground: #141414;
-  --primary: #dc0018;
-  --primary-hover: #b80014;
+  --background: #ffffff;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #da291c;
+  --primary-hover: #b51f14;
   --primary-foreground: #ffffff;
-  --secondary: #e6e6e2;
-  --secondary-foreground: #141414;
-  --muted: #e6e6e2;
-  --muted-foreground: #5c5c58;
-  --accent: #e6e6e2;
-  --accent-foreground: #141414;
-  /* Fehler in Tinte: Rot hat nur eine Bedeutung, das Wort trägt die Meldung. */
-  --destructive: #141414;
-  --border: #dcdcd7;
-  --input: #8a8a85;
-  --ring: #dc0018;
-  --chart-1: #3a3a37;
-  --chart-2: #5c5c58;
+  --secondary: #e9e9e9;
+  --secondary-foreground: #111111;
+  --muted: #f2f2f2;
+  --muted-foreground: #595959;
+  --accent: #f2f2f2;
+  --accent-foreground: #111111;
+  --destructive: #111111;
+  --border: #d4d4d4;
+  --input: #111111;
+  --ring: #da291c;
+  --chart-1: #111111;
+  --chart-2: #595959;
   --chart-3: #8a5a00;
-  --chart-4: #c9c9c3;
-  --chart-5: #141414;
-  --radius: 1rem;
-  --sidebar: #e6e6e2;
-  --sidebar-foreground: #141414;
-  --sidebar-primary: #dc0018;
+  --chart-4: #d4d4d4;
+  --chart-5: #111111;
+  --radius: 0rem;
+  --sidebar: #f2f2f2;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #da291c;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e6e6e2;
-  --sidebar-accent-foreground: #141414;
-  --sidebar-border: #dcdcd7;
-  --sidebar-ring: #dc0018;
-  --margin-tint: #e6e6e2;
+  --sidebar-accent: #f2f2f2;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: #d4d4d4;
+  --sidebar-ring: #da291c;
+  --margin-tint: #f2f2f2;
   --evidence: #fff1a8;
   --evidence-line: #b08900;
   --level-high: #1e6b45;
   --level-medium: #8a5a00;
   --level-low: #4a5a8c;
-  --clay:
-    0 10px 24px -6px rgb(20 20 18 / 0.14), 0 2px 4px rgb(20 20 18 / 0.06),
-    inset 0 2px 3px rgb(255 255 255 / 0.9),
-    inset 0 -3px 6px rgb(20 20 18 / 0.06);
-  --clay-raised:
-    0 18px 34px -8px rgb(20 20 18 / 0.2), 0 3px 6px rgb(20 20 18 / 0.06),
-    inset 0 2px 3px rgb(255 255 255 / 0.9),
-    inset 0 -3px 6px rgb(20 20 18 / 0.06);
-  --clay-pressed:
-    inset 0 3px 8px rgb(20 20 18 / 0.14),
-    inset 0 -1px 2px rgb(255 255 255 / 0.7);
-  --clay-primary:
-    0 8px 18px -6px rgb(220 0 24 / 0.45),
-    inset 0 2px 3px rgb(255 255 255 / 0.35), inset 0 -3px 6px rgb(0 0 0 / 0.18);
 }
 
 /* Dunkle Ansicht: data-theme="dark" setzt das Skript in index.html nach Wahl oder
-   Geräteeinstellung. Gleiche Rollen: dunkler Ton, helle Tinte, Rot nur für die Hauptaktion. */
+   Geräteeinstellung. Gleiche Rollen: Schwarz als Grund, helle Schrift, Rot bleibt Rot. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: #18191b;
-  --foreground: #f2f2ef;
-  --card: #222326;
-  --card-foreground: #f2f2ef;
-  --popover: #222326;
-  --popover-foreground: #f2f2ef;
-  --primary: #dc0018;
-  --primary-hover: #f0243a;
+  --background: #0e0e0e;
+  --foreground: #f5f5f5;
+  --card: #0e0e0e;
+  --card-foreground: #f5f5f5;
+  --popover: #161616;
+  --popover-foreground: #f5f5f5;
+  --primary: #e2231a;
+  --primary-hover: #ff3b30;
   --primary-foreground: #ffffff;
-  --secondary: #2b2c30;
-  --secondary-foreground: #f2f2ef;
-  --muted: #2b2c30;
-  --muted-foreground: #a9a9a4;
-  --accent: #2b2c30;
-  --accent-foreground: #f2f2ef;
-  --destructive: #f2f2ef;
-  --border: #36373b;
-  --input: #7c7d80;
-  --ring: #ff5a5f;
-  --chart-1: #d8d8d3;
-  --chart-2: #a9a9a4;
+  --secondary: #262626;
+  --secondary-foreground: #f5f5f5;
+  --muted: #1c1c1c;
+  --muted-foreground: #a6a6a6;
+  --accent: #1c1c1c;
+  --accent-foreground: #f5f5f5;
+  --destructive: #f5f5f5;
+  --border: #333333;
+  --input: #f5f5f5;
+  --ring: #ff4d42;
+  --chart-1: #f5f5f5;
+  --chart-2: #a6a6a6;
   --chart-3: #e0b25a;
-  --chart-4: #36373b;
-  --chart-5: #f2f2ef;
-  --sidebar: #2b2c30;
-  --sidebar-foreground: #f2f2ef;
-  --sidebar-primary: #dc0018;
+  --chart-4: #333333;
+  --chart-5: #f5f5f5;
+  --sidebar: #1c1c1c;
+  --sidebar-foreground: #f5f5f5;
+  --sidebar-primary: #e2231a;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #2b2c30;
-  --sidebar-accent-foreground: #f2f2ef;
-  --sidebar-border: #36373b;
-  --sidebar-ring: #ff5a5f;
-  --margin-tint: #2b2c30;
+  --sidebar-accent: #1c1c1c;
+  --sidebar-accent-foreground: #f5f5f5;
+  --sidebar-border: #333333;
+  --sidebar-ring: #ff4d42;
+  --margin-tint: #1c1c1c;
   --evidence: #4a4020;
   --evidence-line: #d9b43a;
   --level-high: #86c9a0;
   --level-medium: #e0b25a;
   --level-low: #a9b6e6;
-  --clay:
-    0 12px 26px -8px rgb(0 0 0 / 0.55), 0 2px 4px rgb(0 0 0 / 0.3),
-    inset 0 1px 2px rgb(255 255 255 / 0.07), inset 0 -3px 6px rgb(0 0 0 / 0.35);
-  --clay-raised:
-    0 20px 36px -8px rgb(0 0 0 / 0.65), 0 3px 6px rgb(0 0 0 / 0.3),
-    inset 0 1px 2px rgb(255 255 255 / 0.08), inset 0 -3px 6px rgb(0 0 0 / 0.35);
-  --clay-pressed:
-    inset 0 3px 8px rgb(0 0 0 / 0.5), inset 0 -1px 2px rgb(255 255 255 / 0.05);
-  --clay-primary:
-    0 8px 18px -6px rgb(0 0 0 / 0.6), inset 0 2px 3px rgb(255 255 255 / 0.25),
-    inset 0 -3px 6px rgb(0 0 0 / 0.25);
 }
 
 @layer base {

@@ -1,5 +1,5 @@
-// Leiser Umschalter (eine Auswahl, `aria-pressed`): eine eingedrückte Clay-Mulde, die Auswahl liegt
-// erhaben darin. Auswahl durch Form und Gewicht, nicht durch Farbe.
+// Umschalter (eine Auswahl, `aria-pressed`): eckige Felder mit schwarzem Rahmen, die Auswahl ist
+// schwarz gefüllt. Auswahl durch Füllung und Gewicht, nicht durch Farbe.
 export function Segmented<T extends string>({
   label,
   title,
@@ -19,7 +19,7 @@ export function Segmented<T extends string>({
       role="group"
       aria-label={label}
       title={title}
-      className="inline-flex flex-wrap gap-1 self-start rounded-3xl bg-muted p-1 text-sm shadow-clay-pressed"
+      className="inline-flex flex-wrap self-start border border-foreground text-sm"
     >
       {options.map((option) => (
         <button
@@ -29,8 +29,8 @@ export function Segmented<T extends string>({
           onClick={() => onChange(option.value)}
           className={
             value === option.value
-              ? "h-9 rounded-full bg-card px-3.5 font-semibold text-foreground shadow-clay"
-              : "h-9 rounded-full px-3.5 text-muted-foreground transition-colors hover:text-foreground"
+              ? "h-9 bg-foreground px-3.5 font-bold text-background"
+              : "h-9 px-3.5 text-foreground transition-colors hover:bg-muted"
           }
         >
           {option.label}

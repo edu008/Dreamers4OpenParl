@@ -1,7 +1,6 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
 import { ThemeSwitch } from "@/components/theme-switch"
-import { Button } from "@/components/ui/button"
 import { usePageTitle } from "@/hooks/use-page-title"
 import { useReview } from "@/hooks/use-review"
 import { useReviewQueue } from "@/hooks/use-review-queue"
@@ -42,60 +41,61 @@ export function Layout() {
     <div className="flex min-h-svh flex-col">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-4 focus:z-50 focus:rounded-full focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:shadow-clay"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-4 focus:z-50 focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:outline-2 focus:outline-ring"
       >
         Zum Inhalt springen
       </a>
-      <header
-        className={`${frame} flex flex-wrap items-center gap-x-6 gap-y-3 pt-6 pb-2`}
-      >
-        <Link
-          to={isAdmin ? "/admin" : "/"}
-          className="font-heading text-lg font-bold tracking-tight"
+      {/* Kopfband in Schweizer Rot über die ganze Breite, Inhalt im Raster. */}
+      <header className="bg-primary text-primary-foreground">
+        <div
+          className={`${frame} flex flex-wrap items-center gap-x-8 gap-y-2 py-4`}
         >
-          ParlTopics
-          {isAdmin && <span className="font-normal"> Admin</span>}
-        </Link>
-        {isAdmin && (
-          <>
-            <nav
-              aria-label="Admin-Navigation"
-              className="flex flex-wrap gap-1 rounded-full bg-muted p-1 shadow-clay-pressed"
-            >
-              {ADMIN_NAV.map((item) => (
-                <Button
-                  key={item.to}
-                  size="sm"
-                  variant={isActive(pathname, item.to) ? "outline" : "ghost"}
-                  nativeButton={false}
-                  render={<NavLink to={item.to} end={item.to === "/admin"} />}
-                >
-                  {item.to === "/admin/review" && openReviews > 0
-                    ? `${item.label} (${openReviews})`
-                    : item.label}
-                </Button>
-              ))}
-            </nav>
-            <Link
-              to="/"
-              className="py-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline sm:ml-auto"
-            >
-              Öffentliche Seite
-            </Link>
-          </>
-        )}
+          <Link
+            to={isAdmin ? "/admin" : "/"}
+            className="font-heading text-xl font-bold tracking-tight focus-visible:outline-primary-foreground"
+          >
+            ParlTopics
+            {isAdmin && <span className="font-normal"> Admin</span>}
+          </Link>
+          {isAdmin && (
+            <>
+              <nav aria-label="Admin-Navigation" className="flex flex-wrap">
+                {ADMIN_NAV.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === "/admin"}
+                    className={`px-3 py-2 text-sm font-medium focus-visible:outline-primary-foreground ${
+                      isActive(pathname, item.to)
+                        ? "bg-primary-foreground text-primary"
+                        : "hover:bg-primary-hover"
+                    }`}
+                  >
+                    {item.to === "/admin/review" && openReviews > 0
+                      ? `${item.label} (${openReviews})`
+                      : item.label}
+                  </NavLink>
+                ))}
+              </nav>
+              <Link
+                to="/"
+                className="py-2 text-sm underline-offset-4 hover:underline focus-visible:outline-primary-foreground sm:ml-auto"
+              >
+                Öffentliche Seite
+              </Link>
+            </>
+          )}
+        </div>
       </header>
       <main
         id="main"
         tabIndex={-1}
-        className={`${frame} flex flex-1 flex-col gap-8 py-8 outline-none`}
+        className={`${frame} flex flex-1 flex-col gap-10 py-10 outline-none`}
       >
         <Outlet />
       </main>
-      <footer className="mt-16 bg-muted">
-        <div
-          className={`${frame} flex flex-wrap items-center justify-between gap-4 py-6 text-sm`}
-        >
+      <footer className={`${frame} mt-16`}>
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t-2 border-foreground py-6 text-sm">
           <Link to="/hilfe" className="underline-offset-4 hover:underline">
             So funktioniert's
           </Link>

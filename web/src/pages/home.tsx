@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react"
 import { Link, useLocation } from "react-router"
 
-import { Confidence } from "@/components/confidence"
 import { SearchForm } from "@/components/search-form"
 import { Segmented } from "@/components/segmented"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -86,7 +85,7 @@ function Snippet({ headline }: { headline: string }) {
         part.marked ? (
           <mark
             key={index}
-            className="rounded-sm bg-muted px-0.5 font-semibold text-foreground"
+            className="bg-transparent font-bold text-foreground"
           >
             {part.text}
           </mark>
@@ -104,22 +103,33 @@ function Hit({ hit, params }: { hit: SearchHit; params: URLSearchParams }) {
   const meta = [
     hit.type_de ?? hit.type,
     hit.number && `Nr. ${hit.number}`,
-    formatDate(hit.begin_date),
     hit.body_name ?? hit.body_key,
   ]
   const more = hit.topics.length - TOPICS_SHOWN
   return (
-    <li className="relative flex gap-5 rounded-clay bg-card p-5 shadow-clay transition-[translate,box-shadow] duration-200 hover:shadow-clay-raised motion-safe:hover:-translate-y-0.5 sm:p-6">
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
+    <li className="group relative grid gap-x-8 gap-y-2 border-t border-border py-6 first:border-t-0 sm:grid-cols-[8rem_minmax(0,1fr)]">
+      {/* Linke Spalte im Raster: Datum und Parlament, wie in einem Register. */}
+      <p className="flex gap-3 text-sm sm:flex-col sm:gap-1">
+        <span className="tabular text-base font-bold">
+          {formatDate(hit.begin_date)}
+        </span>
+        <span
+          className="font-bold text-muted-foreground"
+          title={hit.body_name ?? undefined}
+        >
+          {bodyTile(hit)}
+        </span>
+      </p>
+      <div className="flex min-w-0 flex-col gap-2">
         <p className="tabular text-sm text-muted-foreground">
           {meta.filter(Boolean).join(" · ")}
         </p>
-        <h2 className="text-lg leading-snug font-semibold text-balance sm:text-xl">
-          {/* Die ganze Karte ist der Link (::after deckt sie ab); die Themen liegen darüber. */}
+        <h2 className="text-lg leading-snug font-bold text-balance group-hover:text-primary sm:text-xl">
+          {/* Die ganze Zeile ist der Link (::after deckt sie ab); die Themen liegen darüber. */}
           <Link
             to={`/geschaefte/${hit.affair_id}`}
             state={{ search }}
-            className="outline-none after:absolute after:inset-0 after:rounded-clay focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring"
+            className="outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring"
           >
             {title}
           </Link>
@@ -136,10 +146,9 @@ function Hit({ hit, params }: { hit: SearchHit; params: URLSearchParams }) {
                   to={{
                     search: `?${withParam(params, "thema", topic.tag_id)}`,
                   }}
-                  className="inline-flex min-h-8 items-center gap-2 rounded-full bg-muted px-3 text-sm shadow-clay-pressed transition-colors hover:bg-secondary"
+                  className="inline-flex min-h-8 items-center border border-foreground px-2.5 text-sm transition-colors hover:bg-foreground hover:text-background"
                 >
                   {topic.name_de}
-                  <Confidence value={topic.confidence} />
                 </Link>
               </li>
             ))}
@@ -149,13 +158,6 @@ function Hit({ hit, params }: { hit: SearchHit; params: URLSearchParams }) {
           </ul>
         )}
       </div>
-      <span
-        aria-hidden
-        title={hit.body_name ?? undefined}
-        className="hidden size-14 shrink-0 items-center justify-center rounded-2xl bg-muted text-xs font-bold tracking-tight shadow-clay-pressed sm:flex"
-      >
-        {bodyTile(hit)}
-      </span>
     </li>
   )
 }
@@ -175,7 +177,7 @@ function TopicChip({
     <Link
       to={{ search: `?${withParam(params, "thema", null)}` }}
       aria-label={`Filter Thema ${name} entfernen`}
-      className="inline-flex min-h-9 items-center gap-2 self-start rounded-full bg-card px-4 text-sm font-medium shadow-clay transition-shadow hover:shadow-clay-raised"
+      className="inline-flex min-h-10 items-center gap-2 self-start bg-foreground px-4 text-sm font-bold text-background transition-colors hover:bg-primary"
     >
       Thema: {name}
       <span aria-hidden className="text-base leading-none">
@@ -215,10 +217,7 @@ function Filters({
       ),
   })).filter((group) => group.bodies.length > 0)
   return (
-    <div
-      id="filter"
-      className="grid gap-6 rounded-clay bg-card p-6 shadow-clay sm:grid-cols-2"
-    >
+    <div id="filter" className="grid gap-6 bg-muted p-6 sm:grid-cols-2">
       <Field label="Ebene">
         <Segmented
           label="Ebene"
@@ -245,7 +244,7 @@ function Filters({
           onChange={(event) =>
             onChange("parlament", event.target.value || null)
           }
-          className="h-11 rounded-full border border-input bg-muted px-4 text-sm shadow-clay-pressed"
+          className="h-11 border border-input bg-background px-3 text-sm"
         >
           <option value="">Alle Parlamente</option>
           {groups.map((group) => (
@@ -311,9 +310,9 @@ function Results({
   if (found.loading) {
     return (
       <div className="flex flex-col gap-4" aria-busy>
-        <Skeleton className="h-32 rounded-clay" />
-        <Skeleton className="h-32 rounded-clay" />
-        <Skeleton className="h-32 rounded-clay" />
+        <Skeleton className="h-24" />
+        <Skeleton className="h-24" />
+        <Skeleton className="h-24" />
       </div>
     )
   }
@@ -340,7 +339,7 @@ function Results({
           Filter.
         </p>
       ) : (
-        <ol className="flex flex-col gap-4">
+        <ol className="border-y-2 border-foreground">
           {items.map((hit) => (
             <Hit key={hit.affair_id} hit={hit} params={params} />
           ))}
@@ -402,13 +401,13 @@ export function HomePage() {
 
   return (
     <>
-      <section className="flex flex-col gap-6 pt-4 pb-2 sm:pt-10">
-        <h1 className="font-heading text-[clamp(2.5rem,7vw,5rem)] leading-[0.95] font-bold tracking-[-0.035em]">
+      <section className="flex flex-col gap-6 pt-2 pb-2 sm:pt-6">
+        <h1 className="font-heading text-[clamp(3rem,9vw,6.5rem)] leading-[0.9] font-bold tracking-[-0.04em]">
           Geschäfte finden
         </h1>
-        <p className="max-w-[46ch] text-lg leading-relaxed sm:text-xl">
-          In allen Parlamenten von Bund, Kantonen und Gemeinden. Jedes Thema
-          zeigt die Textstelle, die es begründet.
+        <p className="max-w-[44ch] text-lg leading-relaxed sm:text-xl">
+          Alle Geschäfte aus den Parlamenten von Bund, Kantonen und Gemeinden,
+          nach Themen geordnet.
         </p>
         <SearchForm key={typed} initial={typed} />
         {typed.length === 1 && (

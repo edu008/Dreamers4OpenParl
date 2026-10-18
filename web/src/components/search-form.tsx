@@ -31,9 +31,9 @@ export function SearchForm({ initial = "" }: { initial?: string }) {
         placeholder="Stichwort, zum Beispiel Velowege oder Datenschutz"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        className="h-14 flex-1 px-6 text-lg"
+        className="h-14 flex-1 border-2 px-4 text-lg md:text-lg"
       />
-      <Button type="submit" size="lg" className="h-14 px-8 text-base">
+      <Button type="submit" size="lg" className="h-14 px-10 text-base">
         Suchen
       </Button>
     </form>

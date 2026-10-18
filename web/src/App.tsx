@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router"
 import { Layout } from "@/components/layout"
 import { HomePage } from "@/pages/home"
 import { AffairPage } from "@/pages/affair"
+import { AffairFactsPage } from "@/pages/affair-facts"
 import { AdminPage } from "@/pages/admin"
 import { ReviewPage } from "@/pages/review"
 import { GraphPage } from "@/pages/graph"
@@ -19,10 +20,7 @@ export function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
-        <Route
-          path="geschaefte/:affairId"
-          element={<AffairPage mode="public" />}
-        />
+        <Route path="geschaefte/:affairId" element={<AffairFactsPage />} />
         <Route path="hilfe" element={<HelpPage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="admin/review" element={<ReviewPage />} />
