@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 """
 
 
-def connect(database_url: str) -> psycopg.Connection:
-    return psycopg.connect(database_url)
+def connect(database_url: str, *, autocommit: bool = False) -> psycopg.Connection:
+    return psycopg.connect(database_url, autocommit=autocommit)
 
 
 def migration_files(migrations_dir: Path) -> list[Path]:

@@ -1,8 +1,16 @@
 name: CI
 
 on:
+  # Branches laufen über ihren Pull Request, main nach dem Merge; so läuft nichts doppelt.
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+# Ein neuer Push bricht den älteren Lauf desselben PRs ab; auf main läuft jeder Lauf zu Ende.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -10,7 +18,7 @@ permissions:
 jobs:
   python:
     name: Lint und Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -35,7 +43,7 @@ jobs:
 
   web:
     name: Web-App
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: web
@@ -55,7 +63,7 @@ jobs:
 
   diagrams:
     name: Diagramme aktuell
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -67,7 +75,7 @@ jobs:
 
   offline:
     name: Air-Gap-Bundle und Offline-Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [python, web]
     steps:
       - uses: actions/checkout@v7
@@ -79,9 +87,12 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - name: Offline-Test (Image aus Wheels und web/dist, internes Docker-Netz)
         run: make offline-test
+      # Das 1.4-GB-Bundle nur auf main bauen; im PR reicht der Offline-Test.
       - name: Bundle bauen
+        if: github.ref == 'refs/heads/main'
         run: make bundle
       - name: Bundle einspielen
+        if: github.ref == 'refs/heads/main'
         run: |
           tar -C "$RUNNER_TEMP" -xf dist/parltopics-bundle-*.tar
           cd "$RUNNER_TEMP"/parltopics-bundle-*/

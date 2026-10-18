@@ -22,7 +22,7 @@
 - Datenmodell: Migration `0002_wiki_skos.sql` mit sieben neuen Tabellen (10.1, Anhang C).
 - Neu: Anhang F „Forschungsbezug“; Diagramme 09 und 10 (Anhang E).
 - Begriff: „Hierarchiestufe“ meint Bereich, Kapitel und Thema. „Ebene“ bleibt Bund, Kanton und Gemeinde.
-- Abweichungen vom Konzepttext, weil das PRD oder ein Entscheid vom 18.10.2026 gilt: Die Registry bleibt `registry/tags.yaml` statt `tags.md` (ADR 0001). Im Air-Gap-Betrieb bleibt ein interner Endpunkt statt Keera vorgesehen (10.3). Geschäftsseiten gibt es nur in der Web-App, nicht als Markdown-Datei (F14). Die Web-App ist eine React-SPA statt serverseitig gerendert. Alle Ad-hoc-Tags sind Querschnittsseiten unter Heart, auch mit nur einem `broader` (7.9, offene Frage 15).
+- Abweichungen vom Konzepttext, weil das PRD oder ein Entscheid vom 18.10.2026 gilt: Die Registry bleibt `registry/tags.yaml` statt `tags.md` (ADR 0001). Im Air-Gap-Betrieb bleibt ein interner Endpunkt statt Keera vorgesehen (10.3). Geschäftsseiten gibt es nur in der Web-App, nicht als Markdown-Datei (F14). Die Web-App ist eine React-SPA statt serverseitig gerendert. Alle Ad-hoc-Tags sind Querschnittsseiten unter Heart, auch mit nur einem `broader` (7.9, offene Frage 17).
 
 **Änderungen in 0.3**
 
@@ -317,7 +317,7 @@ HEART.md                                             Wurzel: Gesamtüberblick, v
 ```
 
 - **Seiten-ID und Dateiname:** Die Seiten-ID ist die `tag_id`, die Wurzel heisst `heart`. Der Dateiname enthält die Tag-ID und bei APS den festen `slug` aus der Registry (7.2); Ad-hoc-Tags tragen den Namen schon in der ID. Ändert sich der Name eines Tags, bleiben Datei und Links gültig. Zusammengelegte oder zurückgezogene Tags erhalten eine Weiterleitungsseite.
-- **Querschnittsthemen:** Alle Ad-hoc-Tags hängen direkt unter Heart, auch solche mit nur einem `broader`; so bleibt ihr Dateiname gleich, wenn ein weiteres `broader` dazukommt. Das verallgemeinert das Konzept, das Querschnittsthemen für Ad-hoc-Tags über mehrere Kapitel vorsieht (offene Frage 15). Ihre `broader` (APS-Kapitel oder -Themen) bestimmen, welche Seiten sie verlinken; sie haben also mehrere Eltern. Diese Seiten verlinken sie, fassen sie aber nicht mit zusammen, damit Heart nichts doppelt zählt.
+- **Querschnittsthemen:** Alle Ad-hoc-Tags hängen direkt unter Heart, auch solche mit nur einem `broader`; so bleibt ihr Dateiname gleich, wenn ein weiteres `broader` dazukommt. Das verallgemeinert das Konzept, das Querschnittsthemen für Ad-hoc-Tags über mehrere Kapitel vorsieht (offene Frage 17). Ihre `broader` (APS-Kapitel oder -Themen) bestimmen, welche Seiten sie verlinken; sie haben also mehrere Eltern. Diese Seiten verlinken sie, fassen sie aber nicht mit zusammen, damit Heart nichts doppelt zählt.
 - **Geschäfte** stehen auf den Tag-Seiten, nicht auf Heart oder den Eltern-Seiten. Geschäftsseiten gibt es nur in der Web-App (7.5).
 
 **Inhalt einer Tag-Seite**
@@ -551,15 +551,17 @@ Der Umfang dieses PRD bleibt vollständig. Er wird in drei Phasen umgesetzt, der
 5. Mapping APS-Themen ↔ Curia-Vista-Sachbereiche: wer prüft den Entwurf (Vorschlag: Apertus 70B erzeugt ihn, eine Person aus dem Team prüft und friert ihn ein)? Das Mapping steht seit 0.4 in der Registry (7.2).
 6. Gold-Set: Umfang der manuellen Prüfung im Hack (Vorschlag: 100 Digitalisierung, 100 APS), wer labelt?
 7. OpenParlData: Nutzungsbedingungen, gewünschtes Exportformat, Übergabe (Datei, Repo, API), Interesse an Stufe 3.
-8. Regel „erstes Dokument“ für Kantone/Gemeinden: Auswahl nach `parent_type = affair`, ältestem Datum, `category_harmonized`?
+8. ~~Regel „erstes Dokument“ für Kantone/Gemeinden~~ Entschieden (18.10.2026): das älteste Dokument mit Text (`parent_type = affair`, kleinstes `doc_date`, bei Gleichstand kleinste `id`). Betrifft 126'719 Geschäfte mit mehreren Dokumenten.
 9. Veröffentlichung der Hack-Ergebnisse (Instanz, Lizenz der Labels).
 10. Teamname und Rollen für README und technischen Bericht.
-11. Werte der Schwellen für Seiten (Start: Tag-Seite ab 5 Geschäften, Eltern-Seite ab 1 geänderten Unterseite, sonst wöchentlich) und der Eingabegrenzen (7.9).
-12. Werden Heart- und Bereichs-Zusammenfassungen vor der Veröffentlichung von einer Person geprüft? Das Feld `review_status` in `wiki_pages` ist dafür vorbereitet.
-13. Endgültiger Name der Wurzelseite („Heart“).
-14. Passt ein später trainierter Klassifikator nach TnT-LLM (Phase 3) zum Nicht-Ziel „Kein Training“ (3)? Die Challenge verlangt, dass Ad-hoc-Themen ohne neues Training dazukommen ([CHALLENGE.md](CHALLENGE.md)); ein solcher Klassifikator käme deshalb nur für das feste APS-Schema in Frage.
-15. Sollen Ad-hoc-Tags mit nur einem `broader` (z. B. `adhoc:ki-verwaltung` unter `aps:6.1.9`) als Unterseite dieses Tags erscheinen statt als Querschnitt unter Heart? Im Moment hängen alle Ad-hoc-Tags unter Heart, damit ihr Dateiname gleich bleibt, wenn ein weiteres `broader` dazukommt.
-16. Welche APS-Kapitel oder -Themen bekommt `adhoc:digitalisierung-breit` als `broader` (Vorschlag: `aps:6.1.9` Digitalisierung und `aps:4.4.4` Digitale Medien)? Das entscheidet ein Mensch im Review (7.2).
+11. „Laufende Geschäfte“ (F12, DVS-Liste): Der harmonisierte Status ist nur bei 278 von 326'396 Geschäften gefüllt, `end_date` bei 18 %. Wie wird „laufend“ bestimmt (Status-Texte je Parlament, Enddatum, Datum der letzten Aktivität)? Bis dahin bleiben Status und Enddatum nur in `raw`.
+12. Dokumente ohne Geschäft (News, Traktanden, Sitzungen; 290'039 Dokumente, 3.6 GB) bleiben in `affair_docs` und sollen ebenfalls klassifiziert werden (Entscheid 18.10.2026). Offen: wie, denn Jobs und Labels hängen heute an `affair_id`.
+13. Werte der Schwellen für Seiten (Start: Tag-Seite ab 5 Geschäften, Eltern-Seite ab 1 geänderten Unterseite, sonst wöchentlich) und der Eingabegrenzen (7.9).
+14. Werden Heart- und Bereichs-Zusammenfassungen vor der Veröffentlichung von einer Person geprüft? Das Feld `review_status` in `wiki_pages` ist dafür vorbereitet.
+15. Endgültiger Name der Wurzelseite („Heart“).
+16. Passt ein später trainierter Klassifikator nach TnT-LLM (Phase 3) zum Nicht-Ziel „Kein Training“ (3)? Die Challenge verlangt, dass Ad-hoc-Themen ohne neues Training dazukommen ([CHALLENGE.md](CHALLENGE.md)); ein solcher Klassifikator käme deshalb nur für das feste APS-Schema in Frage.
+17. Sollen Ad-hoc-Tags mit nur einem `broader` (z. B. `adhoc:ki-verwaltung` unter `aps:6.1.9`) als Unterseite dieses Tags erscheinen statt als Querschnitt unter Heart? Im Moment hängen alle Ad-hoc-Tags unter Heart, damit ihr Dateiname gleich bleibt, wenn ein weiteres `broader` dazukommt.
+18. Welche APS-Kapitel oder -Themen bekommt `adhoc:digitalisierung-breit` als `broader` (Vorschlag: `aps:6.1.9` Digitalisierung und `aps:4.4.4` Digitale Medien)? Das entscheidet ein Mensch im Review (7.2).
 
 ## 16. Meilensteine
 
