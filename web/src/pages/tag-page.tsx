@@ -4,7 +4,6 @@ import { Link, useParams } from "react-router"
 import { AffairTable } from "@/components/affair-table"
 import { PageRow } from "@/components/page-tree"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -96,17 +95,11 @@ export function TagPage() {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{KIND_LABEL[page.kind]}</Badge>
-          <span className="font-mono text-xs text-muted-foreground">
-            {page.page_id}
-          </span>
-        </div>
-        <h1 className="font-heading text-2xl font-medium">{page.title}</h1>
-        <p className="font-mono text-xs text-muted-foreground">
-          wiki/{page.path}
-        </p>
+      <div className="flex flex-col gap-1">
+        <p className="text-xs text-muted-foreground">{KIND_LABEL[page.kind]}</p>
+        <h1 className="font-reading text-2xl leading-tight font-semibold text-balance">
+          {page.title}
+        </h1>
       </div>
       {sampleRows.length > 0 && (
         <section aria-labelledby="affairs-heading" className="flex flex-col gap-2">
