@@ -1,36 +1,38 @@
-import { reviewReasons } from "@/lib/label-state"
 import { reviewKey, type ReviewEntry, type ReviewMap } from "@/lib/review"
-import {
-  SAMPLE_AFFAIRS,
-  type AffairLabel,
-  type AffairRecord,
-} from "@/lib/sample-affairs"
 
-export interface QueueRow {
-  affair: AffairRecord
-  label: AffairLabel
+/** Ein Label mit Prüfbedarf, wie es die Sidecar-API liefert. */
+export interface ReviewCandidate {
+  affairId: string
+  number: string | null
+  title: string
+  body: string | null
+  tagId: string
+  labelName: string
+  confidence: number
   reasons: string[]
+}
+
+export interface QueueRow extends ReviewCandidate {
   entry: ReviewEntry | undefined
 }
 
 /**
- * Labels mit Prüfbedarf, die unsichersten zuerst. Entschiedene Labels bleiben in der Liste und
- * rücken ans Ende, damit man sieht, was schon erledigt ist.
+ * Kandidaten mit den lokalen Entscheiden. Entschiedene Labels bleiben in der Liste und rücken
+ * ans Ende; die Reihenfolge ist sonst nach Konfidenz aufsteigend.
  */
-export function buildQueue(decisions: ReviewMap): QueueRow[] {
-  return SAMPLE_AFFAIRS.flatMap((affair) =>
-    affair.labels.map((label) => ({
-      affair,
-      label,
-      reasons: reviewReasons(affair, label),
-      entry: decisions[reviewKey(affair.id, label.tagId)],
+export function buildQueue(
+  candidates: ReviewCandidate[],
+  decisions: ReviewMap
+): QueueRow[] {
+  return candidates
+    .map((candidate) => ({
+      ...candidate,
+      entry: decisions[reviewKey(candidate.affairId, candidate.tagId)],
     }))
-  )
-    .filter((row) => row.reasons.length > 0 || row.entry)
     .sort(
       (a, b) =>
         Number(Boolean(a.entry)) - Number(Boolean(b.entry)) ||
-        a.label.confidence - b.label.confidence
+        a.confidence - b.confidence
     )
 }
 
@@ -43,5 +45,5 @@ export function nextOpenRow(
   rows: QueueRow[],
   currentAffairId: string
 ): QueueRow | undefined {
-  return openRows(rows).find((row) => row.affair.id !== currentAffairId)
+  return openRows(rows).find((row) => row.affairId !== currentAffairId)
 }

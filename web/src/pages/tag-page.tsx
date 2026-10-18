@@ -1,8 +1,8 @@
 import { Fragment } from "react"
 import { Link, useParams } from "react-router"
 
-import { AffairTable } from "@/components/affair-table"
 import { PageRow } from "@/components/page-tree"
+import { TopicAffairs } from "@/components/topic-affairs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Breadcrumb,
@@ -22,7 +22,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
 import type { PageTree, WikiPage } from "@/lib/api"
-import { sampleRowsForPage } from "@/lib/sample-affairs"
 import {
   ancestorsOf,
   childrenOf,
@@ -74,8 +73,6 @@ export function TagPage() {
       ? pages.filter((other) => page.linked_from.includes(other.page_id))
       : linkedQuerschnitt(pages, page.page_id)
 
-  const sampleRows = sampleRowsForPage(page.page_id)
-
   return (
     <>
       <Breadcrumb>
@@ -101,21 +98,7 @@ export function TagPage() {
           {page.title}
         </h1>
       </div>
-      {sampleRows.length > 0 && (
-        <section
-          aria-labelledby="affairs-heading"
-          className="flex flex-col gap-2"
-        >
-          <h2 id="affairs-heading" className="font-heading text-lg font-medium">
-            Geschäfte
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Beispieldaten, nicht aus OpenParlData. Die echte Liste kommt aus der
-            API, sobald Labels vorliegen.
-          </p>
-          <AffairTable rows={sampleRows} />
-        </section>
-      )}
+      <TopicAffairs page={page} />
       <Alert>
         <AlertTitle>Inhalt folgt in Meilenstein M3</AlertTitle>
         <AlertDescription>
