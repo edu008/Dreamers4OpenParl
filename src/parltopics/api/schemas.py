@@ -147,6 +147,8 @@ class AffairHead(BaseModel):
 
 
 class TopicAffair(AffairHead):
+    tag_id: str = Field(examples=["aps:6.1.9"])
+    name_de: str = Field(examples=["Digitalisierung"])
     confidence: float = Field(ge=0, le=1)
     evidence: str | None
     evidence_verified: bool
@@ -157,7 +159,9 @@ class TopicAffairs(BaseModel):
     total: int = Field(description="Treffer insgesamt, unabhängig von limit und offset")
     limit: int
     offset: int
-    items: list[TopicAffair] = Field(description="nach Konfidenz, dann neueste zuerst")
+    items: list[TopicAffair] = Field(
+        description="nach Konfidenz, dann neueste zuerst; eine Zeile je Geschäft und Thema"
+    )
 
 
 class ReviewItem(AffairHead):

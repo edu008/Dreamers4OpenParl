@@ -245,9 +245,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         offset: Annotated[int, Query(ge=0)] = 0,
     ) -> TopicAffairs:
         """Geschäfte mit aktivem Label, nach Konfidenz und dann neueste zuerst, seitenweise."""
-        found = queries.topic_affairs(
+        if not queries.tag_exists(conn, tag_id):
+            raise HTTPException(404, f"Thema {tag_id} unbekannt")
+        total, items = queries.topic_affairs(
             conn,
-            tag_id,
+            [tag_id],
             body_key=body_key,
             date_from=date_from,
             date_to=date_to,
@@ -255,9 +257,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             limit=limit,
             offset=offset,
         )
-        if found is None:
-            raise HTTPException(404, f"Thema {tag_id} unbekannt")
-        total, items = found
         return TopicAffairs(total=total, limit=limit, offset=offset, items=items)
 
     @api.get(
@@ -355,6 +354,58 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             children=[page_out(child, lang) for child in children(tree, page_id)],
             linked=[page_out(other, lang) for other in linked],
         )
+
+    @api.get(
+        "/pages/{page_id}/affairs",
+        tags=["Seiten"],
+        summary="Geschäfte einer Seite und ihrer Unterseiten",
+        responses={
+            404: {"description": "Seite unbekannt"},
+            503: {"description": "Registry nicht lesbar oder Datenbank nicht erreichbar"},
+        },
+    )
+    def page_affairs(
+        page_id: str,
+        conn: Conn,
+        body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
+        level: Annotated[
+            Literal["country", "canton", "city", "municipality"] | None,
+            Query(description="Ebene des Parlaments"),
+        ] = None,
+        affair_type: Annotated[
+            str | None, Query(alias="type", description="harmonisierter Typ, z. B. Motion")
+        ] = None,
+        date_from: Annotated[date | None, Query(alias="from", description="ab Datum")] = None,
+        date_to: Annotated[date | None, Query(alias="to", description="bis Datum")] = None,
+        min_confidence: Annotated[float, Query(ge=0, le=1)] = 0.0,
+        limit: Annotated[int, Query(ge=1, le=500)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> TopicAffairs:
+        """Geschäfte mit aktivem Label auf dieser Seite oder einer Seite darunter: auf einer
+        Tag- oder Querschnittsseite die ihres Tags, auf Kapitel, Bereich und Heart die aller
+        Unterseiten. Eine Zeile je Geschäft und Thema: Ein Geschäft mit zwei Themen eines
+        Kapitels erscheint zweimal. Verlinkte Querschnittsseiten zählen nicht dazu."""
+        _, tree = load()
+        if page_id not in tree:
+            raise HTTPException(404, f"Seite {page_id} gibt es nicht")
+        tag_ids = [
+            page.tag_id
+            for page in tree.values()
+            if page.tag_id and (page.page_id == page_id or page_id in ancestors(tree, page.page_id))
+        ]
+        total, items = queries.topic_affairs(
+            conn,
+            tag_ids,
+            body_key=body_key,
+            level=level,
+            affair_type=affair_type,
+            date_from=date_from,
+            date_to=date_to,
+            min_confidence=min_confidence,
+            limit=limit,
+            offset=offset,
+        )
+        return TopicAffairs(total=total, limit=limit, offset=offset, items=items)
 
     app.include_router(api)
 

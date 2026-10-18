@@ -41,17 +41,20 @@ WHERE %(scheme)s::text IS NULL OR t.scheme = %(scheme)s::text
 GROUP BY t.tag_id
 """
 TOPIC_FILTER = """
-FROM affair_tags l JOIN affairs a ON a.id = l.affair_id
+FROM affair_tags l JOIN affairs a ON a.id = l.affair_id JOIN tags t ON t.tag_id = l.tag_id
 LEFT JOIN bodies b ON b.body_key = a.body_key
-WHERE l.tag_id = %(tag_id)s AND l.status = 'active' AND l.confidence >= %(min_confidence)s
+WHERE l.tag_id = ANY(%(tag_ids)s) AND l.status = 'active' AND l.confidence >= %(min_confidence)s
   AND (%(body_key)s::text IS NULL OR a.body_key = %(body_key)s::text)
+  AND (%(level)s::text IS NULL OR b.level = %(level)s::text)
+  AND (%(type)s::text IS NULL OR a.type_harmonized_en = %(type)s::text)
   AND (%(date_from)s::date IS NULL OR a.begin_date >= %(date_from)s::date)
   AND (%(date_to)s::date IS NULL OR a.begin_date <= %(date_to)s::date)
 """
 TOPIC_AFFAIRS = f"""
-SELECT {AFFAIR_HEAD}, l.confidence, l.evidence, l.evidence_verified, l.stage
+SELECT {AFFAIR_HEAD}, l.tag_id, t.name_de, l.confidence, l.evidence, l.evidence_verified,
+       l.stage
 {TOPIC_FILTER}
-ORDER BY l.confidence DESC, a.begin_date DESC NULLS LAST, a.id DESC
+ORDER BY l.confidence DESC, a.begin_date DESC NULLS LAST, a.id DESC, l.id DESC
 LIMIT %(limit)s OFFSET %(offset)s
 """
 # Warteschlange: dieselben Gründe wie in der Web-App (web/src/lib/label-state.ts) und die
@@ -96,9 +99,13 @@ def topics(conn: psycopg.Connection, scheme: str | None) -> list[dict]:
     return sorted(rows, key=lambda row: sort_key(row["tag_id"]))
 
 
+def tag_exists(conn: psycopg.Connection, tag_id: str) -> bool:
+    return conn.execute("SELECT 1 FROM tags WHERE tag_id = %s", (tag_id,)).fetchone() is not None
+
+
 def topic_affairs(
     conn: psycopg.Connection,
-    tag_id: str,
+    tag_ids: list[str],
     *,
     body_key: str | None,
     date_from: date | None,
@@ -106,14 +113,17 @@ def topic_affairs(
     min_confidence: float,
     limit: int,
     offset: int,
-) -> tuple[int, list[dict]] | None:
-    """Geschäfte mit aktivem Label: (Treffer insgesamt, eine Seite); None bei unbekanntem Tag."""
+    level: str | None = None,
+    affair_type: str | None = None,
+) -> tuple[int, list[dict]]:
+    """Geschäfte mit aktivem Label eines der Tags, eine Zeile je Geschäft und Tag:
+    (Treffer insgesamt, eine Seite)."""
     cursor = conn.cursor(row_factory=dict_row)
-    if cursor.execute("SELECT 1 FROM tags WHERE tag_id = %s", (tag_id,)).fetchone() is None:
-        return None
     params = {
-        "tag_id": tag_id,
+        "tag_ids": tag_ids,
         "body_key": body_key,
+        "level": level,
+        "type": affair_type,
         "date_from": date_from,
         "date_to": date_to,
         "min_confidence": min_confidence,

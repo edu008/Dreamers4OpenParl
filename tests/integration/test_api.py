@@ -82,3 +82,44 @@ def test_endpoints_read_labels_topics_and_jobs(conn, repo_root, api_settings):
         assert client.get(path, params={"min_confidence": 0.9}).json()["total"] == 0
         assert client.get(path, params={"to": "2025-12-31"}).json()["total"] == 0
         assert client.get("/v1/topics/aps:9.9/affairs").status_code == 404
+
+
+def test_page_affairs_cover_the_subtree_of_a_page(conn, repo_root, api_settings):
+    migrate(conn, repo_root / "migrations")
+    sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
+    seed(conn)  # 70435 (Motion, CHE): aktiv aps:6.1.9
+    conn.execute(
+        "INSERT INTO affairs (id, body_key, title_de, type_harmonized_en, raw)"
+        " VALUES (70436, 'CHE', 'Arbeitsmarkt', 'Postulate', '{}')"
+    )
+    label = (
+        "INSERT INTO affair_tags (affair_id, tag_id, scheme, confidence, task, stage,"
+        " model_version, prompt_version, registry_version, input_hash)"
+        " VALUES (%s, %s, split_part(%s, ':', 1), %s, 'classify:aps', '8b', 'm', 'p', 'v', 'h')"
+    )
+    conn.execute(label, (70435, "adhoc:digitalisierung-breit", "adhoc:digitalisierung-breit", 0.7))
+    conn.execute(label, (70436, "aps:2.4.1", "aps:2.4.1", 0.9))
+
+    def rows(page_id, **params):
+        found = client.get(f"/v1/pages/{page_id}/affairs", params=params).json()
+        return found["total"], [(item["affair_id"], item["tag_id"]) for item in found["items"]]
+
+    with TestClient(create_app(api_settings)) as client:
+        assert rows("aps:6.1.9") == (1, [(70435, "aps:6.1.9")])
+        # Kapitel und Bereich: alle Unterseiten; die verlinkte Querschnittsseite zählt nicht dazu.
+        assert rows("aps:6.1") == rows("aps:6") == (1, [(70435, "aps:6.1.9")])
+        assert rows("adhoc:digitalisierung-breit") == (1, [(70435, "adhoc:digitalisierung-breit")])
+        everything = [
+            (70436, "aps:2.4.1"),
+            (70435, "aps:6.1.9"),
+            (70435, "adhoc:digitalisierung-breit"),
+        ]
+        assert rows("heart") == (3, everything)
+        assert rows("heart", type="Postulate") == (1, [(70436, "aps:2.4.1")])
+        assert rows("heart", level="country")[0] == 3
+        assert rows("heart", level="canton")[0] == 0
+        assert rows("heart", min_confidence=0.8, limit=1) == (2, [(70436, "aps:2.4.1")])
+        item = client.get("/v1/pages/aps:2/affairs").json()["items"][0]
+        assert (item["name_de"], item["body_name"]) == ("Arbeitsmarkt", "Schweiz")
+        assert client.get("/v1/pages/aps:9/affairs").status_code == 404
+        assert client.get("/v1/pages/heart/affairs", params={"level": "x"}).status_code == 422
