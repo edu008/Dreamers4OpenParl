@@ -48,9 +48,15 @@ class JobCounts(BaseModel):
     total: int = 0
 
 
-class TopicRef(BaseModel):
+class HitTopic(BaseModel):
+    """Ein aktives Thema eines Suchtreffers mit seinem Beleg (wie HitTopic in der Web-App)."""
+
     tag_id: str = Field(examples=["aps:6.1.9"])
     name_de: str = Field(examples=["Digitalisierung"])
+    confidence: float = Field(ge=0, le=1)
+    evidence: str | None
+    evidence_verified: bool
+    stage: Stage
 
 
 class RunOut(BaseModel):
@@ -219,7 +225,7 @@ class SearchHit(AffairHead):
         " nur die Treffer stehen in <mark>",
         examples=["Der Bundesrat soll die Verwaltung <mark>digitalisieren</mark>."],
     )
-    topics: list[TopicRef] = Field(description="aktive Themen, höchste Konfidenz zuerst")
+    topics: list[HitTopic] = Field(description="aktive Themen, höchste Konfidenz zuerst")
 
 
 class SearchResult(BaseModel):

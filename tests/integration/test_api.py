@@ -209,7 +209,12 @@ def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
         assert (first["affair_id"], second["affair_id"]) == (70435, 80003)  # Titel vor Text
         assert first["rank"] > second["rank"]
         assert "<mark>digitalisieren</mark>" in first["headline"]
-        assert [topic["tag_id"] for topic in first["topics"]] == ["aps:6.1.9"]
+        (topic,) = first["topics"]
+        assert (topic["tag_id"], topic["confidence"], topic["stage"]) == ("aps:6.1.9", 0.86, "70b")
+        assert (topic["evidence"], topic["evidence_verified"]) == (
+            "die Verwaltung digitalisieren",
+            True,
+        )
         assert second["topics"] == []
 
         french = client.get("/v1/search", params={"q": "numériser"}).json()["items"]
