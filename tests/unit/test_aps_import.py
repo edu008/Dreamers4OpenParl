@@ -3,7 +3,7 @@ from pathlib import Path
 from openpyxl import Workbook
 
 from parltopics.registry import load_registry
-from parltopics.registry.aps_import import aps_slug, import_aps
+from parltopics.registry.aps_import import aps_slug, import_aps, refresh_descriptions
 
 
 def _xlsx(path: Path) -> None:
@@ -44,6 +44,34 @@ def test_import_aps_keeps_adhoc_and_is_idempotent(tmp_path: Path) -> None:
     assert topic.pref_label.fr == "Identité"
     assert registry.get("aps:1").broader == []
     assert registry.get("aps:1").definition.de.endswith("Umfasst: Grundfragen.")
+    assert import_aps(xlsx, registry_file) == (3, version)
+
+
+def test_descriptions_add_definition_and_synonyms_on_import_and_refresh(tmp_path: Path) -> None:
+    xlsx = tmp_path / "aps.xlsx"
+    _xlsx(xlsx)
+    registry_file = tmp_path / "tags.yaml"
+    registry_file.write_text(
+        "registry_version: '2026-10-18.1'\n"
+        "schemes:\n  aps: {label: APS, source: x, fixed: true}\n"
+        "  adhoc: {label: Ad hoc, source: x, fixed: false}\ntags: []\n",
+        encoding="utf-8",
+    )
+    _, plain = import_aps(xlsx, registry_file)
+    (tmp_path / "aps_descriptions.yaml").write_text(
+        "aps:1.1: {de: Grundsätze des Staates.}\n"
+        "aps:1.1.1:\n  de: Selbstverständnis der Schweiz.\n"
+        "  alt: {de: [Nationalfeiertag], fr: [fête nationale], it: []}\n",
+        encoding="utf-8",
+    )
+    count, version = refresh_descriptions(registry_file)
+    registry = load_registry(registry_file)
+    assert (count, version != plain) == (3, True)
+    assert registry.get("aps:1.1").definition.de == "Grundsätze des Staates. Umfasst: Identität."
+    topic = registry.get("aps:1.1.1")
+    assert topic.definition.de == "Selbstverständnis der Schweiz."
+    assert topic.alt_labels.all() == ["Nationalfeiertag", "fête nationale"]
+    assert refresh_descriptions(registry_file) == (3, version)
     assert import_aps(xlsx, registry_file) == (3, version)
 
 
