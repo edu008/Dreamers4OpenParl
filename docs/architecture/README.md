@@ -21,6 +21,6 @@ Die Inhalte sind deutsch. Die Bedienelemente des Viewers (Legend, Export, Route,
 
 1. Quelle in `src/<name>.json` anpassen. Schema und Beispiele: `.claude/skills/archify/schemas/` und `.claude/skills/archify/examples/`. In Claude Code steht dafür der Skill `archify` bereit.
 2. `make diagrams` baut alle Diagramme mit `archify finalize` (Schema, Layout, Browser-Check) und aktualisiert `manifest.json`. Findet Archify keinen Browser, zeigt `ARCHIFY_CHROME` auf Chrome oder Chromium.
-3. `make diagrams-check` prüft Schema und ob jede HTML-Datei zu ihrer Quelle passt. Die CI führt diesen Check bei jedem Push aus.
+3. `make diagrams-check` prüft Schema und ob jede HTML-Datei zu ihrer Quelle passt. Die CI führt diesen Check in jedem Pull Request und auf `main` aus.
 
 Ändert sich `migrations/`, erzeugt `uv run python scripts/erd_from_sql.py` die Quelle `src/07-datenmodell.json` neu; danach `make diagrams`. Tabellen, Spalten und Schlüssel entsprechen 1:1 den Migrationen. Neue Tabellen brauchen einen Platz in `LAYOUT` im Skript.
