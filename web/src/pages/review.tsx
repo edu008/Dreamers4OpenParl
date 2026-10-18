@@ -7,7 +7,7 @@ import { useReview } from "@/hooks/use-review"
 import { reviewKey } from "@/lib/review"
 import { buildQueue, type QueueRow } from "@/lib/review-queue"
 
-const HEAD = "px-3 py-2 text-left text-xs font-medium text-muted-foreground"
+const HEAD = "px-3 py-2 text-left text-xs font-semibold text-foreground"
 const ALL = "alle"
 
 function formatDate(iso: string): string {
@@ -38,7 +38,7 @@ function OpenTable({ rows }: { rows: QueueRow[] }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[34rem] border-collapse text-sm">
         <caption className="sr-only">Labels mit Prüfbedarf</caption>
-        <thead className="border-y border-foreground">
+        <thead className="border-b border-border">
           <tr>
             <th scope="col" className={HEAD}>
               Geschäft
@@ -82,7 +82,7 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[34rem] border-collapse text-sm">
         <caption className="sr-only">Entschiedene Labels</caption>
-        <thead className="border-y border-foreground">
+        <thead className="border-b border-border">
           <tr>
             <th scope="col" className={HEAD}>
               Geschäft
@@ -171,7 +171,7 @@ export function ReviewPage() {
       </div>
       <section
         aria-labelledby="queue-heading"
-        className="flex flex-col gap-3 border-t border-foreground pt-4"
+        className="flex flex-col gap-3 pt-2"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 id="queue-heading" className="font-heading text-lg font-medium">
@@ -204,7 +204,7 @@ export function ReviewPage() {
         )}
       </section>
       {done.length > 0 && (
-        <details className="border-t border-border pt-4">
+        <details className="pt-4">
           <summary className="cursor-pointer font-heading text-lg font-medium underline-offset-4 hover:underline">
             Erledigt ({done.length})
           </summary>

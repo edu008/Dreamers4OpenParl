@@ -29,7 +29,7 @@ function SortHeader({
     <th
       scope="col"
       aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
-      className="px-3 py-2 text-left text-xs font-medium text-muted-foreground"
+      className="px-3 py-2 text-left text-xs font-semibold text-foreground"
     >
       <button
         type="button"
@@ -70,15 +70,26 @@ export function AffairTable({ rows }: { rows: TopicRow[] }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[34rem] border-collapse text-sm">
         <caption className="sr-only">Geschäfte zu diesem Thema</caption>
-        <thead className="border-y border-foreground">
+        <thead className="border-b border-border">
           <tr>
-            <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+            <th
+              scope="col"
+              className="px-3 py-2 text-left text-xs font-semibold text-foreground"
+            >
               Geschäft
             </th>
-            <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+            <th
+              scope="col"
+              className="px-3 py-2 text-left text-xs font-semibold text-foreground"
+            >
               Parlament
             </th>
-            <SortHeader label="Datum" active={sortKey === "date"} dir={sortDir} onSort={() => sortBy("date")} />
+            <SortHeader
+              label="Datum"
+              active={sortKey === "date"}
+              dir={sortDir}
+              onSort={() => sortBy("date")}
+            />
             <SortHeader
               label="Konfidenz"
               active={sortKey === "confidence"}
@@ -92,7 +103,8 @@ export function AffairTable({ rows }: { rows: TopicRow[] }) {
             <tr key={affair.id} className="border-b border-border align-top">
               <td className="max-w-[26rem] px-3 py-3">
                 <p className="tabular text-xs text-muted-foreground">
-                  {affair.number} · {affair.type} · {LANGUAGE_CODE[affair.language]}
+                  {affair.number} · {affair.type} ·{" "}
+                  {LANGUAGE_CODE[affair.language]}
                 </p>
                 <Link
                   to={`/geschaefte/${affair.id}`}
@@ -103,7 +115,9 @@ export function AffairTable({ rows }: { rows: TopicRow[] }) {
                 </Link>
               </td>
               <td className="px-3 py-3 text-muted-foreground">{affair.body}</td>
-              <td className="tabular px-3 py-3 whitespace-nowrap">{formatDate(affair.date)}</td>
+              <td className="tabular px-3 py-3 whitespace-nowrap">
+                {formatDate(affair.date)}
+              </td>
               <td className="px-3 py-3 whitespace-nowrap">
                 <Confidence value={label.confidence} />
               </td>
