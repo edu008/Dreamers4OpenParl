@@ -50,9 +50,15 @@ SELECT affair_id, id, text_type, language, text FROM affair_texts
 WHERE affair_id = ANY(%s) AND text <> ''
 """
 # Das älteste Dokument mit Text; 20'000 Zeichen reichen für 6'000 nach dem Bereinigen.
+# Platzhalter aus der Quelle zählen nicht als Text (Pilotlauf 18.10.2026): fehlgeschlagene
+# Extraktion (16'056 Docs), Fedlex-Hinweis „nur mit Javascript“ (30'046) und Website-Navigation
+# (428, die ersten 20'000 Zeichen sind Menü). Dann gilt das nächste Dokument oder der Titel.
 DOCS = """
 SELECT DISTINCT ON (parent_id) parent_id, language, left(text, 20000) AS text FROM affair_docs
 WHERE parent_type = 'affair' AND parent_id = ANY(%s) AND text <> ''
+  AND text <> '[extraction_failed]'
+  AND text NOT LIKE '%%Website des Bundesrechts aufgerufen%%'
+  AND text NOT LIKE 'Aller au contenu principal%%'
 ORDER BY parent_id, doc_date NULLS LAST, id
 """
 UPSERT = """
