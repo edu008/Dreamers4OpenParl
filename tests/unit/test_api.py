@@ -75,6 +75,7 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/reviews",
         "/v1/reviews/queue",
         "/v1/pages/{page_id}/affairs",
+        "/v1/bodies",
     } <= set(paths)
     parameters = paths["/v1/topics/{tag_id}/affairs"]["get"]["parameters"]
     names = {parameter["name"] for parameter in parameters}
@@ -85,7 +86,8 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
 
 def test_database_endpoints_answer_503_without_database(tmp_path):
     client = client_for(tmp_path)
-    for path in ("/v1/jobs/summary", "/v1/topics", "/v1/affairs/1/topics", "/v1/reviews/queue"):
+    paths = ("/v1/jobs/summary", "/v1/topics", "/v1/affairs/1/topics", "/v1/reviews/queue")
+    for path in (*paths, "/v1/bodies"):
         assert client.get(path).status_code == 503
     assert client.get("/healthz").status_code == 200
 

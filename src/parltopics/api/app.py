@@ -27,6 +27,7 @@ from parltopics import __version__
 from parltopics.api import queries, reviews
 from parltopics.api.schemas import (
     AffairTopics,
+    BodyOut,
     JobCounts,
     JobsSummary,
     Lang,
@@ -195,13 +196,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         "/jobs/summary", tags=["Jobs"], summary="Jobs je Aufgabe und Status", responses=no_database
     )
     def jobs_summary(conn: Conn) -> JobsSummary:
-        """Zahl der Klassifikations-Jobs je Aufgabe und Status (F18)."""
+        """Zahl der Klassifikations-Jobs je Aufgabe und Status (F18) und die letzten Läufe."""
         tasks: dict[str, JobCounts] = {}
         for task, status, count in job_summary(conn):
             counts = tasks.setdefault(task, JobCounts(task=task))
             setattr(counts, status, count)
             counts.total += count
-        return JobsSummary(tasks=list(tasks.values()))
+        return JobsSummary(tasks=list(tasks.values()), runs=queries.runs(conn))
+
+    @api.get("/bodies", tags=["Geschäfte"], summary="Parlamente", responses=no_database)
+    def bodies(conn: Conn) -> list[BodyOut]:
+        """Parlamente mit klassifizierten Geschäften: Bund, Kantone, Städte, Gemeinden, je nach
+        Name. Für Filter (`body_key`) und Übersichten."""
+        return [BodyOut(**row) for row in queries.bodies(conn)]
 
     @api.get(
         "/affairs/{affair_id}/topics",

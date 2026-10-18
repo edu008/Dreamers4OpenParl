@@ -55,7 +55,7 @@ def test_endpoints_read_labels_topics_and_jobs(conn, repo_root, api_settings):
     seed(conn)
     with TestClient(create_app(api_settings)) as client:
         counts = {"open": 0, "pending": 0, "done": 1, "failed": 0, "total": 1}
-        expected = {"tasks": [{"task": "classify:aps", **counts}]}
+        expected = {"tasks": [{"task": "classify:aps", **counts}], "runs": []}
         assert client.get("/v1/jobs/summary").json() == expected
 
         affair = client.get("/v1/affairs/70435/topics").json()
@@ -123,3 +123,44 @@ def test_page_affairs_cover_the_subtree_of_a_page(conn, repo_root, api_settings)
         assert (item["name_de"], item["body_name"]) == ("Arbeitsmarkt", "Schweiz")
         assert client.get("/v1/pages/aps:9/affairs").status_code == 404
         assert client.get("/v1/pages/heart/affairs", params={"level": "x"}).status_code == 422
+
+
+def test_parliaments_german_types_and_recent_runs(conn, repo_root, api_settings):
+    migrate(conn, repo_root / "migrations")
+    sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
+    seed(conn)  # CHE mit einem klassifizierten Geschäft
+    conn.execute(
+        "INSERT INTO bodies (id, body_key, name, level, raw) VALUES"
+        " (2, 'ZH', 'Zürich', 'canton', '{}'), (3, 'BE', 'Bern', 'canton', '{}')"
+    )
+    conn.execute(
+        "INSERT INTO affairs (id, body_key, title_de, type_harmonized_en, raw) VALUES"
+        " (80001, 'ZH', 'Velowege', 'Postulate', '{\"type_harmonized_de\": \"Postulat\"}'),"
+        " (80002, 'BE', 'Ohne Label', 'Motion', '{}')"
+    )
+    conn.execute(
+        "INSERT INTO affair_inputs (affair_id, text, language, source, input_hash)"
+        " VALUES (80001, 'Velowege', 'de', 'texts', 'h')"
+    )
+    conn.execute(
+        "INSERT INTO affair_tags (affair_id, tag_id, scheme, confidence, task, stage,"
+        " model_version, prompt_version, registry_version, input_hash)"
+        " VALUES (80001, 'aps:6.1.9', 'aps', 0.8, 'classify:aps', '8b', 'm', 'p', 'v', 'h')"
+    )
+    conn.execute(
+        "INSERT INTO classification_runs (kind, task, registry_version, scheme_hash,"
+        " prompt_version, n_total, n_done, n_failed, n_escalated)"
+        " VALUES ('full', 'classify:aps', '2026-10-18.3', 's', 'p', 5, 4, 1, 2)"
+    )
+    with TestClient(create_app(api_settings)) as client:
+        bodies = [tuple(body.values()) for body in client.get("/v1/bodies").json()]
+        assert bodies == [("CHE", "Schweiz", "country", 1), ("ZH", "Zürich", "canton", 1)]
+
+        affair = client.get("/v1/affairs/80001/topics").json()
+        assert (affair["type"], affair["type_de"]) == ("Postulate", "Postulat")
+        assert client.get("/v1/affairs/70435/topics").json()["type_de"] is None  # raw ohne Typ
+
+        (run,) = client.get("/v1/jobs/summary").json()["runs"]
+        assert (run["kind"], run["task"], run["finished_at"]) == ("full", "classify:aps", None)
+        counts = (run["n_total"], run["n_done"], run["n_failed"], run["n_escalated"])
+        assert counts == (5, 4, 1, 2)

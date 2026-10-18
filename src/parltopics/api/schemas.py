@@ -48,8 +48,32 @@ class JobCounts(BaseModel):
     total: int = 0
 
 
+class RunOut(BaseModel):
+    """Ein Lauf der Klassifikation mit seinen Zählern."""
+
+    id: int
+    task: str = Field(examples=["classify:aps"])
+    kind: Literal["full", "daily", "adhoc", "reclassify", "eval"]
+    started_at: datetime
+    finished_at: datetime | None
+    n_total: int
+    n_done: int
+    n_failed: int
+    n_escalated: int = Field(description="an Apertus 70B weitergegeben")
+    prompt_version: str
+    registry_version: str
+
+
 class JobsSummary(BaseModel):
     tasks: list[JobCounts]
+    runs: list[RunOut] = Field(description="die letzten zehn Läufe, neuester zuerst")
+
+
+class BodyOut(BaseModel):
+    body_key: str = Field(examples=["CHE"])
+    name: str | None = Field(examples=["Schweiz"])
+    level: str | None = Field(description=LEVEL, examples=["country"])
+    n_affairs: int = Field(description="Geschäfte mit mindestens einem aktiven Label")
 
 
 class LabelOut(BaseModel):
@@ -78,15 +102,23 @@ class LabelOut(BaseModel):
     created_at: datetime
 
 
-class AffairTopics(BaseModel):
+class AffairHead(BaseModel):
+    """Kopf eines Geschäfts, in Listen und auf der Geschäftsseite."""
+
     affair_id: int = Field(description="OpenParlData-ID", examples=[70435])
     body_key: str = Field(examples=["CHE"])
     body_name: str | None = Field(description="Name des Parlaments", examples=["Schweiz"])
     body_level: str | None = Field(description=LEVEL, examples=["country"])
     number: str | None = Field(examples=["24.3456"])
     title: str | None
-    type: str | None = Field(description="harmonisierter Typ (englisch)", examples=["Motion"])
+    type: str | None = Field(description="harmonisierter Typ (englisch)", examples=["Postulate"])
+    type_de: str | None = Field(
+        description="harmonisierter Typ auf Deutsch, aus OpenParlData", examples=["Postulat"]
+    )
     begin_date: date | None
+
+
+class AffairTopics(AffairHead):
     url_external: str | None
     text: str | None = Field(
         description="Klassifikationstext, in dem die Belege stehen: erste Zeile der Titel,"
@@ -131,19 +163,6 @@ class TopicOut(BaseModel):
     name_fr: str | None
     name_it: str | None
     n_affairs: int = Field(description="Geschäfte mit aktivem Label")
-
-
-class AffairHead(BaseModel):
-    """Kopf eines Geschäfts in Listen."""
-
-    affair_id: int = Field(description="OpenParlData-ID", examples=[70435])
-    body_key: str = Field(examples=["CHE"])
-    body_name: str | None = Field(description="Name des Parlaments", examples=["Schweiz"])
-    body_level: str | None = Field(description=LEVEL, examples=["country"])
-    number: str | None
-    title: str | None
-    type: str | None = Field(description="harmonisierter Typ (englisch)", examples=["Motion"])
-    begin_date: date | None
 
 
 class TopicAffair(AffairHead):

@@ -12,7 +12,7 @@ from parltopics.wiki.tree import sort_key
 AFFAIR_HEAD = """
        a.id AS affair_id, a.body_key, b.name AS body_name, b.level AS body_level, a.number,
        coalesce(a.title_de, a.title_fr, a.title_it, a.title_rm) AS title,
-       a.type_harmonized_en AS type, a.begin_date"""
+       a.type_harmonized_en AS type, a.raw->>'type_harmonized_de' AS type_de, a.begin_date"""
 # Ein Label (schemas.LabelOut), mit tags t
 LABEL_COLUMNS = """
        l.id, l.tag_id, t.name_de, l.scheme, l.confidence, l.evidence, l.evidence_verified, l.status,
@@ -32,6 +32,20 @@ SELECT {LABEL_COLUMNS}
 FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
 WHERE l.affair_id = %s
 ORDER BY l.status = 'active' DESC, l.confidence DESC, l.id DESC
+"""
+RUNS = """
+SELECT id, task, kind, started_at, finished_at, n_total, n_done, n_failed, n_escalated,
+       prompt_version, registry_version
+FROM classification_runs ORDER BY id DESC LIMIT 10
+"""
+# Nur Parlamente mit klassifizierten Geschäften: Filter ohne leere Treffer.
+BODIES = """
+SELECT a.body_key, b.name, b.level, count(DISTINCT a.id) AS n_affairs
+FROM affairs a JOIN affair_tags l ON l.affair_id = a.id AND l.status = 'active'
+LEFT JOIN bodies b ON b.body_key = a.body_key
+GROUP BY a.body_key, b.name, b.level
+ORDER BY array_position(ARRAY['country', 'canton', 'city', 'municipality'], b.level), b.name,
+         a.body_key
 """
 TOPICS = """
 SELECT t.tag_id, t.scheme, t.status, t.parent_id, t.name_de, t.name_fr, t.name_it,
@@ -91,6 +105,14 @@ def affair_topics(conn: psycopg.Connection, affair_id: int) -> dict | None:
     if affair is not None:
         affair["labels"] = cursor.execute(LABELS, (affair_id,)).fetchall()
     return affair
+
+
+def runs(conn: psycopg.Connection) -> list[dict]:
+    return conn.cursor(row_factory=dict_row).execute(RUNS).fetchall()
+
+
+def bodies(conn: psycopg.Connection) -> list[dict]:
+    return conn.cursor(row_factory=dict_row).execute(BODIES).fetchall()
 
 
 def topics(conn: psycopg.Connection, scheme: str | None) -> list[dict]:
