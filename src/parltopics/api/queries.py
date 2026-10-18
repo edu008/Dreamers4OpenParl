@@ -45,6 +45,7 @@ WHERE d.document @@ {TSQUERY}
   AND (%(level)s::text IS NULL OR b.level = %(level)s::text)
   AND (%(date_from)s::date IS NULL OR a.begin_date >= %(date_from)s::date)
   AND (%(date_to)s::date IS NULL OR a.begin_date <= %(date_to)s::date)
+  AND (%(language)s::text IS NULL OR d.language = %(language)s::text)
   AND (%(topic)s::text IS NULL OR EXISTS (
       SELECT 1 FROM affair_tags l
       WHERE l.affair_id = a.id AND l.tag_id = %(topic)s::text AND l.status = 'active'))
@@ -74,8 +75,29 @@ ORDER BY page.rank DESC, page.begin_date DESC NULLS LAST, page.affair_id DESC
 """
 RUNS = """
 SELECT id, task, kind, started_at, finished_at, n_total, n_done, n_failed, n_escalated,
-       prompt_version, registry_version
+       prompt_version, registry_version,
+       extract(epoch FROM coalesce(finished_at, now()) - started_at)::int AS duration_s,
+       round(n_done * 60.0
+             / nullif(extract(epoch FROM coalesce(finished_at, now()) - started_at), 0), 1)
+           AS per_minute
 FROM classification_runs ORDER BY id DESC LIMIT 10
+"""
+JOB_ERRORS = """
+SELECT task, left(split_part(coalesce(last_error, ''), chr(10), 1), 160) AS reason,
+       count(*) AS count
+FROM classification_jobs WHERE status = 'failed'
+GROUP BY 1, 2 ORDER BY count DESC, reason LIMIT 10
+"""
+STATS = """
+SELECT (SELECT count(*) FROM affairs) AS affairs,
+       (SELECT count(*) FROM affair_inputs) AS prepared,
+       (SELECT count(*) FROM search_documents) AS indexed,
+       (SELECT count(*) FROM classification_jobs
+        WHERE task = 'classify:aps' AND status = 'done') AS classified,
+       (SELECT count(DISTINCT affair_id) FROM affair_tags WHERE status = 'active') AS labelled,
+       (SELECT count(*) FROM affair_tags WHERE status = 'active') AS labels,
+       (SELECT count(*) FROM affair_tags
+        WHERE review_status IS NOT NULL AND status IN ('active', 'rejected')) AS reviewed
 """
 # Nur Parlamente mit klassifizierten Geschäften: Filter ohne leere Treffer.
 BODIES = """
@@ -148,6 +170,14 @@ def affair_topics(conn: psycopg.Connection, affair_id: int) -> dict | None:
 
 def runs(conn: psycopg.Connection) -> list[dict]:
     return conn.cursor(row_factory=dict_row).execute(RUNS).fetchall()
+
+
+def job_errors(conn: psycopg.Connection) -> list[dict]:
+    return conn.cursor(row_factory=dict_row).execute(JOB_ERRORS).fetchall()
+
+
+def stats(conn: psycopg.Connection) -> dict:
+    return conn.cursor(row_factory=dict_row).execute(STATS).fetchone()
 
 
 def bodies(conn: psycopg.Connection) -> list[dict]:
@@ -235,6 +265,7 @@ def search(
     topic: str | None,
     body_key: str | None,
     level: str | None,
+    language: str | None,
     date_from: date | None,
     date_to: date | None,
     limit: int,
@@ -250,6 +281,7 @@ def search(
         "topic": topic,
         "body_key": body_key,
         "level": level,
+        "language": language,
         "date_from": date_from,
         "date_to": date_to,
         "limit": limit,

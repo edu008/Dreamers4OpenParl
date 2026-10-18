@@ -38,6 +38,7 @@ from parltopics.api.schemas import (
     ReviewIn,
     ReviewQueue,
     SearchResult,
+    Stats,
     TopicAffairs,
     TopicOut,
 )
@@ -205,7 +206,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             counts = tasks.setdefault(task, JobCounts(task=task))
             setattr(counts, status, count)
             counts.total += count
-        return JobsSummary(tasks=list(tasks.values()), runs=queries.runs(conn))
+        return JobsSummary(
+            tasks=list(tasks.values()), runs=queries.runs(conn), errors=queries.job_errors(conn)
+        )
+
+    @api.get("/stats", tags=["Jobs"], summary="Gesamtzahlen", responses=no_database)
+    def stats(conn: Conn) -> Stats:
+        """Geschäfte gesamt, mit Text, im Volltext, klassifiziert und mit Thema, dazu die
+        Labels und die Entscheide: für die Fortschrittsanzeige «x von 326'396»."""
+        return Stats(**queries.stats(conn))
 
     @api.get("/bodies", tags=["Geschäfte"], summary="Parlamente", responses=no_database)
     def bodies(conn: Conn) -> list[BodyOut]:
@@ -344,6 +353,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             Literal["country", "canton", "city", "municipality"] | None,
             Query(description="Ebene des Parlaments"),
         ] = None,
+        language: Annotated[
+            Lang | None, Query(description="Sprache des Klassifikationstexts")
+        ] = None,
         date_from: Annotated[date | None, Query(alias="from", description="ab Datum")] = None,
         date_to: Annotated[date | None, Query(alias="to", description="bis Datum")] = None,
         limit: Annotated[int, Query(ge=1, le=50)] = 20,
@@ -360,6 +372,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             topic=topic,
             body_key=body_key,
             level=level,
+            language=language,
             date_from=date_from,
             date_to=date_to,
             limit=limit,
@@ -400,6 +413,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if page.kind == "querschnitt"
             else linked_querschnitt(tree, page_id)
         )
+        tag = registry.get(page.tag_id) if page.tag_id else None
         return PageDetail(
             registry_version=registry.registry_version,
             lang=lang,
@@ -407,6 +421,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ancestors=[page_out(tree[other], lang) for other in reversed(ancestors(tree, page_id))],
             children=[page_out(child, lang) for child in children(tree, page_id)],
             linked=[page_out(other, lang) for other in linked],
+            definition=(getattr(tag.definition, lang) or tag.definition.de) if tag else None,
+            alt_labels=(getattr(tag.alt_labels, lang) or tag.alt_labels.de) if tag else [],
+            related=[page_out(tree[other], lang) for other in tag.related if other in tree]
+            if tag
+            else [],
         )
 
     @api.get(

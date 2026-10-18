@@ -37,6 +37,15 @@ class PageDetail(BaseModel):
     ancestors: list[PageOut]
     children: list[PageOut]
     linked: list[PageOut]
+    definition: str | None = Field(
+        description="Definition des Themas aus der Registry, in lang, sonst Deutsch;"
+        " auf der Heart-Seite null"
+    )
+    alt_labels: list[str] = Field(
+        description="weitere Bezeichnungen (Aliasse) in lang, sonst Deutsch",
+        examples=[["E-Government", "Digitale Transformation"]],
+    )
+    related: list[PageOut] = Field(description="verwandte Themen aus der Registry (related)")
 
 
 class JobCounts(BaseModel):
@@ -73,11 +82,32 @@ class RunOut(BaseModel):
     n_escalated: int = Field(description="an Apertus 70B weitergegeben")
     prompt_version: str
     registry_version: str
+    duration_s: int = Field(description="Dauer in Sekunden, bei laufenden Läufen bis jetzt")
+    per_minute: float | None = Field(description="erledigte Geschäfte je Minute")
+
+
+class JobError(BaseModel):
+    task: str = Field(examples=["classify:aps"])
+    reason: str = Field(description="erste Zeile der Fehlermeldung, gekürzt")
+    count: int
 
 
 class JobsSummary(BaseModel):
     tasks: list[JobCounts]
     runs: list[RunOut] = Field(description="die letzten zehn Läufe, neuester zuerst")
+    errors: list[JobError] = Field(description="häufigste Gründe für failed, höchstens zehn")
+
+
+class Stats(BaseModel):
+    """Gesamtzahlen für die Fortschrittsanzeige."""
+
+    affairs: int = Field(description="Geschäfte in der Datenbank", examples=[326396])
+    prepared: int = Field(description="mit Klassifikationstext (affair_inputs)")
+    indexed: int = Field(description="im Volltext (search_documents)")
+    classified: int = Field(description="mit erledigtem Job classify:aps, auch ohne Thema")
+    labelled: int = Field(description="mit mindestens einem aktiven Label")
+    labels: int = Field(description="aktive Labels")
+    reviewed: int = Field(description="Labels mit Entscheid eines Menschen")
 
 
 class BodyOut(BaseModel):
@@ -219,6 +249,7 @@ class ReviewQueue(BaseModel):
 
 
 class SearchHit(AffairHead):
+    language: str | None = Field(description="Sprache des Klassifikationstexts", examples=["de"])
     rank: float = Field(description="ts_rank_cd; ein Treffer im Titel zählt mehr als im Text")
     headline: str = Field(
         description="Ausschnitte aus dem Klassifikationstext als HTML: alles maskiert,"

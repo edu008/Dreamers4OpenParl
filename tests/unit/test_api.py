@@ -77,6 +77,7 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/pages/{page_id}/affairs",
         "/v1/bodies",
         "/v1/search",
+        "/v1/stats",
     } <= set(paths)
     parameters = paths["/v1/topics/{tag_id}/affairs"]["get"]["parameters"]
     names = {parameter["name"] for parameter in parameters}
@@ -91,7 +92,7 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
 def test_database_endpoints_answer_503_without_database(tmp_path):
     client = client_for(tmp_path)
     paths = ("/v1/jobs/summary", "/v1/topics", "/v1/affairs/1/topics", "/v1/reviews/queue")
-    for path in (*paths, "/v1/bodies"):
+    for path in (*paths, "/v1/bodies", "/v1/stats"):
         assert client.get(path).status_code == 503
     assert client.get("/healthz").status_code == 200
 
@@ -164,6 +165,19 @@ def test_page_tree_from_registry(tmp_path):
     assert pages["aps:6.1.9"]["path"] == "tags/aps-6.1.9-digitalisierung.md"
     assert pages["aps:6.1.9"]["parent_id"] == "aps:6.1"
     assert pages["adhoc:digitalisierung-breit"]["linked_from"] == ["aps:2.4", "aps:6.1"]
+
+
+def test_page_detail_shows_definition_aliases_and_related_topics(tmp_path):
+    client = client_for(tmp_path)
+    detail = client.get("/v1/pages/aps:6.1.9").json()
+    assert detail["definition"] == "Geschäfte zur Digitalisierung (Testdaten)"
+    assert detail["alt_labels"] == ["E-Government", "Digitale Transformation"]
+    assert [page["page_id"] for page in detail["related"]] == ["adhoc:digitalisierung-breit"]
+    french = client.get("/v1/pages/aps:6.1.9", params={"lang": "fr"}).json()
+    assert french["page"]["title"] == "Numérisation"
+    assert french["definition"] == "Geschäfte zur Digitalisierung (Testdaten)"  # nur Deutsch
+    heart = client.get("/v1/pages/heart").json()
+    assert (heart["definition"], heart["alt_labels"], heart["related"]) == (None, [], [])
 
 
 def test_page_tree_reports_a_broken_registry(tmp_path):
