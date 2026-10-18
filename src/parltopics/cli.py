@@ -124,6 +124,21 @@ def registry_import_aps(
     typer.echo(f"{count} APS-Einträge in {registry_path}, registry_version {version}")
 
 
+@registry_app.command("apply-descriptions")
+def registry_apply_descriptions() -> None:
+    """Beschreibungen und Synonyme aus registry/aps_descriptions.yaml übernehmen."""
+    from parltopics.registry import RegistryError
+    from parltopics.registry.aps_import import refresh_descriptions
+
+    registry_path = get_settings().registry_path
+    try:
+        count, version = refresh_descriptions(registry_path)
+    except (RegistryError, OSError) as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"{count} APS-Einträge in {registry_path}, registry_version {version}")
+
+
 @llm_app.command("check")
 def llm_check() -> None:
     """Beide Modelle einmal aufrufen und Antwortzeit melden."""

@@ -6,6 +6,7 @@ Eltern-Code und ein fester `slug` als Teil des Dateinamens der Tag-Seite (PRD 7.
 
 from __future__ import annotations
 
+import copy
 import datetime as dt
 import re
 import unicodedata
@@ -180,15 +181,63 @@ def write_registry(data: dict[str, Any], registry_path: Path) -> None:
     registry_path.write_text(HEADER + body, encoding="utf-8", newline="\n")
 
 
+DESCRIPTIONS = "aps_descriptions.yaml"
+
+
+def load_descriptions(registry_path: Path) -> dict[str, Any]:
+    """Eigene Beschreibungen und Synonyme neben der Registry; fehlt die Datei, keine."""
+    path = registry_path.with_name(DESCRIPTIONS)
+    if not path.exists():
+        return {}
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
+def apply_descriptions(
+    tags: list[dict[str, Any]], descriptions: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Beschreibung DE und Synonyme aus aps_descriptions.yaml über die APS-Einträge legen.
+
+    APS selbst liefert nur Namen. Bei Kapiteln und Bereichen bleibt „Umfasst: …“ angehängt.
+    """
+    for tag in tags:
+        entry = descriptions.get(tag["tag_id"])
+        if not entry:
+            continue
+        children = tag["definition"]["de"].partition(" Umfasst: ")[2]
+        tag["definition"]["de"] = entry["de"] + (f" Umfasst: {children}" if children else "")
+        alt = {lang: labels for lang, labels in (entry.get("alt") or {}).items() if labels}
+        if alt:
+            tag["alt_labels"] = alt
+    return tags
+
+
+def _read(registry_path: Path) -> dict[str, Any]:
+    data = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise RegistryError(f"{registry_path}: erwartet ein YAML-Objekt auf oberster Ebene")
+    return data
+
+
+def refresh_descriptions(registry_path: Path) -> tuple[int, str]:
+    """aps_descriptions.yaml auf die vorhandenen APS-Einträge anwenden, ohne aps_topics.xlsx."""
+    data = _read(registry_path)
+    aps = [copy.deepcopy(tag) for tag in data.get("tags", []) if tag.get("scheme") == "aps"]
+    return _save_aps(data, apply_descriptions(aps, load_descriptions(registry_path)), registry_path)
+
+
 def import_aps(xlsx: Path, registry_path: Path) -> tuple[int, str]:
     """APS-Tags in die Registry schreiben, andere Schemas bleiben unverändert.
 
     Gibt (Anzahl APS-Tags, registry_version) zurück. Die Version steigt nur bei Änderung.
     """
-    data = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise RegistryError(f"{registry_path}: erwartet ein YAML-Objekt auf oberster Ebene")
-    aps_tags = build_aps_tags(xlsx)
+    data = _read(registry_path)
+    aps_tags = apply_descriptions(build_aps_tags(xlsx), load_descriptions(registry_path))
+    return _save_aps(data, aps_tags, registry_path)
+
+
+def _save_aps(
+    data: dict[str, Any], aps_tags: list[dict[str, Any]], registry_path: Path
+) -> tuple[int, str]:
     others = [tag for tag in data.get("tags", []) if tag.get("scheme") != "aps"]
     old_aps = [tag for tag in data.get("tags", []) if tag.get("scheme") == "aps"]
     if old_aps == aps_tags:
