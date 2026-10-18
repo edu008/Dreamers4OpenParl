@@ -1,6 +1,6 @@
 """Kommandozeile `parltopics` (PRD 10.4).
 
-Funktionsfähig: version, db migrate, registry validate, llm check.
+Funktionsfähig: version, db migrate, registry validate, llm check, download, ingest.
 Die übrigen Kommandos zeigen ihre geplante Schnittstelle und nennen ihren Meilenstein.
 """
 
@@ -147,7 +147,10 @@ def download(
     bodies: Annotated[list[str] | None, typer.Option(help="body_keys, z. B. CHE")] = None,
 ) -> None:
     """Exporte von files.openparldata.ch laden, nur geänderte Dateien (F1). Online-Schritt."""
-    _planned("M0", "F1")
+    from parltopics.download import download as run_download
+
+    loaded, unchanged = run_download(bundle, bodies or None, echo=typer.echo)
+    typer.echo(f"{bundle}: {loaded} Dateien geladen, {unchanged} unverändert.")
 
 
 @app.command()
@@ -155,7 +158,15 @@ def ingest(
     bundle: Annotated[Path, typer.Option(help="Import-Bündel")] = Path("data/import"),
 ) -> None:
     """Import-Bündel in PostgreSQL laden, Zeilenzahlen prüfen (F2)."""
-    _planned("M0", "F2")
+    from parltopics.db import connect
+    from parltopics.ingest import ingest as run_ingest
+
+    with connect(get_settings().database_url, autocommit=True) as conn:
+        mismatches = run_ingest(conn, bundle, echo=typer.echo)
+    for line in mismatches:
+        typer.secho(f"Zeilenzahl weicht ab: {line}", fg=typer.colors.RED, err=True)
+    if mismatches:
+        raise typer.Exit(code=1)
 
 
 @app.command()
