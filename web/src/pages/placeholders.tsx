@@ -43,21 +43,6 @@ function Planned({
   )
 }
 
-export function SearchPage() {
-  return (
-    <Planned
-      title="Suche"
-      description="Navigationssuche durch den Seitenbaum, Volltextsuche als Rückfall."
-      milestone="M4"
-      items={[
-        "Je Knoten vergleicht das Modell alle Unterseiten in einem Schritt",
-        "Rückweg zum nächstbesten Ast, höchstens acht Schritte",
-        "Antwort mit Suchweg und belegten Geschäften, ohne Treffer keine Antwort",
-      ]}
-    />
-  )
-}
-
 export function GraphPage() {
   return (
     <Planned

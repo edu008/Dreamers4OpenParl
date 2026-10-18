@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
 import { RoleSwitch } from "@/components/role-switch"
+import { SearchForm } from "@/components/search-form"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useReview } from "@/hooks/use-review"
@@ -27,7 +28,6 @@ export function Layout() {
   // Die Navigation folgt der gewählten Ansicht: Review für Reviewer und Admin, Admin nur für Admin.
   const nav = [
     { to: "/", label: "Wiki" },
-    { to: "/suche", label: "Suche" },
     ...(active ? [{ to: "/review", label: "Review" }] : []),
     ...(isAdmin ? [{ to: "/admin", label: "Admin" }] : []),
     { to: "/graph", label: "Graph" },
@@ -54,7 +54,10 @@ export function Layout() {
             </Button>
           ))}
         </nav>
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap items-center gap-4">
+          {pathname !== "/" && !pathname.startsWith("/suche") && (
+            <SearchForm compact />
+          )}
           <RoleSwitch />
         </div>
       </header>

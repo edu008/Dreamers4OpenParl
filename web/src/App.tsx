@@ -5,7 +5,8 @@ import { HomePage } from "@/pages/home"
 import { AffairPage } from "@/pages/affair"
 import { AdminPage } from "@/pages/admin"
 import { ReviewPage } from "@/pages/review"
-import { GraphPage, NotFoundPage, SearchPage } from "@/pages/placeholders"
+import { GraphPage, NotFoundPage } from "@/pages/placeholders"
+import { SearchPage } from "@/pages/search"
 import { TagPage } from "@/pages/tag-page"
 
 // Routen der Web-App (PRD 7.5). FastAPI liefert für alle Pfade ausserhalb von /v1 index.html aus.
