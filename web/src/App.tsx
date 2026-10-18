@@ -12,7 +12,8 @@ import { SearchPage } from "@/pages/search"
 import { TagPage } from "@/pages/tag-page"
 
 // Routen der Web-App (PRD 7.5). FastAPI liefert für alle Pfade ausserhalb von /v1 index.html aus.
-// Öffentliche Seiten sind rein lesend; entscheiden kann man nur unter /review (Council 18.10.2026).
+// Zwei Bereiche: / ist öffentlich und rein lesend, /admin ist für Review und Verwaltung. Entscheiden
+// kann man nur unter /admin/review (Council 18.10.2026).
 export function App() {
   return (
     <Routes>
@@ -24,14 +25,14 @@ export function App() {
           element={<AffairPage mode="public" />}
         />
         <Route path="suche" element={<SearchPage />} />
-        <Route path="review" element={<ReviewPage />} />
-        <Route
-          path="review/geschaefte/:affairId"
-          element={<AffairPage mode="review" />}
-        />
         <Route path="graph" element={<GraphPage />} />
         <Route path="hilfe" element={<HelpPage />} />
         <Route path="admin" element={<AdminPage />} />
+        <Route path="admin/review" element={<ReviewPage />} />
+        <Route
+          path="admin/review/geschaefte/:affairId"
+          element={<AffairPage mode="review" />}
+        />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

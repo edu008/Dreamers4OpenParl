@@ -1,23 +1,8 @@
 import { JobTable, SystemList } from "@/components/job-summary"
-import { useReview } from "@/hooks/use-review"
 
 // Admin: Überblick über das System. Verwaltung (Tag-Vorschläge, Themen) folgt, sobald das Backend
-// die nötigen Endpunkte hat. Im MVP gibt es keine Zugangskontrolle, die Ansicht ist eine Darstellung.
+// die nötigen Endpunkte hat. Im MVP gibt es keine Zugangskontrolle: /admin ist offen.
 export function AdminPage() {
-  const { isAdmin } = useReview()
-  if (!isAdmin) {
-    return (
-      <div className="flex flex-col gap-2">
-        <h1 className="font-heading text-2xl leading-tight font-semibold">
-          Admin
-        </h1>
-        <p className="max-w-[68ch] text-muted-foreground">
-          Dieser Bereich ist für die Verwaltung. Wähle oben rechts die Ansicht
-          «Admin».
-        </p>
-      </div>
-    )
-  }
   return (
     <>
       <div className="flex flex-col gap-2">

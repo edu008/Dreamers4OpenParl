@@ -36,8 +36,8 @@ function paragraphsOf(text: string | null): string[] {
   return lines.slice(1)
 }
 
-// "public": rein lesend, mit Link in die Prüfansicht. "review": Prüfansicht unter /review, dort
-// stehen nach der Anmeldung die Knöpfe zum Bestätigen und Verwerfen (Council 18.10.2026).
+// "public": rein lesend, ohne Links in den Admin-Bereich. "review": Prüfansicht unter /admin/review,
+// dort stehen die Knöpfe zum Bestätigen und Verwerfen (Council 18.10.2026).
 export function AffairPage({ mode }: { mode: "public" | "review" }) {
   const { affairId = "" } = useParams()
   const found = useApi<AffairTopics>(
@@ -142,7 +142,7 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
     <article className="flex flex-col gap-4">
       <nav aria-label="Pfad" className="text-xs text-muted-foreground">
         {mode === "review" ? (
-          <Link to="/review" className="underline underline-offset-2">
+          <Link to="/admin/review" className="underline underline-offset-2">
             Review
           </Link>
         ) : (
@@ -162,7 +162,7 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
               size="sm"
               variant="outline"
               nativeButton={false}
-              render={<Link to={`/review/geschaefte/${next.affairId}`} />}
+              render={<Link to={`/admin/review/geschaefte/${next.affairId}`} />}
             >
               Nächstes offenes Label
             </Button>
@@ -172,16 +172,11 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
             </span>
           )}
           <Link
-            to="/review"
+            to="/admin/review"
             className="text-muted-foreground underline underline-offset-2"
           >
             Zur Warteschlange
           </Link>
-          {!review.active && (
-            <span className="text-muted-foreground">
-              Zum Entscheiden oben rechts die Ansicht «Admin» wählen.
-            </span>
-          )}
         </nav>
       )}
       <div className="grid gap-0 border-t border-foreground lg:grid-cols-[minmax(0,1fr)_14rem]">
@@ -232,7 +227,6 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
           <div className="lg:sticky lg:top-6">
             <MarginNotes
               mode={mode}
-              affairId={String(affair.affair_id)}
               labels={labels}
               versions={versions}
               pendingId={pendingId}
