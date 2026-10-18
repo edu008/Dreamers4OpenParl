@@ -67,8 +67,7 @@ export function GraphPage() {
           Geschäfte tragen. Klicke auf einen Punkt, um die Seite zu öffnen.
         </p>
         <p className="text-xs text-muted-foreground">
-          Es sind erst wenige Geschäfte klassifiziert, deshalb ist der Graph
-          noch klein.
+          Der Graph zeigt nur Themen, denen schon Geschäfte zugeordnet sind.
         </p>
       </div>
 
