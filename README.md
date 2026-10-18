@@ -25,7 +25,7 @@ The submission must comply with the [HackApertus T&C](https://hackapertus.ch/ter
 
 **OpenParlData: Topic classification for Swiss parliaments with Apertus**
 
-Challenge page: `TODO: Notion URL der Challenge-Seite einfügen`
+Challenge page: [Notion guide](https://app.notion.com/p/hackapertus/OpenParlData-9e3b4fec112a82559ec0011ee5b6f48d?source=copy_link), full text in [docs/CHALLENGE.md](docs/CHALLENGE.md)
 
 ### Our solution
 
