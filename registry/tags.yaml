@@ -3,7 +3,7 @@
 # Jede inhaltliche Änderung erhöht registry_version. Neue Tags nur über Vorschläge und Review.
 # Tag-Seiten im ParlWiki werden aus der Datenbank erzeugt und sind keine zweite Registry.
 # Schreibt ein Werkzeug die Datei neu, gehen diese Kommentare verloren (ADR 0001).
-registry_version: 2026-10-18.5
+registry_version: 2026-10-18.6
 schemes:
   aps:
     label: Année Politique Suisse
@@ -21,6 +21,7 @@ tags:
   pref_label:
     de: Akteure und Institutionen
     fr: Institutions et acteurs
+    it: Istituzioni e attori
   definition:
     de: 'Geschäfte zum APS-Thema «Akteure und Institutionen» (Pfad: Akteure und Institutionen). Umfasst:
       Politische Grundfragen; Institutionen.'
@@ -33,6 +34,7 @@ tags:
   pref_label:
     de: Politische Grundfragen
     fr: Problèmes politiques fondamentaux
+    it: Questioni politiche fondamentali
   definition:
     de: 'Grundsätze des Staates und seines Gebiets — Selbstverständnis der Schweiz, Bundesverfassung als
       Ganzes, Gebiets- und Grenzfragen zwischen Kantonen und Gemeinden. Umfasst: Nationale Identität;
@@ -49,6 +51,7 @@ tags:
   pref_label:
     de: Nationale Identität
     fr: Identité nationale
+    it: Identità nazionale
   definition:
     de: Selbstverständnis und Zusammenhalt der Schweiz, nationale Symbole, Nationalfeiertag, Landeshymne,
       Swissness.
@@ -74,6 +77,7 @@ tags:
   pref_label:
     de: Verfassungsfragen
     fr: Questions constitutionnelles
+    it: Questioni costituzionali
   definition:
     de: Bundesverfassung als Ganzes, Totalrevision, Verfassungsgerichtsbarkeit und grundlegende Staatsorganisation.
     fr: 'Objets relatifs au thème APS « Questions constitutionnelles » (chemin : Institutions et acteurs
@@ -97,6 +101,7 @@ tags:
   pref_label:
     de: Territorialfragen
     fr: Questions territoriales
+    it: Questioni territoriali
   definition:
     de: Gebietsfragen, Grenzen und Fusionen von Kantonen und Gemeinden, Gebietsaustausch, Kantonswechsel
       von Gemeinden.
@@ -123,6 +128,7 @@ tags:
   pref_label:
     de: Jurafrage
     fr: Question jurassienne
+    it: Questione giurassiana
   definition:
     de: Jurafrage, Kantonszugehörigkeit von Moutier und des Berner Juras.
     fr: 'Objets relatifs au thème APS « Question jurassienne » (chemin : Institutions et acteurs > Problèmes
@@ -146,6 +152,7 @@ tags:
   pref_label:
     de: Institutionen
     fr: Institutions
+    it: Istituzioni
   definition:
     de: 'Aufbau und Arbeit der staatlichen Organe — Bundesrat, Verwaltung, Parlamente, Gerichte, Kantone
       und Gemeinden als Institutionen, Parteien, Verbände und Lobbyismus; auch Wahlen in Ämter und Kommissionen
@@ -163,6 +170,7 @@ tags:
   pref_label:
     de: Bundesrat
     fr: Conseil fédéral
+    it: Consiglio federale
   definition:
     de: Zusammensetzung, Organisation und Arbeit des Bundesrats bzw. einer Kantons- oder Stadtregierung
       als Gremium.
@@ -192,6 +200,7 @@ tags:
   pref_label:
     de: Verwaltung
     fr: Administration
+    it: Amministrazione
   definition:
     de: Öffentliche Verwaltung, Verwaltungsreform, Personal und Löhne des öffentlichen Dienstes, Behördenorganisation,
       E-Government-Organisation, Beschaffungswesen.
@@ -221,6 +230,7 @@ tags:
   pref_label:
     de: Konkordanz
     fr: Concordance
+    it: Concordanza
   definition:
     de: Konkordanz und Zauberformel, Zusammensetzung von Regierungen nach Parteien.
     fr: 'Objets relatifs au thème APS « Concordance » (chemin : Institutions et acteurs > Institutions
@@ -242,6 +252,7 @@ tags:
   pref_label:
     de: Parlament
     fr: Parlement
+    it: Parlamento
   definition:
     de: Organisation und Verfahren des Parlaments (Bund, Kanton, Gemeinde) — Geschäftsordnung, Kommissionen,
       Vereidigungen, Wahlen in Ämter durch das Parlament, Rücktritte, Parlamentsbetrieb.
@@ -276,6 +287,7 @@ tags:
   pref_label:
     de: Lobbyismus
     fr: Lobbyisme
+    it: Lobbismo
   definition:
     de: Interessenvertretung und Lobbyismus im Parlament, Zugangsbadges, Offenlegung von Interessenbindungen.
     fr: 'Objets relatifs au thème APS « Lobbyisme » (chemin : Institutions et acteurs > Institutions >
@@ -300,6 +312,7 @@ tags:
   pref_label:
     de: Judikative
     fr: Tribunaux
+    it: Tribunali
   definition:
     de: Gerichte und Justizorganisation, Wahl von Richterinnen und Richtern, Staatsanwaltschaft als Behörde,
       Bundesgericht.
@@ -331,6 +344,7 @@ tags:
   pref_label:
     de: Föderalismus
     fr: Fédéralisme
+    it: Federalismo
   definition:
     de: Aufgabenteilung zwischen Bund, Kantonen und Gemeinden, Subsidiarität, interkantonale Zusammenarbeit
       und Konkordate.
@@ -358,6 +372,7 @@ tags:
   pref_label:
     de: Kantone
     fr: Cantons
+    it: Cantoni
   definition:
     de: Kanton als Institution — Kantonsverfassung, Gewährleistung, kantonale Organisation.
     fr: 'Objets relatifs au thème APS « Cantons » (chemin : Institutions et acteurs > Institutions > Cantons).'
@@ -379,6 +394,7 @@ tags:
   pref_label:
     de: Städte, Regionen, Gemeinden
     fr: Villes, régions, communes
+    it: Città, regioni, comuni
   definition:
     de: Gemeinden, Städte und Regionen als Institutionen — Gemeindeorganisation, Gemeindeautonomie, Agglomerationen,
       Gemeindereglemente, Partnerschaften.
@@ -407,6 +423,7 @@ tags:
   pref_label:
     de: Parteiensystem
     fr: Système des partis
+    it: Sistema dei partiti
   definition:
     de: Parteienlandschaft und Kräfteverhältnisse insgesamt, Fraktionen.
     fr: 'Objets relatifs au thème APS « Système des partis » (chemin : Institutions et acteurs > Institutions
@@ -429,6 +446,7 @@ tags:
   pref_label:
     de: Parteien
     fr: Partis
+    it: Partiti
   definition:
     de: Einzelne Parteien, ihre Programme, Organisation und Finanzen.
     fr: 'Objets relatifs au thème APS « Partis » (chemin : Institutions et acteurs > Institutions > Partis).'
@@ -459,6 +477,7 @@ tags:
   pref_label:
     de: Verbände
     fr: Associations
+    it: Associazioni
   definition:
     de: Verbände, Gewerkschaften und Wirtschaftsverbände als politische Akteure.
     fr: 'Objets relatifs au thème APS « Associations » (chemin : Institutions et acteurs > Institutions
@@ -485,6 +504,7 @@ tags:
   pref_label:
     de: Direkte Demokratie und Wahlen
     fr: Démocratie directe et élections
+    it: Democrazia diretta ed elezioni
   definition:
     de: 'Geschäfte zum APS-Thema «Direkte Demokratie und Wahlen» (Pfad: Direkte Demokratie und Wahlen).
       Umfasst: Direkte Demokratie; Wahlen.'
@@ -497,6 +517,7 @@ tags:
   pref_label:
     de: Direkte Demokratie
     fr: Démocratie directe
+    it: Democrazia diretta
   definition:
     de: 'Mitwirkung des Volkes — Abstimmungen, Referenden, Volksinitiativen, Stimm- und Wahlrecht, Abstimmungsverfahren,
       politische Kampagnen und deren Finanzierung. Umfasst: Volksabstimmung; Referendum; Volksinitiative;
@@ -515,6 +536,7 @@ tags:
   pref_label:
     de: Volksabstimmung
     fr: Votation populaire
+    it: Votazione popolare
   definition:
     de: Konkrete Volksabstimmungen und deren Ergebnisse, Abstimmungserläuterungen.
     fr: 'Objets relatifs au thème APS « Votation populaire » (chemin : Démocratie directe et élections
@@ -538,6 +560,7 @@ tags:
   pref_label:
     de: Referendum
     fr: Référendum
+    it: Referendum
   definition:
     de: Referenden — fakultatives und obligatorisches Referendum, Behörden- und Finanzreferendum.
     fr: 'Objets relatifs au thème APS « Référendum » (chemin : Démocratie directe et élections > Démocratie
@@ -562,6 +585,7 @@ tags:
   pref_label:
     de: Volksinitiative
     fr: Initiative populaire
+    it: Iniziativa popolare
   definition:
     de: Volksinitiativen und Gemeindeinitiativen — Gültigkeit, Behandlung, Gegenvorschläge.
     fr: 'Objets relatifs au thème APS « Initiative populaire » (chemin : Démocratie directe et élections
@@ -587,6 +611,7 @@ tags:
   pref_label:
     de: Landsgemeinde
     fr: Landsgemeinde
+    it: Landsgemeinde
   definition:
     de: Landsgemeinde und Gemeindeversammlung als Versammlungsdemokratie.
     fr: 'Objets relatifs au thème APS « Landsgemeinde » (chemin : Démocratie directe et élections > Démocratie
@@ -607,6 +632,7 @@ tags:
   pref_label:
     de: Wahl- und Abstimmungsverfahren
     fr: Procédure de vote et d'élection
+    it: Procedura di voto e di elezione
   definition:
     de: Verfahren bei Wahlen und Abstimmungen — Wahlsystem, Proporz/Majorz, E-Voting, Stimmzettel, Wahlkreise.
     fr: 'Objets relatifs au thème APS « Procédure de vote et d''élection » (chemin : Démocratie directe
@@ -635,6 +661,7 @@ tags:
   pref_label:
     de: Stimm- und Wahlrecht
     fr: Droit de vote et d'éligibilité
+    it: Diritto di voto e di eleggibilità
   definition:
     de: Stimm- und Wahlrecht — Stimmrechtsalter, Ausländerstimmrecht, Stimmrecht für Menschen mit Beeinträchtigung.
     fr: 'Objets relatifs au thème APS « Droit de vote et d''éligibilité » (chemin : Démocratie directe
@@ -657,6 +684,7 @@ tags:
   pref_label:
     de: Politische Beteiligung
     fr: Participation politique
+    it: Partecipazione politica
   definition:
     de: Politische Beteiligung, Stimmbeteiligung, Jugendparlamente, Petitionen und Mitwirkungsverfahren.
     fr: 'Objets relatifs au thème APS « Participation politique » (chemin : Démocratie directe et élections
@@ -683,6 +711,7 @@ tags:
   pref_label:
     de: Politische Kampagnen
     fr: Campagnes politiques
+    it: Campagne politiche
   definition:
     de: Abstimmungs- und Wahlkampagnen, Behördeninformation vor Abstimmungen.
     fr: 'Objets relatifs au thème APS « Campagnes politiques » (chemin : Démocratie directe et élections
@@ -705,6 +734,7 @@ tags:
   pref_label:
     de: Politikfinanzierung
     fr: Financement de la politique
+    it: Finanziamento della politica
   definition:
     de: Finanzierung von Parteien und Kampagnen, Transparenz der Politikfinanzierung.
     fr: 'Objets relatifs au thème APS « Financement de la politique » (chemin : Démocratie directe et
@@ -727,6 +757,7 @@ tags:
   pref_label:
     de: Wahlen
     fr: Elections
+    it: Elezioni
   definition:
     de: 'Wahlen von Volksvertretungen und Regierungen auf Bund, Kantonen und Gemeinden — Wahlvorbereitung,
       Kandidaturen, Resultate. Umfasst: National- und Ständeratswahlen; Wahlen in kantonale Regierungen;
@@ -743,6 +774,7 @@ tags:
   pref_label:
     de: National- und Ständeratswahlen
     fr: Elections du Conseil national et du Conseil des Etats
+    it: Elezioni del Consiglio nazionale e del Consiglio degli Stati
   definition:
     de: Wahlen in National- und Ständerat.
     fr: 'Objets relatifs au thème APS « Elections du Conseil national et du Conseil des Etats » (chemin
@@ -765,6 +797,7 @@ tags:
   pref_label:
     de: Wahlen in kantonale Regierungen
     fr: Elections des gouvernements cantonaux
+    it: Elezioni dei governi cantonali
   definition:
     de: Wahlen in Kantonsregierungen.
     fr: 'Objets relatifs au thème APS « Elections des gouvernements cantonaux » (chemin : Démocratie directe
@@ -785,6 +818,7 @@ tags:
   pref_label:
     de: Wahlen in kantonale Parlamente
     fr: Elections des parlements cantonaux
+    it: Elezioni dei parlamenti cantonali
   definition:
     de: Wahlen in Kantonsparlamente.
     fr: 'Objets relatifs au thème APS « Elections des parlements cantonaux » (chemin : Démocratie directe
@@ -806,6 +840,7 @@ tags:
   pref_label:
     de: Kommunale Wahlen
     fr: Elections communales
+    it: Elezioni comunali
   definition:
     de: Wahlen in Gemeindebehörden und Stadtparlamente durch das Volk.
     fr: 'Objets relatifs au thème APS « Elections communales » (chemin : Démocratie directe et élections
@@ -827,6 +862,7 @@ tags:
   pref_label:
     de: Europa- und Aussenpolitik
     fr: Politique européenne et étrangère
+    it: Politica europea ed estera
   definition:
     de: 'Geschäfte zum APS-Thema «Europa- und Aussenpolitik» (Pfad: Europa- und Aussenpolitik). Umfasst:
       Europa- und Aussenpolitik.'
@@ -839,6 +875,7 @@ tags:
   pref_label:
     de: Europa- und Aussenpolitik
     fr: Politique européenne et étrangère
+    it: Politica europea ed estera
   definition:
     de: 'Beziehungen der Schweiz zum Ausland — EU, andere Staaten, UNO und internationale Organisationen,
       Neutralität, Aussenhandel, Entwicklungszusammenarbeit, humanitäre Hilfe, Auslandschweizer. Umfasst:
@@ -858,6 +895,7 @@ tags:
   pref_label:
     de: Beziehungen zur EU
     fr: Relations avec l'Union européenne (UE)
+    it: Relazioni con l'Unione europea (UE)
   definition:
     de: Beziehungen zur EU — Bilaterale Verträge, institutionelles Abkommen, Schengen/Dublin, Personenfreizügigkeit
       als Vertrag, Kohäsionsbeitrag.
@@ -890,6 +928,7 @@ tags:
   pref_label:
     de: Zwischenstaatliche Beziehungen
     fr: Relations avec d'autres Etats
+    it: Relazioni con altri Stati
   definition:
     de: Beziehungen zu einzelnen Staaten, Staatsbesuche, Sanktionen, Konflikte im Ausland (z. B. Ukraine,
       Nahost) aus Sicht der Schweizer Aussenpolitik.
@@ -919,6 +958,7 @@ tags:
   pref_label:
     de: Beziehungen zu internationalen Organisationen
     fr: Relations avec des organisations internationales
+    it: Relazioni con organizzazioni internazionali
   definition:
     de: UNO, Europarat, OSZE, WTO, OECD und andere internationale Organisationen, internationales Genf.
     fr: 'Objets relatifs au thème APS « Relations avec des organisations internationales » (chemin : Politique
@@ -946,6 +986,7 @@ tags:
   pref_label:
     de: Neutralität
     fr: Neutralité
+    it: Neutralità
   definition:
     de: Neutralität und Neutralitätspolitik.
     fr: 'Objets relatifs au thème APS « Neutralité » (chemin : Politique européenne et étrangère > Politique
@@ -966,6 +1007,7 @@ tags:
   pref_label:
     de: Gute Dienste
     fr: Bons offices
+    it: Buoni uffici
   definition:
     de: Gute Dienste, Vermittlung, Schutzmachtmandate, Friedensförderung.
     fr: 'Objets relatifs au thème APS « Bons offices » (chemin : Politique européenne et étrangère > Politique
@@ -990,6 +1032,7 @@ tags:
   pref_label:
     de: Aussenwirtschaftspolitik
     fr: Politique économique extérieure
+    it: Politica economica esterna
   definition:
     de: Aussenhandel, Freihandelsabkommen, Zölle, Exportkontrolle ziviler Güter, Investitionsschutz.
     fr: 'Objets relatifs au thème APS « Politique économique extérieure » (chemin : Politique européenne
@@ -1018,6 +1061,7 @@ tags:
   pref_label:
     de: Entwicklungspolitik
     fr: Politique de développement
+    it: Politica di sviluppo
   definition:
     de: Entwicklungszusammenarbeit, humanitäre Hilfe im Ausland, Wiederaufbau, internationale Zusammenarbeit
       (IZA).
@@ -1045,6 +1089,7 @@ tags:
   pref_label:
     de: Auslandschweizerinnen und -schweizer
     fr: Suisses de l'étranger
+    it: Svizzeri all'estero
   definition:
     de: Schweizerinnen und Schweizer im Ausland, Konsulate, Auslandschweizerorganisation.
     fr: 'Objets relatifs au thème APS « Suisses de l''étranger » (chemin : Politique européenne et étrangère
@@ -1067,6 +1112,7 @@ tags:
   pref_label:
     de: Gesellschaft und Kultur
     fr: Société et culture
+    it: Società e cultura
   definition:
     de: 'Geschäfte zum APS-Thema «Gesellschaft und Kultur» (Pfad: Gesellschaft und Kultur). Umfasst: Soziale
       Gruppen; Bildung und Forschung; Kultur, Sprache, Kirchen; Medien.'
@@ -1079,6 +1125,7 @@ tags:
   pref_label:
     de: Soziale Gruppen
     fr: Groupes sociaux
+    it: Gruppi sociali
   definition:
     de: 'Lage und Rechte gesellschaftlicher Gruppen — Bevölkerung, Migration, Asyl, Gleichstellung, Familien,
       Kinder und Jugend, ältere Menschen, LGBTQIA+, Menschen mit Behinderungen, Fahrende. Umfasst: Bevölkerungsentwicklung;
@@ -1097,6 +1144,7 @@ tags:
   pref_label:
     de: Bevölkerungsentwicklung
     fr: Evolution de la population
+    it: Evoluzione della popolazione
   definition:
     de: Bevölkerungsentwicklung, Demografie, Bevölkerungsstatistik, Volkszählung.
     fr: 'Objets relatifs au thème APS « Evolution de la population » (chemin : Société et culture > Groupes
@@ -1120,6 +1168,7 @@ tags:
   pref_label:
     de: Migration
     fr: Migration
+    it: Migrazione
   definition:
     de: Zuwanderung, Ausländerrecht, Aufenthaltsbewilligungen, Integration von Ausländerinnen und Ausländern,
       Personenfreizügigkeit innenpolitisch.
@@ -1151,6 +1200,7 @@ tags:
   pref_label:
     de: Asylwesen
     fr: Asile
+    it: Asilo
   definition:
     de: Asylverfahren, Asylunterkünfte, Flüchtlinge, Schutzstatus S, Rückführungen.
     fr: 'Objets relatifs au thème APS « Asile » (chemin : Société et culture > Groupes sociaux > Asile).'
@@ -1181,6 +1231,7 @@ tags:
   pref_label:
     de: Frauen- und Gleichstellungsfragen
     fr: Femmes et égalité des sexes
+    it: Donne e parità dei sessi
   definition:
     de: Gleichstellung von Frau und Mann, Lohngleichheit, häusliche und geschlechtsspezifische Gewalt,
       Frauenförderung.
@@ -1208,6 +1259,7 @@ tags:
   pref_label:
     de: Familien
     fr: Familles
+    it: Famiglie
   definition:
     de: Familienpolitik, Kinderbetreuung, Kitas, Familienzulagen, Vereinbarkeit von Familie und Beruf,
       Eltern- und Vaterschaftsurlaub.
@@ -1238,6 +1290,7 @@ tags:
   pref_label:
     de: Kinder und Jugendliche
     fr: Enfants et adolescents
+    it: Bambini e giovani
   definition:
     de: Kinder und Jugendliche — Kinderschutz, Jugendförderung, Kinderrechte, Jugendarbeit, Schutz vor
       Gefahren für Kinder.
@@ -1265,6 +1318,7 @@ tags:
   pref_label:
     de: Altersfragen
     fr: Questions relatives à l'âge
+    it: Questioni legate all'età
   definition:
     de: Ältere Menschen, Alterspolitik, Betreuung im Alter, Altersheime als soziales Thema.
     fr: 'Objets relatifs au thème APS « Questions relatives à l''âge » (chemin : Société et culture >
@@ -1288,6 +1342,7 @@ tags:
   pref_label:
     de: LGBTQIA+
     fr: LGBTQIA+
+    it: LGBTQIA+
   definition:
     de: Rechte und Lage von LGBTQIA+-Menschen, Ehe für alle, Diskriminierungsschutz wegen sexueller Orientierung.
     fr: 'Objets relatifs au thème APS « LGBTQIA+ » (chemin : Société et culture > Groupes sociaux > LGBTQIA+).'
@@ -1312,6 +1367,7 @@ tags:
   pref_label:
     de: Menschen mit Behinderungen
     fr: Personnes en situation de handicap
+    it: Persone con disabilità
   definition:
     de: Gleichstellung und Inklusion von Menschen mit Behinderungen, Barrierefreiheit, Behindertenrechtskonvention.
       Nicht die Invalidenversicherung als Versicherung.
@@ -1339,6 +1395,7 @@ tags:
   pref_label:
     de: Fahrende
     fr: Gens du voyage
+    it: Nomadi
   definition:
     de: Fahrende, Jenische, Sinti und Roma, Stand- und Durchgangsplätze.
     fr: 'Objets relatifs au thème APS « Gens du voyage » (chemin : Société et culture > Groupes sociaux
@@ -1364,6 +1421,7 @@ tags:
   pref_label:
     de: Bildung und Forschung
     fr: Enseignement et recherche
+    it: Formazione e ricerca
   definition:
     de: 'Schulen aller Stufen, Berufsbildung, Hochschulen und Forschung. Umfasst: Grundschulen; Berufsbildung;
       Mittelschulen; Hochschulen; Forschung.'
@@ -1379,6 +1437,7 @@ tags:
   pref_label:
     de: Grundschulen
     fr: Ecole obligatoire
+    it: Scuola dell'obbligo
   definition:
     de: Obligatorische Schule (Kindergarten, Primar, Sekundarstufe I), Lehrpersonen, Lehrplan, Sonderpädagogik,
       Schulhäuser und Schulraum.
@@ -1412,6 +1471,7 @@ tags:
   pref_label:
     de: Berufsbildung
     fr: Formation professionnelle
+    it: Formazione professionale
   definition:
     de: Berufsbildung, Lehre, Berufsschulen, höhere Berufsbildung, Lehrstellen.
     fr: 'Objets relatifs au thème APS « Formation professionnelle » (chemin : Société et culture > Enseignement
@@ -1439,6 +1499,7 @@ tags:
   pref_label:
     de: Mittelschulen
     fr: Enseignement secondaire supérieur
+    it: Scuole medie superiori
   definition:
     de: Gymnasien, Maturität, Fachmittelschulen.
     fr: 'Objets relatifs au thème APS « Enseignement secondaire supérieur » (chemin : Société et culture
@@ -1465,6 +1526,7 @@ tags:
   pref_label:
     de: Hochschulen
     fr: Hautes écoles
+    it: Scuole universitarie
   definition:
     de: Universitäten, ETH, Fachhochschulen, pädagogische Hochschulen, Studiengebühren, Stipendien.
     fr: 'Objets relatifs au thème APS « Hautes écoles » (chemin : Société et culture > Enseignement et
@@ -1494,6 +1556,7 @@ tags:
   pref_label:
     de: Forschung
     fr: Recherche
+    it: Ricerca
   definition:
     de: Forschungspolitik und Forschungsförderung, Innovation, Horizon Europe.
     fr: 'Objets relatifs au thème APS « Recherche » (chemin : Société et culture > Enseignement et recherche
@@ -1520,6 +1583,7 @@ tags:
   pref_label:
     de: Kultur, Sprache, Kirchen
     fr: Culture, langues, églises
+    it: Cultura, lingue, chiese
   definition:
     de: 'Kultur und Kulturförderung, Sprachen und Sprachgebiete, Religionsgemeinschaften, Ortsbild- und
       Denkmalschutz, Urheberrecht. Umfasst: Kultur; Sprachfragen; Religion und Kirchen; Heimatschutz und
@@ -1536,6 +1600,7 @@ tags:
   pref_label:
     de: Kultur
     fr: Culture
+    it: Cultura
   definition:
     de: Kulturpolitik und Kulturförderung, Museen, Theater, Bibliotheken, Kulturbauten, Film und Musik.
     fr: 'Objets relatifs au thème APS « Culture » (chemin : Société et culture > Culture, langues, églises
@@ -1566,6 +1631,7 @@ tags:
   pref_label:
     de: Sprachfragen
     fr: Questions linguistiques
+    it: Questioni linguistiche
   definition:
     de: Landessprachen, Mehrsprachigkeit, Sprachunterricht in der Schule, Sprachgebrauch und Terminologie
       in Gesetzen.
@@ -1594,6 +1660,7 @@ tags:
   pref_label:
     de: Religion und Kirchen
     fr: Religion et Eglises
+    it: Religione e chiese
   definition:
     de: Kirchen und Religionsgemeinschaften, Verhältnis Staat–Kirche, Kirchensteuer, Islam, religiöse
       Symbole.
@@ -1621,6 +1688,7 @@ tags:
   pref_label:
     de: Heimatschutz und Denkmalpflege
     fr: Protection des sites et du patrimoine
+    it: Protezione del paesaggio e dei monumenti
   definition:
     de: Ortsbild- und Heimatschutz, Denkmalpflege, geschützte Bauten, archäologisches Erbe.
     fr: 'Objets relatifs au thème APS « Protection des sites et du patrimoine » (chemin : Société et culture
@@ -1647,6 +1715,7 @@ tags:
   pref_label:
     de: Urheberrecht
     fr: Droit d'auteur
+    it: Diritto d'autore
   definition:
     de: Urheberrecht und geistiges Eigentum an Werken.
     fr: 'Objets relatifs au thème APS « Droit d''auteur » (chemin : Société et culture > Culture, langues,
@@ -1669,6 +1738,7 @@ tags:
   pref_label:
     de: Medien
     fr: Médias
+    it: Media
   definition:
     de: 'Presse, Radio, Fernsehen, Online-Medien, Medienförderung und Meinungsumfragen. Nicht gemeint
       sind Geschäfte, die nur in den Medien erwähnt werden. Umfasst: Medienpolitische Grundfragen; Presse;
@@ -1684,6 +1754,7 @@ tags:
   pref_label:
     de: Medienpolitische Grundfragen
     fr: Aspects généraux de la politique médiatique
+    it: Aspetti generali della politica dei media
   definition:
     de: Medienpolitik allgemein, Medienförderung, Medienvielfalt, Service public der Medien.
     fr: 'Objets relatifs au thème APS « Aspects généraux de la politique médiatique » (chemin : Société
@@ -1709,6 +1780,7 @@ tags:
   pref_label:
     de: Presse
     fr: Presse
+    it: Stampa
   definition:
     de: Zeitungen und Zeitschriften, Presseförderung, Zustellung von Zeitungen.
     fr: 'Objets relatifs au thème APS « Presse » (chemin : Société et culture > Médias > Presse).'
@@ -1731,6 +1803,7 @@ tags:
   pref_label:
     de: Radio und Fernsehen
     fr: Radio et télévision
+    it: Radio e televisione
   definition:
     de: Radio und Fernsehen, SRG, Serafe-Gebühr, private Sender.
     fr: 'Objets relatifs au thème APS « Radio et télévision » (chemin : Société et culture > Médias >
@@ -1759,6 +1832,7 @@ tags:
   pref_label:
     de: Digitale Medien
     fr: Médias numériques
+    it: Media digitali
   definition:
     de: Online-Medien und Plattformen, soziale Netzwerke, Desinformation, Regulierung von Plattformen.
     fr: 'Objets relatifs au thème APS « Médias numériques » (chemin : Société et culture > Médias > Médias
@@ -1785,6 +1859,7 @@ tags:
   pref_label:
     de: Meinungsforschung
     fr: Sondages
+    it: Sondaggi
   definition:
     de: Meinungsumfragen und deren Veröffentlichung.
     fr: 'Objets relatifs au thème APS « Sondages » (chemin : Société et culture > Médias > Sondages).'
@@ -1804,6 +1879,7 @@ tags:
   pref_label:
     de: Gesundheit und Sozialsystem
     fr: Santé et système social
+    it: Sanità e sistema sociale
   definition:
     de: 'Geschäfte zum APS-Thema «Gesundheit und Sozialsystem» (Pfad: Gesundheit und Sozialsystem). Umfasst:
       Gesundheit, Sozialhilfe, Sport; Sozialversicherungen.'
@@ -1816,6 +1892,7 @@ tags:
   pref_label:
     de: Gesundheit, Sozialhilfe, Sport
     fr: Santé, assistance sociale, sport
+    it: Sanità, assistenza sociale, sport
   definition:
     de: 'Gesundheitswesen (Spitäler, Ärzte, Pflege, Medikamente, Sucht, Prävention, Pandemien), Sozialhilfe
       und Sport. Umfasst: Gesundheitspolitik; Ärzte und Pflegepersonal; Spitäler; Medikamente; Suchtmittel;
@@ -1833,6 +1910,7 @@ tags:
   pref_label:
     de: Gesundheitspolitik
     fr: Politique de la santé
+    it: Politica sanitaria
   definition:
     de: Gesundheitspolitik allgemein, Gesundheitsversorgung, Gesundheitskosten, Prävention, psychische
       Gesundheit, Gesundheitsförderung.
@@ -1863,6 +1941,7 @@ tags:
   pref_label:
     de: Ärzte und Pflegepersonal
     fr: Médecins et personnel soignant
+    it: Medici e personale curante
   definition:
     de: Ärztinnen, Pflegefachpersonen, Gesundheitsberufe, Pflegeinitiative, Fachkräftemangel im Gesundheitswesen,
       Hausarztmedizin, Spitex.
@@ -1893,6 +1972,7 @@ tags:
   pref_label:
     de: Spitäler
     fr: Hôpitaux
+    it: Ospedali
   definition:
     de: Spitäler, Spitalplanung, Spitalfinanzierung, Notfall, Rettungsdienste, Pflegeheime als Einrichtungen.
     fr: 'Objets relatifs au thème APS « Hôpitaux » (chemin : Santé et système social > Santé, assistance
@@ -1923,6 +2003,7 @@ tags:
   pref_label:
     de: Medikamente
     fr: Médicaments
+    it: Medicamenti
   definition:
     de: Medikamente, Arzneimittelpreise, Versorgung mit Heilmitteln, Apotheken, Impfstoffe als Produkte.
     fr: 'Objets relatifs au thème APS « Médicaments » (chemin : Santé et système social > Santé, assistance
@@ -1950,6 +2031,7 @@ tags:
   pref_label:
     de: Suchtmittel
     fr: Stupéfiants
+    it: Stupefacenti
   definition:
     de: Suchtmittel und Suchtpolitik — Alkohol, Tabak, Cannabis, Drogen, Glücksspielsucht.
     fr: 'Objets relatifs au thème APS « Stupéfiants » (chemin : Santé et système social > Santé, assistance
@@ -1984,6 +2066,7 @@ tags:
   pref_label:
     de: Medizinische Forschung
     fr: Recherche médicale
+    it: Ricerca medica
   definition:
     de: Medizinische Forschung, Forschung am Menschen, Transplantation, Organspende, Biobanken.
     fr: 'Objets relatifs au thème APS « Recherche médicale » (chemin : Santé et système social > Santé,
@@ -2007,6 +2090,7 @@ tags:
   pref_label:
     de: Fortpflanzungsmedizin
     fr: Procréation médicalement assistée
+    it: Procreazione con assistenza medica
   definition:
     de: Fortpflanzungsmedizin, Eizellenspende, Leihmutterschaft, Präimplantationsdiagnostik.
     fr: 'Objets relatifs au thème APS « Procréation médicalement assistée » (chemin : Santé et système
@@ -2030,6 +2114,7 @@ tags:
   pref_label:
     de: Epidemien und Pandemien
     fr: Epidémies et pandémies
+    it: Epidemie e pandemie
   definition:
     de: Epidemien und Pandemien, Covid-19, Impfkampagnen, Epidemiengesetz.
     fr: 'Objets relatifs au thème APS « Epidémies et pandémies » (chemin : Santé et système social > Santé,
@@ -2058,6 +2143,7 @@ tags:
   pref_label:
     de: Sozialhilfe
     fr: Assistance sociale
+    it: Assistenza sociale
   definition:
     de: Sozialhilfe, Armut, Existenzminimum, Obdachlosigkeit, Sozialdienste.
     fr: 'Objets relatifs au thème APS « Assistance sociale » (chemin : Santé et système social > Santé,
@@ -2085,6 +2171,7 @@ tags:
   pref_label:
     de: Sport
     fr: Sport
+    it: Sport
   definition:
     de: Sport und Sportförderung, Sportanlagen, Sportveranstaltungen, Hooliganismus bei Sportanlässen.
     fr: 'Objets relatifs au thème APS « Sport » (chemin : Santé et système social > Santé, assistance
@@ -2115,6 +2202,7 @@ tags:
   pref_label:
     de: Sozialversicherungen
     fr: Assurances sociales
+    it: Assicurazioni sociali
   definition:
     de: 'Obligatorische und freiwillige Versicherungen gegen soziale Risiken — AHV, IV, Krankenkasse und
       Krankenkassenprämien, Unfall, Arbeitslosigkeit, Mutterschaft, Erwerbsersatz, Pensionskasse, Säule
@@ -2136,6 +2224,7 @@ tags:
   pref_label:
     de: Sozialversicherungen allgemein
     fr: Assurances sociales en général
+    it: Assicurazioni sociali in generale
   definition:
     de: Sozialversicherungen insgesamt und ihre Finanzierung, Koordination mehrerer Sozialwerke.
     fr: 'Objets relatifs au thème APS « Assurances sociales en général » (chemin : Santé et système social
@@ -2158,6 +2247,7 @@ tags:
   pref_label:
     de: Alters- und Hinterlassenenversicherung (AHV)
     fr: Assurance-vieillesse et survivants (AVS)
+    it: Assicurazione vecchiaia e superstiti (AVS)
   definition:
     de: Alters- und Hinterlassenenversicherung (AHV), Renten der 1. Säule, Rentenalter, 13. AHV-Rente.
     fr: 'Objets relatifs au thème APS « Assurance-vieillesse et survivants (AVS) » (chemin : Santé et
@@ -2186,6 +2276,7 @@ tags:
   pref_label:
     de: Invalidenversicherung (IV)
     fr: Assurance-invalidité (AI)
+    it: Assicurazione invalidità (AI)
   definition:
     de: Invalidenversicherung (IV), IV-Renten, Eingliederung, Invaliditätsbegriff.
     fr: 'Objets relatifs au thème APS « Assurance-invalidité (AI) » (chemin : Santé et système social
@@ -2212,6 +2303,7 @@ tags:
   pref_label:
     de: Krankenversicherung
     fr: Assurance-maladie
+    it: Assicurazione malattie
   definition:
     de: Obligatorische Krankenversicherung (KVG) — Krankenkassenprämien, Prämienverbilligung, Franchise,
       Leistungskatalog, Tarife, Wahl der Ärztin und Kostenbeteiligung. Nicht Grundrechte oder öffentliche
@@ -2251,6 +2343,7 @@ tags:
   pref_label:
     de: Unfallversicherung
     fr: Assurance-accidents
+    it: Assicurazione infortuni
   definition:
     de: Unfallversicherung (UVG, Suva).
     fr: 'Objets relatifs au thème APS « Assurance-accidents » (chemin : Santé et système social > Assurances
@@ -2276,6 +2369,7 @@ tags:
   pref_label:
     de: Arbeitslosenversicherung (ALV)
     fr: Assurance-chômage
+    it: Assicurazione contro la disoccupazione (AD)
   definition:
     de: Arbeitslosenversicherung, Kurzarbeit, Arbeitslosenentschädigung, RAV.
     fr: 'Objets relatifs au thème APS « Assurance-chômage » (chemin : Santé et système social > Assurances
@@ -2303,6 +2397,7 @@ tags:
   pref_label:
     de: Mutterschaftsversicherung
     fr: Assurance-maternité
+    it: Assicurazione maternità
   definition:
     de: Mutterschaftsversicherung und Mutterschaftsentschädigung.
     fr: 'Objets relatifs au thème APS « Assurance-maternité » (chemin : Santé et système social > Assurances
@@ -2323,6 +2418,7 @@ tags:
   pref_label:
     de: Erwerbsersatzordnung (EO)
     fr: Allocations pour perte de gain (APG)
+    it: Indennità di perdita di guadagno (IPG)
   definition:
     de: Erwerbsersatz für Dienstleistende und Eltern (EO).
     fr: 'Objets relatifs au thème APS « Allocations pour perte de gain (APG) » (chemin : Santé et système
@@ -2344,6 +2440,7 @@ tags:
   pref_label:
     de: Berufliche Vorsorge
     fr: Prévoyance professionnelle
+    it: Previdenza professionale
   definition:
     de: Berufliche Vorsorge, Pensionskassen, BVG, Umwandlungssatz, 2. Säule, Pensionskasse des Staatspersonals.
     fr: 'Objets relatifs au thème APS « Prévoyance professionnelle » (chemin : Santé et système social
@@ -2372,6 +2469,7 @@ tags:
   pref_label:
     de: Private Vorsorge
     fr: Prévoyance privée
+    it: Previdenza privata
   definition:
     de: Private Vorsorge, Säule 3a.
     fr: 'Objets relatifs au thème APS « Prévoyance privée » (chemin : Santé et système social > Assurances
@@ -2393,6 +2491,7 @@ tags:
   pref_label:
     de: Ergänzungsleistungen (EL)
     fr: Prestations complémentaires (PC)
+    it: Prestazioni complementari (PC)
   definition:
     de: Ergänzungsleistungen zu AHV und IV.
     fr: 'Objets relatifs au thème APS « Prestations complémentaires (PC) » (chemin : Santé et système
@@ -2413,6 +2512,7 @@ tags:
   pref_label:
     de: Infrastruktur und Umwelt
     fr: Infrastructures et environnement
+    it: Infrastrutture e ambiente
   definition:
     de: 'Geschäfte zum APS-Thema «Infrastruktur und Umwelt» (Pfad: Infrastruktur und Umwelt). Umfasst:
       Verkehr und Kommunikation; Energie; Raumplanung und Wohnungswesen; Umweltschutz.'
@@ -2426,6 +2526,7 @@ tags:
   pref_label:
     de: Verkehr und Kommunikation
     fr: Transports et communications
+    it: Trasporti e comunicazioni
   definition:
     de: 'Verkehr aller Art (Strasse, Schiene, öffentlicher Verkehr, Velo, Fussverkehr, Luft, Schiff),
       Post, Telekommunikation und Digitalisierung von Staat und Gesellschaft. Umfasst: Verkehrspolitik;
@@ -2443,6 +2544,7 @@ tags:
   pref_label:
     de: Verkehrspolitik
     fr: Politique des transports
+    it: Politica dei trasporti
   definition:
     de: Verkehrspolitik allgemein, Gesamtverkehr, Mobilitätskonzepte, Verkehrsfinanzierung, Velo- und
       Fussverkehr.
@@ -2474,6 +2576,7 @@ tags:
   pref_label:
     de: Öffentlicher Verkehr
     fr: Transport public
+    it: Trasporti pubblici
   definition:
     de: Öffentlicher Verkehr — Bus, Tram, Regionalverkehr, Billettpreise, Fahrplan, ÖV-Angebot.
     fr: 'Objets relatifs au thème APS « Transport public » (chemin : Infrastructures et environnement
@@ -2505,6 +2608,7 @@ tags:
   pref_label:
     de: Strassenverkehr
     fr: Trafic routier
+    it: Traffico stradale
   definition:
     de: Strassenverkehr und Strassen — Nationalstrassen, Kantons- und Gemeindestrassen, Strassenbau, Verkehrssicherheit,
       Tempo 30, Parkierung, Führerausweis, Strassenverkehrsgesetz (SVG), Motorfahrzeuge.
@@ -2544,6 +2648,7 @@ tags:
   pref_label:
     de: Eisenbahn
     fr: Chemin de fer
+    it: Ferrovie
   definition:
     de: Eisenbahn, Bahninfrastruktur, SBB, Bahnausbau, Güterverkehr auf der Schiene.
     fr: 'Objets relatifs au thème APS « Chemin de fer » (chemin : Infrastructures et environnement > Transports
@@ -2573,6 +2678,7 @@ tags:
   pref_label:
     de: Luftfahrt
     fr: Trafic aérien
+    it: Traffico aereo
   definition:
     de: Luftfahrt, Flughäfen, Fluglärm als Verkehrsfrage, Flugsicherung, Drohnen im zivilen Luftraum.
     fr: 'Objets relatifs au thème APS « Trafic aérien » (chemin : Infrastructures et environnement > Transports
@@ -2598,6 +2704,7 @@ tags:
   pref_label:
     de: Schifffahrt
     fr: Navigation
+    it: Navigazione
   definition:
     de: Schifffahrt auf Seen und Rhein, Häfen.
     fr: 'Objets relatifs au thème APS « Navigation » (chemin : Infrastructures et environnement > Transports
@@ -2620,6 +2727,7 @@ tags:
   pref_label:
     de: Post
     fr: Poste
+    it: Posta
   definition:
     de: Post, Poststellen, Grundversorgung mit Postdiensten.
     fr: 'Objets relatifs au thème APS « Poste » (chemin : Infrastructures et environnement > Transports
@@ -2643,6 +2751,7 @@ tags:
   pref_label:
     de: Telekommunikation
     fr: Télécommunication
+    it: Telecomunicazioni
   definition:
     de: Telekommunikation, Mobilfunk, 5G, Breitband, Swisscom.
     fr: 'Objets relatifs au thème APS « Télécommunication » (chemin : Infrastructures et environnement
@@ -2672,6 +2781,7 @@ tags:
   pref_label:
     de: Digitalisierung
     fr: Numérisation
+    it: Digitalizzazione
   definition:
     de: Digitalisierung von Verwaltung, Wirtschaft und Gesellschaft — E-Government, E-ID, künstliche Intelligenz,
       digitale Infrastruktur, IT-Projekte des Staates.
@@ -2703,6 +2813,7 @@ tags:
   pref_label:
     de: Energie
     fr: Energie
+    it: Energia
   definition:
     de: 'Energieversorgung und Energiepolitik — Strom, Stromnetz, Öl und Gas, Wasserkraft, Sonne, Wind,
       Biomasse, Geothermie, Kernkraft, Energieeffizienz. Umfasst: Energiepolitik; Stromnetz und -vertrieb;
@@ -2719,6 +2830,7 @@ tags:
   pref_label:
     de: Energiepolitik
     fr: Politique énergétique
+    it: Politica energetica
   definition:
     de: Energiepolitik allgemein, Energiestrategie, Energieeffizienz, Gebäudeenergie, Heizungsersatz,
       Energiegesetz.
@@ -2751,6 +2863,7 @@ tags:
   pref_label:
     de: Stromnetz und -vertrieb
     fr: Réseau et distribution d'électricité
+    it: Rete e distribuzione elettrica
   definition:
     de: Stromversorgung, Stromnetz, Strompreise, Strommarkt, Elektrizitätswerke.
     fr: 'Objets relatifs au thème APS « Réseau et distribution d''électricité » (chemin : Infrastructures
@@ -2780,6 +2893,7 @@ tags:
   pref_label:
     de: Erdöl und Erdgas
     fr: Produits pétroliers et gaz
+    it: Petrolio e gas
   definition:
     de: Erdöl, Erdgas, Gasversorgung, Treibstoffe.
     fr: 'Objets relatifs au thème APS « Produits pétroliers et gaz » (chemin : Infrastructures et environnement
@@ -2807,6 +2921,7 @@ tags:
   pref_label:
     de: Wasserkraft
     fr: Force hydraulique
+    it: Forza idrica
   definition:
     de: Wasserkraft, Wasserzinsen, Stauseen, Restwasser.
     fr: 'Objets relatifs au thème APS « Force hydraulique » (chemin : Infrastructures et environnement
@@ -2833,6 +2948,7 @@ tags:
   pref_label:
     de: Erneuerbare Energien
     fr: Energies renouvelables
+    it: Energie rinnovabili
   definition:
     de: Erneuerbare Energien — Solarenergie, Photovoltaik, Windkraft, Biomasse, Geothermie.
     fr: 'Objets relatifs au thème APS « Energies renouvelables » (chemin : Infrastructures et environnement
@@ -2866,6 +2982,7 @@ tags:
   pref_label:
     de: Kernenergie
     fr: Energie nucléaire
+    it: Energia nucleare
   definition:
     de: Kernenergie, Atomkraftwerke, neue Reaktoren, radioaktive Abfälle und Tiefenlager.
     fr: 'Objets relatifs au thème APS « Energie nucléaire » (chemin : Infrastructures et environnement
@@ -2894,6 +3011,7 @@ tags:
   pref_label:
     de: Raumplanung und Wohnungswesen
     fr: Aménagement du territoire et logement
+    it: Pianificazione del territorio e abitazioni
   definition:
     de: 'Raumplanung, Zonen und Bauen, Wohnungsbau, Wohneigentum, Mieten und Bodenrecht. Umfasst: Raumplanung;
       Wohnungsbau und -eigentum; Mietwesen; Bodenrecht.'
@@ -2909,6 +3027,7 @@ tags:
   pref_label:
     de: Raumplanung
     fr: Aménagement du territoire
+    it: Pianificazione del territorio
   definition:
     de: Raumplanung, Richtplan, Zonenplan, Ein- und Umzonung, Bauzonen, Bauen ausserhalb der Bauzone,
       Verdichtung, Arealentwicklung.
@@ -2943,6 +3062,7 @@ tags:
   pref_label:
     de: Wohnungsbau und -eigentum
     fr: Construction de logements et propriété
+    it: Costruzione di abitazioni e proprietà
   definition:
     de: Wohnungsbau, gemeinnütziger Wohnungsbau, Wohneigentum, Eigenmietwert, Wohnungsknappheit.
     fr: 'Objets relatifs au thème APS « Construction de logements et propriété » (chemin : Infrastructures
@@ -2972,6 +3092,7 @@ tags:
   pref_label:
     de: Mietwesen
     fr: Logement et loyer
+    it: Alloggio e pigioni
   definition:
     de: Mietrecht, Mietzinse, Kündigungsschutz, Mieterinnen und Vermieter.
     fr: 'Objets relatifs au thème APS « Logement et loyer » (chemin : Infrastructures et environnement
@@ -3001,6 +3122,7 @@ tags:
   pref_label:
     de: Bodenrecht
     fr: Droit foncier
+    it: Diritto fondiario
   definition:
     de: Bodenrecht, Grundstückkauf durch Ausländer (Lex Koller), Baurecht, Landverkäufe der öffentlichen
       Hand.
@@ -3030,6 +3152,7 @@ tags:
   pref_label:
     de: Umweltschutz
     fr: Protection de l'environnement
+    it: Protezione dell'ambiente
   definition:
     de: 'Schutz der Umwelt — Natur und Landschaft, Biodiversität, Boden, Gewässer, Luft, Klima, Lärm,
       Abfall und Recycling, Naturgefahren. Umfasst: Allgemeiner Umweltschutz; Naturschutz; Bodenschutz;
@@ -3048,6 +3171,7 @@ tags:
   pref_label:
     de: Allgemeiner Umweltschutz
     fr: Politique de protection de l'environnement
+    it: Politica di protezione dell'ambiente
   definition:
     de: Umweltpolitik allgemein, Umweltschutzgesetz, Umweltverträglichkeit, Ressourcenverbrauch.
     fr: 'Objets relatifs au thème APS « Politique de protection de l''environnement » (chemin : Infrastructures
@@ -3073,6 +3197,7 @@ tags:
   pref_label:
     de: Naturschutz
     fr: Protection de la nature
+    it: Protezione della natura
   definition:
     de: Natur- und Landschaftsschutz, Biodiversität, Schutzgebiete, Pärke, Bäume und Grünflächen.
     fr: 'Objets relatifs au thème APS « Protection de la nature » (chemin : Infrastructures et environnement
@@ -3104,6 +3229,7 @@ tags:
   pref_label:
     de: Bodenschutz
     fr: Protection des sols
+    it: Protezione del suolo
   definition:
     de: Bodenschutz, Altlasten, Bodenversiegelung.
     fr: 'Objets relatifs au thème APS « Protection des sols » (chemin : Infrastructures et environnement
@@ -3127,6 +3253,7 @@ tags:
   pref_label:
     de: Gewässerschutz
     fr: Protection des eaux
+    it: Protezione delle acque
   definition:
     de: Gewässerschutz, Trinkwasser, Abwasser, Renaturierung von Gewässern, Pestizide im Wasser.
     fr: 'Objets relatifs au thème APS « Protection des eaux » (chemin : Infrastructures et environnement
@@ -3154,6 +3281,7 @@ tags:
   pref_label:
     de: Luftreinhaltung
     fr: Gestion de la qualité de l'air
+    it: Protezione dell'aria
   definition:
     de: Luftreinhaltung, Luftschadstoffe, Feinstaub, Ozon.
     fr: 'Objets relatifs au thème APS « Gestion de la qualité de l''air » (chemin : Infrastructures et
@@ -3178,6 +3306,7 @@ tags:
   pref_label:
     de: Klimapolitik
     fr: Politique climatique
+    it: Politica climatica
   definition:
     de: Klimaschutz und Klimaanpassung, CO2-Gesetz, Treibhausgase, Netto-Null, Klimastrategie, Hitze in
       Städten.
@@ -3210,6 +3339,7 @@ tags:
   pref_label:
     de: Lärmschutz
     fr: Mesures contre le bruit
+    it: Protezione contro il rumore
   definition:
     de: Lärmschutz, Strassen-, Bahn- und Fluglärm als Umweltfrage, Lärmsanierung.
     fr: 'Objets relatifs au thème APS « Mesures contre le bruit » (chemin : Infrastructures et environnement
@@ -3234,6 +3364,7 @@ tags:
   pref_label:
     de: Abfälle und Recycling
     fr: Déchets et recyclage
+    it: Rifiuti e riciclaggio
   definition:
     de: Abfall, Recycling, Kreislaufwirtschaft, Littering, Entsorgung.
     fr: 'Objets relatifs au thème APS « Déchets et recyclage » (chemin : Infrastructures et environnement
@@ -3262,6 +3393,7 @@ tags:
   pref_label:
     de: Schutz vor Naturgefahren
     fr: Protection contre les forces naturelles
+    it: Protezione dai pericoli naturali
   definition:
     de: Schutz vor Naturgefahren — Hochwasser, Murgänge, Lawinen, Bergstürze, Erdbeben, Unwetter.
     fr: 'Objets relatifs au thème APS « Protection contre les forces naturelles » (chemin : Infrastructures
@@ -3294,6 +3426,7 @@ tags:
   pref_label:
     de: Rechts- und Sicherheitspolitik
     fr: Politique juridique et de sécurité
+    it: Politica giuridica e di sicurezza
   definition:
     de: 'Geschäfte zum APS-Thema «Rechts- und Sicherheitspolitik» (Pfad: Rechts- und Sicherheitspolitik).
       Umfasst: Rechtsordnung; Sicherheitspolitik.'
@@ -3306,6 +3439,7 @@ tags:
   pref_label:
     de: Rechtsordnung
     fr: Ordre juridique
+    it: Ordinamento giuridico
   definition:
     de: 'Recht und Justiz — Grundrechte, Strafrecht, Zivilrecht, Völkerrecht, Einbürgerung, Rechtshilfe,
       Datenschutz. Umfasst: Grundrechte; Strafrecht; Zivilrecht; Internationales Recht; Staatsangehörigkeit;
@@ -3322,6 +3456,7 @@ tags:
   pref_label:
     de: Grundrechte
     fr: Droits fondamentaux
+    it: Diritti fondamentali
   definition:
     de: Grundrechte und Menschenrechte, Diskriminierungsverbot, Meinungs- und Versammlungsfreiheit, Rassismus,
       Rechtsgleichheit. Nur wenn das Grundrecht selbst Thema ist.
@@ -3353,6 +3488,7 @@ tags:
   pref_label:
     de: Strafrecht
     fr: Droit pénal
+    it: Diritto penale
   definition:
     de: Strafrecht und Strafverfahren, Strafvollzug, Gefängnisse, Jugendstrafrecht, Strafen.
     fr: 'Objets relatifs au thème APS « Droit pénal » (chemin : Politique juridique et de sécurité > Ordre
@@ -3381,6 +3517,7 @@ tags:
   pref_label:
     de: Zivilrecht
     fr: Droit civil
+    it: Diritto civile
   definition:
     de: Zivilrecht — Personen-, Familien-, Erb-, Sachen- und Obligationenrecht ohne Arbeits- und Mietrecht,
       Kindes- und Erwachsenenschutz (KESB).
@@ -3410,6 +3547,7 @@ tags:
   pref_label:
     de: Internationales Recht
     fr: Droit international
+    it: Diritto internazionale
   definition:
     de: Völkerrecht, internationale Verträge und deren Verhältnis zum Landesrecht, Europäische Menschenrechtskonvention.
     fr: 'Objets relatifs au thème APS « Droit international » (chemin : Politique juridique et de sécurité
@@ -3434,6 +3572,7 @@ tags:
   pref_label:
     de: Staatsangehörigkeit
     fr: Nationalité
+    it: Cittadinanza
   definition:
     de: Bürgerrecht und Einbürgerung, Einbürgerungsgesuche, Erwerb und Verlust des Bürgerrechts.
     fr: 'Objets relatifs au thème APS « Nationalité » (chemin : Politique juridique et de sécurité > Ordre
@@ -3458,6 +3597,7 @@ tags:
   pref_label:
     de: Rechtshilfe
     fr: Entraide judiciaire
+    it: Assistenza giudiziaria
   definition:
     de: Internationale Rechtshilfe und Auslieferung.
     fr: 'Objets relatifs au thème APS « Entraide judiciaire » (chemin : Politique juridique et de sécurité
@@ -3480,6 +3620,7 @@ tags:
   pref_label:
     de: Datenschutz
     fr: Protection des données
+    it: Protezione dei dati
   definition:
     de: Datenschutz, Überwachung durch den Staat, Videoüberwachung, Umgang mit Personendaten.
     fr: 'Objets relatifs au thème APS « Protection des données » (chemin : Politique juridique et de sécurité
@@ -3507,6 +3648,7 @@ tags:
   pref_label:
     de: Sicherheitspolitik
     fr: Politique de sécurité
+    it: Politica di sicurezza
   definition:
     de: 'Sicherheit nach aussen und innen — Armee, Rüstung, Zivilschutz, Zivildienst, Polizei, öffentliche
       Sicherheit und Ordnung, Cybersicherheit, Landesversorgung. Umfasst: Grundfragen zur Armee; Militärorganisation;
@@ -3525,6 +3667,7 @@ tags:
   pref_label:
     de: Grundfragen zur Armee
     fr: Questions fondamentales sur l'armée
+    it: Questioni fondamentali sull'esercito
   definition:
     de: Grundsätzliche Fragen zur Armee, Armeebotschaft, Armeebudget, Sicherheitspolitischer Bericht.
       Nicht Strassenverkehr oder Polizei.
@@ -3552,6 +3695,7 @@ tags:
   pref_label:
     de: Militärorganisation
     fr: Organisation militaire
+    it: Organizzazione militare
   definition:
     de: Organisation der Armee, Dienstpflicht, Militärdienst, Waffenplätze.
     fr: 'Objets relatifs au thème APS « Organisation militaire » (chemin : Politique juridique et de sécurité
@@ -3575,6 +3719,7 @@ tags:
   pref_label:
     de: Rüstung
     fr: Armement
+    it: Armamento
   definition:
     de: Rüstungsbeschaffung, Kampfflugzeuge, Kriegsmaterialexporte, Rüstungsindustrie.
     fr: 'Objets relatifs au thème APS « Armement » (chemin : Politique juridique et de sécurité > Politique
@@ -3603,6 +3748,7 @@ tags:
   pref_label:
     de: Militäreinsätze
     fr: Engagements militaires
+    it: Impieghi militari
   definition:
     de: Einsätze der Armee im In- und Ausland, Friedensmissionen.
     fr: 'Objets relatifs au thème APS « Engagements militaires » (chemin : Politique juridique et de sécurité
@@ -3625,6 +3771,7 @@ tags:
   pref_label:
     de: Bevölkerungsschutz
     fr: Protection civile
+    it: Protezione della popolazione
   definition:
     de: Bevölkerungsschutz, Zivilschutz, Schutzräume, Katastrophenvorsorge, Alarmierung.
     fr: 'Objets relatifs au thème APS « Protection civile » (chemin : Politique juridique et de sécurité
@@ -3652,6 +3799,7 @@ tags:
   pref_label:
     de: Zivildienst und Dienstverweigerung
     fr: Service civil et refus de servir
+    it: Servizio civile e obiezione di coscienza
   definition:
     de: Zivildienst und Dienstverweigerung.
     fr: 'Objets relatifs au thème APS « Service civil et refus de servir » (chemin : Politique juridique
@@ -3672,6 +3820,7 @@ tags:
   pref_label:
     de: Öffentliche Sicherheit
     fr: Sécurité publique
+    it: Sicurezza pubblica
   definition:
     de: Öffentliche Sicherheit und Ordnung, Gewalt im öffentlichen Raum, Waffenrecht, Extremismus, Terrorismusbekämpfung.
     fr: 'Objets relatifs au thème APS « Sécurité publique » (chemin : Politique juridique et de sécurité
@@ -3701,6 +3850,7 @@ tags:
   pref_label:
     de: Polizei
     fr: Police
+    it: Polizia
   definition:
     de: Polizei, Polizeibestand, Polizeigesetz, Polizeieinsätze.
     fr: 'Objets relatifs au thème APS « Police » (chemin : Politique juridique et de sécurité > Politique
@@ -3723,6 +3873,7 @@ tags:
   pref_label:
     de: Cybersicherheit
     fr: Cybersécurité
+    it: Cibersicurezza
   definition:
     de: Cybersicherheit, Cyberangriffe, Schutz kritischer Infrastrukturen vor Angriffen im Netz.
     fr: 'Objets relatifs au thème APS « Cybersécurité » (chemin : Politique juridique et de sécurité >
@@ -3746,6 +3897,7 @@ tags:
   pref_label:
     de: Versorgungssicherheit
     fr: Sécurité d'approvisionnement
+    it: Sicurezza dell'approvvigionamento
   definition:
     de: Wirtschaftliche Landesversorgung, Pflichtlager, Versorgungsengpässe.
     fr: 'Objets relatifs au thème APS « Sécurité d''approvisionnement » (chemin : Politique juridique
@@ -3769,6 +3921,7 @@ tags:
   pref_label:
     de: Wirtschaft und Finanzen
     fr: Economie et finances
+    it: Economia e finanze
   definition:
     de: 'Geschäfte zum APS-Thema «Wirtschaft und Finanzen» (Pfad: Wirtschaft und Finanzen). Umfasst: Wirtschaftspolitik;
       Öffentliche Finanzen; Geld, Währung und Kredit; Landwirtschaft; Arbeit.'
@@ -3781,6 +3934,7 @@ tags:
   pref_label:
     de: Wirtschaftspolitik
     fr: Politique économique
+    it: Politica economica
   definition:
     de: 'Wirtschaftslage und Wirtschaftspolitik — Konjunktur, Regional- und Standortförderung, Unternehmensrecht,
       Wettbewerb, Konsumentenschutz, Tourismus, Wirtschaftsordnung. Umfasst: Konjunkturlage und -politik;
@@ -3798,6 +3952,7 @@ tags:
   pref_label:
     de: Konjunkturlage und -politik
     fr: Situation et politique conjoncturelle
+    it: Situazione e politica congiunturale
   definition:
     de: Konjunktur, Wirtschaftslage, Teuerung, Konjunkturprogramme, Wirtschaftshilfen in Krisen.
     fr: 'Objets relatifs au thème APS « Situation et politique conjoncturelle » (chemin : Economie et
@@ -3824,6 +3979,7 @@ tags:
   pref_label:
     de: Strukturpolitik
     fr: Politique structurelle
+    it: Politica strutturale
   definition:
     de: Struktur-, Regional- und Standortpolitik, Wirtschaftsförderung, Neue Regionalpolitik, Berggebiete.
     fr: 'Objets relatifs au thème APS « Politique structurelle » (chemin : Economie et finances > Politique
@@ -3850,6 +4006,7 @@ tags:
   pref_label:
     de: Gesellschaftsrecht
     fr: Droit des sociétés
+    it: Diritto societario
   definition:
     de: Gesellschafts- und Unternehmensrecht, Aktienrecht, Konzernverantwortung, Handelsregister.
     fr: 'Objets relatifs au thème APS « Droit des sociétés » (chemin : Economie et finances > Politique
@@ -3873,6 +4030,7 @@ tags:
   pref_label:
     de: Wettbewerb
     fr: Concurrence
+    it: Concorrenza
   definition:
     de: Wettbewerb, Kartellrecht, Preisüberwachung, Hochpreisinsel.
     fr: 'Objets relatifs au thème APS « Concurrence » (chemin : Economie et finances > Politique économique
@@ -3899,6 +4057,7 @@ tags:
   pref_label:
     de: Konsumentinnen- und Konsumentenschutz
     fr: Protection des consommateurs/trices
+    it: Protezione dei consumatori
   definition:
     de: Konsumentenschutz, Produktsicherheit, Preisbekanntgabe, Lebensmitteldeklaration aus Sicht der
       Konsumenten.
@@ -3922,6 +4081,7 @@ tags:
   pref_label:
     de: Tourismus
     fr: Tourisme
+    it: Turismo
   definition:
     de: Tourismus, Tourismusförderung, Kurtaxen, Hotellerie, Bergbahnen.
     fr: 'Objets relatifs au thème APS « Tourisme » (chemin : Economie et finances > Politique économique
@@ -3950,6 +4110,7 @@ tags:
   pref_label:
     de: Wirtschaftsordnung
     fr: Ordre économique
+    it: Ordinamento economico
   definition:
     de: Wirtschaftsordnung, Wirtschaftsfreiheit, staatliche Unternehmen und Beteiligungen, Gewerbe- und
       Ladenöffnung, Bürokratieabbau.
@@ -3979,6 +4140,7 @@ tags:
   pref_label:
     de: Öffentliche Finanzen
     fr: Finances publiques
+    it: Finanze pubbliche
   definition:
     de: 'Finanzen von Bund, Kantonen und Gemeinden — Budget/Voranschlag, Rechnung, Sparprogramme, Schulden,
       Steuern, Finanzausgleich. Umfasst: Budget; Staatsrechnung; Finanzordnung und Sparmassnahmen; Steuern;
@@ -3995,6 +4157,7 @@ tags:
   pref_label:
     de: Budget
     fr: Budget
+    it: Preventivo
   definition:
     de: Budget bzw. Voranschlag, Finanzplan, Nachtragskredite einer staatlichen Ebene.
     fr: 'Objets relatifs au thème APS « Budget » (chemin : Economie et finances > Finances publiques >
@@ -4022,6 +4185,7 @@ tags:
   pref_label:
     de: Staatsrechnung
     fr: Comptes d'Etat
+    it: Consuntivo dello Stato
   definition:
     de: Staats- und Gemeinderechnung, Jahresrechnung, Geschäftsbericht, Rechnungsabschluss.
     fr: 'Objets relatifs au thème APS « Comptes d''Etat » (chemin : Economie et finances > Finances publiques
@@ -4048,6 +4212,7 @@ tags:
   pref_label:
     de: Finanzordnung und Sparmassnahmen
     fr: Ordre financier et mesures d’économie
+    it: Ordinamento finanziario e misure di risparmio
   definition:
     de: Finanzordnung, Schuldenbremse, Sparprogramme, Entlastungspakete, Verpflichtungskredite allgemein.
     fr: 'Objets relatifs au thème APS « Ordre financier et mesures d’économie » (chemin : Economie et
@@ -4073,6 +4238,7 @@ tags:
   pref_label:
     de: Steuern
     fr: Impôts
+    it: Imposte
   definition:
     de: Steuern und Abgaben — Einkommens-, Vermögens-, Gewinn-, Mehrwert- und Liegenschaftssteuern, Steuerfuss,
       Steuergesetz.
@@ -4108,6 +4274,7 @@ tags:
   pref_label:
     de: Finanzausgleich
     fr: Péréquation financière
+    it: Perequazione finanziaria
   definition:
     de: Finanzausgleich zwischen Bund und Kantonen oder zwischen Gemeinden.
     fr: 'Objets relatifs au thème APS « Péréquation financière » (chemin : Economie et finances > Finances
@@ -4131,6 +4298,7 @@ tags:
   pref_label:
     de: Finanzhaushalt der Kantone und Gemeinden
     fr: Budgets des cantons et des communes
+    it: Finanze dei cantoni e dei comuni
   definition:
     de: Finanzhaushalt einzelner Kantone und Gemeinden, Kredite für Bauprojekte und Anschaffungen der
       Gemeinde, Beteiligungen.
@@ -4158,6 +4326,7 @@ tags:
   pref_label:
     de: Geld, Währung und Kredit
     fr: Credit et monnaie
+    it: Moneta e credito
   definition:
     de: 'Geld- und Finanzmarkt — Geldpolitik, Nationalbank, Banken, Börsen, private Versicherungen, Finanzmarktaufsicht.
       Umfasst: Geld- und Währungspolitik; Finanzwesen; Nationalbank; Banken; Börsen; Versicherungen.'
@@ -4173,6 +4342,7 @@ tags:
   pref_label:
     de: Geld- und Währungspolitik
     fr: Politique monétaire
+    it: Politica monetaria
   definition:
     de: Geld- und Währungspolitik, Frankenkurs, Bargeld.
     fr: 'Objets relatifs au thème APS « Politique monétaire » (chemin : Economie et finances > Credit
@@ -4199,6 +4369,7 @@ tags:
   pref_label:
     de: Finanzwesen
     fr: Affaires financières
+    it: Mercati finanziari
   definition:
     de: Finanzplatz, Finanzmarktaufsicht, Geldwäscherei, Vermögensverwaltung, Kryptowährungen.
     fr: 'Objets relatifs au thème APS « Affaires financières » (chemin : Economie et finances > Credit
@@ -4225,6 +4396,7 @@ tags:
   pref_label:
     de: Nationalbank
     fr: Banque nationale
+    it: Banca nazionale
   definition:
     de: Schweizerische Nationalbank, Gewinnausschüttung der SNB.
     fr: 'Objets relatifs au thème APS « Banque nationale » (chemin : Economie et finances > Credit et
@@ -4247,6 +4419,7 @@ tags:
   pref_label:
     de: Banken
     fr: Banques
+    it: Banche
   definition:
     de: Banken, Kantonalbanken, Bankenregulierung, Too big to fail.
     fr: 'Objets relatifs au thème APS « Banques » (chemin : Economie et finances > Credit et monnaie >
@@ -4272,6 +4445,7 @@ tags:
   pref_label:
     de: Börsen
     fr: Bourses
+    it: Borse
   definition:
     de: Börsen und Wertpapierhandel.
     fr: 'Objets relatifs au thème APS « Bourses » (chemin : Economie et finances > Credit et monnaie >
@@ -4293,6 +4467,7 @@ tags:
   pref_label:
     de: Versicherungen
     fr: Assurances
+    it: Assicurazioni
   definition:
     de: Privatversicherungen und Versicherungsaufsicht (nicht Sozialversicherungen).
     fr: 'Objets relatifs au thème APS « Assurances » (chemin : Economie et finances > Credit et monnaie
@@ -4314,6 +4489,7 @@ tags:
   pref_label:
     de: Landwirtschaft
     fr: Agriculture
+    it: Agricoltura
   definition:
     de: 'Landwirtschaft und Ernährung sowie Tiere und Wald — Agrarpolitik, Lebensmittel, Pflanzen- und
       Tierproduktion, Tierschutz, Jagd und Fischerei, Wolf und Grossraubtiere, Forstwirtschaft, Gentechnik.
@@ -4334,6 +4510,7 @@ tags:
   pref_label:
     de: Agrarpolitik
     fr: Politique agricole
+    it: Politica agricola
   definition:
     de: Agrarpolitik, Direktzahlungen, landwirtschaftliche Betriebe, Ernährungssicherheit.
     fr: 'Objets relatifs au thème APS « Politique agricole » (chemin : Economie et finances > Agriculture
@@ -4360,6 +4537,7 @@ tags:
   pref_label:
     de: Beschäftigte in der Landwirtschaft
     fr: Personnes employées dans l'agriculture
+    it: Persone occupate nell'agricoltura
   definition:
     de: Beschäftigte, Einkommen und soziale Lage in der Landwirtschaft.
     fr: 'Objets relatifs au thème APS « Personnes employées dans l''agriculture » (chemin : Economie et
@@ -4381,6 +4559,7 @@ tags:
   pref_label:
     de: Lebensmittel
     fr: Denrées alimentaires
+    it: Derrate alimentari
   definition:
     de: Lebensmittel, Lebensmittelsicherheit, Ernährung, Food Waste, Herkunftsdeklaration.
     fr: 'Objets relatifs au thème APS « Denrées alimentaires » (chemin : Economie et finances > Agriculture
@@ -4407,6 +4586,7 @@ tags:
   pref_label:
     de: Pflanzliche Produktion
     fr: Production végétale
+    it: Produzione vegetale
   definition:
     de: Pflanzenbau, Pflanzenschutzmittel, Saatgut, Weinbau, Obst und Gemüse.
     fr: 'Objets relatifs au thème APS « Production végétale » (chemin : Economie et finances > Agriculture
@@ -4433,6 +4613,7 @@ tags:
   pref_label:
     de: Tierische Produktion
     fr: Production animale
+    it: Produzione animale
   definition:
     de: Tierproduktion, Milch- und Fleischmarkt, Nutztierhaltung als Produktion.
     fr: 'Objets relatifs au thème APS « Production animale » (chemin : Economie et finances > Agriculture
@@ -4459,6 +4640,7 @@ tags:
   pref_label:
     de: Tierhaltung und Tierschutz
     fr: Détention d'animaux et protection des animaux
+    it: Detenzione e protezione degli animali
   definition:
     de: Tierhaltung und Tierschutz, Haustiere, Hunde, Tierwohl.
     fr: 'Objets relatifs au thème APS « Détention d''animaux et protection des animaux » (chemin : Economie
@@ -4486,6 +4668,7 @@ tags:
   pref_label:
     de: Tierversuche
     fr: Expérimentation animale
+    it: Sperimentazione animale
   definition:
     de: Tierversuche.
     fr: 'Objets relatifs au thème APS « Expérimentation animale » (chemin : Economie et finances > Agriculture
@@ -4506,6 +4689,7 @@ tags:
   pref_label:
     de: Jagd und Fischerei
     fr: Chasse et pêche
+    it: Caccia e pesca
   definition:
     de: Jagd und Fischerei, Jagdgesetz, Wildtiermanagement, Fischbestände.
     fr: 'Objets relatifs au thème APS « Chasse et pêche » (chemin : Economie et finances > Agriculture
@@ -4535,6 +4719,7 @@ tags:
   pref_label:
     de: Grossraubtiere
     fr: Grands prédateurs
+    it: Grandi predatori
   definition:
     de: Grossraubtiere — Wolf, Bär, Luchs, Herdenschutz, Regulierung.
     fr: 'Objets relatifs au thème APS « Grands prédateurs » (chemin : Economie et finances > Agriculture
@@ -4564,6 +4749,7 @@ tags:
   pref_label:
     de: Forstwirtschaft
     fr: Sylviculture
+    it: Selvicoltura
   definition:
     de: Wald und Forstwirtschaft, Waldschutz, Holz.
     fr: 'Objets relatifs au thème APS « Sylviculture » (chemin : Economie et finances > Agriculture >
@@ -4591,6 +4777,7 @@ tags:
   pref_label:
     de: Gentechnologie
     fr: Génie génétique
+    it: Ingegneria genetica
   definition:
     de: Gentechnik und neue Züchtungsverfahren in Landwirtschaft und Lebensmitteln.
     fr: 'Objets relatifs au thème APS « Génie génétique » (chemin : Economie et finances > Agriculture
@@ -4616,6 +4803,7 @@ tags:
   pref_label:
     de: Umweltschutz in der Landwirtschaft
     fr: Protection de l'environnement dans l'agriculture
+    it: Protezione dell'ambiente nell'agricoltura
   definition:
     de: Umweltwirkungen der Landwirtschaft — Nährstoffe, Pestizide, Biodiversitätsförderflächen, Biolandbau.
     fr: 'Objets relatifs au thème APS « Protection de l''environnement dans l''agriculture » (chemin :
@@ -4639,6 +4827,7 @@ tags:
   pref_label:
     de: Arbeit
     fr: Travail
+    it: Lavoro
   definition:
     de: 'Arbeitswelt — Arbeitsrecht, Arbeitsmarkt, Löhne, Gesamtarbeitsverträge und Sozialpartner, Arbeitszeit,
       Schutz der Arbeitnehmenden. Umfasst: Arbeitsrecht; Arbeitsmarkt; Löhne; Sozialpartnerschaft; Arbeitszeit;
@@ -4655,6 +4844,7 @@ tags:
   pref_label:
     de: Arbeitsrecht
     fr: Droit du travail
+    it: Diritto del lavoro
   definition:
     de: Arbeitsrecht, Arbeitsverträge, Kündigungsschutz am Arbeitsplatz, Arbeitsrecht des Staatspersonals.
     fr: 'Objets relatifs au thème APS « Droit du travail » (chemin : Economie et finances > Travail >
@@ -4679,6 +4869,7 @@ tags:
   pref_label:
     de: Arbeitsmarkt
     fr: Marché du travail
+    it: Mercato del lavoro
   definition:
     de: Arbeitsmarkt, Arbeitslosigkeit, Fachkräftemangel, Arbeitsintegration, Grenzgänger.
     fr: 'Objets relatifs au thème APS « Marché du travail » (chemin : Economie et finances > Travail >
@@ -4707,6 +4898,7 @@ tags:
   pref_label:
     de: Löhne
     fr: Salaires
+    it: Salari
   definition:
     de: Löhne, Mindestlohn, Lohnschutz, Lohnmassnahmen für Staatspersonal.
     fr: 'Objets relatifs au thème APS « Salaires » (chemin : Economie et finances > Travail > Salaires).'
@@ -4731,6 +4923,7 @@ tags:
   pref_label:
     de: Sozialpartnerschaft
     fr: Partenariat social
+    it: Partenariato sociale
   definition:
     de: Sozialpartnerschaft, Gesamtarbeitsverträge, flankierende Massnahmen, Streiks.
     fr: 'Objets relatifs au thème APS « Partenariat social » (chemin : Economie et finances > Travail
@@ -4759,6 +4952,7 @@ tags:
   pref_label:
     de: Arbeitszeit
     fr: Temps de travail
+    it: Orario di lavoro
   definition:
     de: Arbeitszeit, Ferien, Teilzeit, Sonntagsarbeit.
     fr: 'Objets relatifs au thème APS « Temps de travail » (chemin : Economie et finances > Travail >
@@ -4786,6 +4980,7 @@ tags:
   pref_label:
     de: Arbeitnehmendenschutz
     fr: Protection des travailleurs
+    it: Protezione dei lavoratori
   definition:
     de: Schutz der Arbeitnehmenden, Gesundheitsschutz am Arbeitsplatz, Schwarzarbeit, Scheinselbständigkeit.
     fr: 'Objets relatifs au thème APS « Protection des travailleurs » (chemin : Economie et finances >

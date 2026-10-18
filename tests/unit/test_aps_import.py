@@ -59,6 +59,7 @@ def test_descriptions_add_definition_and_synonyms_on_import_and_refresh(tmp_path
     )
     _, plain = import_aps(xlsx, registry_file)
     (tmp_path / "aps_descriptions.yaml").write_text(
+        "aps:1: {it: Attori}\n"
         "aps:1.1: {de: Grundsätze des Staates.}\n"
         "aps:1.1.1:\n  de: Selbstverständnis der Schweiz.\n"
         "  alt: {de: [Nationalfeiertag], fr: [fête nationale], it: []}\n",
@@ -71,6 +72,8 @@ def test_descriptions_add_definition_and_synonyms_on_import_and_refresh(tmp_path
     topic = registry.get("aps:1.1.1")
     assert topic.definition.de == "Selbstverständnis der Schweiz."
     assert topic.alt_labels.all() == ["Nationalfeiertag", "fête nationale"]
+    assert registry.get("aps:1").pref_label.it == "Attori"
+    assert registry.get("aps:1").definition.de.endswith("Umfasst: Grundfragen.")
     assert refresh_descriptions(registry_file) == (3, version)
     assert import_aps(xlsx, registry_file) == (3, version)
 

@@ -202,16 +202,20 @@ def load_descriptions(registry_path: Path) -> dict[str, Any]:
 def apply_descriptions(
     tags: list[dict[str, Any]], descriptions: dict[str, Any]
 ) -> list[dict[str, Any]]:
-    """Beschreibung DE und Synonyme aus aps_descriptions.yaml über die APS-Einträge legen.
+    """Name IT, Beschreibung DE und Synonyme aus aps_descriptions.yaml über die APS-Einträge legen.
 
-    APS selbst liefert nur Namen. Bei Kapiteln und Bereichen bleibt „Umfasst: …“ angehängt.
+    APS selbst liefert nur Namen auf DE und FR. Bei Kapiteln und Bereichen bleibt „Umfasst: …“
+    angehängt.
     """
     for tag in tags:
         entry = descriptions.get(tag["tag_id"])
         if not entry:
             continue
-        children = tag["definition"]["de"].partition(" Umfasst: ")[2]
-        tag["definition"]["de"] = entry["de"] + (f" Umfasst: {children}" if children else "")
+        if entry.get("it"):
+            tag["pref_label"]["it"] = entry["it"]
+        if entry.get("de"):
+            children = tag["definition"]["de"].partition(" Umfasst: ")[2]
+            tag["definition"]["de"] = entry["de"] + (f" Umfasst: {children}" if children else "")
         alt = {lang: labels for lang, labels in (entry.get("alt") or {}).items() if labels}
         if alt:
             tag["alt_labels"] = alt

@@ -3,550 +3,757 @@
 # APS liefert nur Namen. Ohne Beschreibung und Synonyme wählte Apertus oft das falsche Kapitel
 # (z. B. „Loi sur la chasse“ → Medien). `parltopics registry import-aps` und
 # `parltopics registry apply-descriptions` übernehmen diese Datei nach registry/tags.yaml:
-# `de` wird zur deutschen Definition (bei Kapiteln bleibt „Umfasst: …“ angehängt),
+# `it` wird zum italienischen Namen (APS liefert nur DE und FR), `de` zur deutschen Definition
+# (bei Kapiteln bleibt „Umfasst: …“ angehängt),
 # `alt` zu den Synonymen (alt_labels). Gepflegt von Hand; Änderungen erhöhen registry_version.
+
+# Bereiche (nur italienischer Name) -----------------------------------------------------------
+
+aps:1:
+  it: "Istituzioni e attori"
+aps:2:
+  it: "Democrazia diretta ed elezioni"
+aps:3:
+  it: "Politica europea ed estera"
+aps:4:
+  it: "Società e cultura"
+aps:5:
+  it: "Sanità e sistema sociale"
+aps:6:
+  it: "Infrastrutture e ambiente"
+aps:7:
+  it: "Politica giuridica e di sicurezza"
+aps:8:
+  it: "Economia e finanze"
 
 # Kapitel ------------------------------------------------------------------------------------
 
 aps:1.1:
+  it: "Questioni politiche fondamentali"
   de: Grundsätze des Staates und seines Gebiets — Selbstverständnis der Schweiz, Bundesverfassung als Ganzes, Gebiets- und Grenzfragen zwischen Kantonen und Gemeinden.
 aps:1.2:
+  it: "Istituzioni"
   de: Aufbau und Arbeit der staatlichen Organe — Bundesrat, Verwaltung, Parlamente, Gerichte, Kantone und Gemeinden als Institutionen, Parteien, Verbände und Lobbyismus; auch Wahlen in Ämter und Kommissionen sowie Vereidigungen.
 aps:2.1:
+  it: "Democrazia diretta"
   de: Mitwirkung des Volkes — Abstimmungen, Referenden, Volksinitiativen, Stimm- und Wahlrecht, Abstimmungsverfahren, politische Kampagnen und deren Finanzierung.
 aps:2.2:
+  it: "Elezioni"
   de: Wahlen von Volksvertretungen und Regierungen auf Bund, Kantonen und Gemeinden — Wahlvorbereitung, Kandidaturen, Resultate.
 aps:3.1:
+  it: "Politica europea ed estera"
   de: Beziehungen der Schweiz zum Ausland — EU, andere Staaten, UNO und internationale Organisationen, Neutralität, Aussenhandel, Entwicklungszusammenarbeit, humanitäre Hilfe, Auslandschweizer.
 aps:4.1:
+  it: "Gruppi sociali"
   de: Lage und Rechte gesellschaftlicher Gruppen — Bevölkerung, Migration, Asyl, Gleichstellung, Familien, Kinder und Jugend, ältere Menschen, LGBTQIA+, Menschen mit Behinderungen, Fahrende.
 aps:4.2:
+  it: "Formazione e ricerca"
   de: Schulen aller Stufen, Berufsbildung, Hochschulen und Forschung.
 aps:4.3:
+  it: "Cultura, lingue, chiese"
   de: Kultur und Kulturförderung, Sprachen und Sprachgebiete, Religionsgemeinschaften, Ortsbild- und Denkmalschutz, Urheberrecht.
 aps:4.4:
+  it: "Media"
   de: Presse, Radio, Fernsehen, Online-Medien, Medienförderung und Meinungsumfragen. Nicht gemeint sind Geschäfte, die nur in den Medien erwähnt werden.
 aps:5.1:
+  it: "Sanità, assistenza sociale, sport"
   de: Gesundheitswesen (Spitäler, Ärzte, Pflege, Medikamente, Sucht, Prävention, Pandemien), Sozialhilfe und Sport.
 aps:5.2:
+  it: "Assicurazioni sociali"
   de: Obligatorische und freiwillige Versicherungen gegen soziale Risiken — AHV, IV, Krankenkasse und Krankenkassenprämien, Unfall, Arbeitslosigkeit, Mutterschaft, Erwerbsersatz, Pensionskasse, Säule 3a, Ergänzungsleistungen.
 aps:6.1:
+  it: "Trasporti e comunicazioni"
   de: Verkehr aller Art (Strasse, Schiene, öffentlicher Verkehr, Velo, Fussverkehr, Luft, Schiff), Post, Telekommunikation und Digitalisierung von Staat und Gesellschaft.
 aps:6.2:
+  it: "Energia"
   de: Energieversorgung und Energiepolitik — Strom, Stromnetz, Öl und Gas, Wasserkraft, Sonne, Wind, Biomasse, Geothermie, Kernkraft, Energieeffizienz.
 aps:6.3:
+  it: "Pianificazione del territorio e abitazioni"
   de: Raumplanung, Zonen und Bauen, Wohnungsbau, Wohneigentum, Mieten und Bodenrecht.
 aps:6.4:
+  it: "Protezione dell'ambiente"
   de: Schutz der Umwelt — Natur und Landschaft, Biodiversität, Boden, Gewässer, Luft, Klima, Lärm, Abfall und Recycling, Naturgefahren.
 aps:7.1:
+  it: "Ordinamento giuridico"
   de: Recht und Justiz — Grundrechte, Strafrecht, Zivilrecht, Völkerrecht, Einbürgerung, Rechtshilfe, Datenschutz.
 aps:7.2:
+  it: "Politica di sicurezza"
   de: Sicherheit nach aussen und innen — Armee, Rüstung, Zivilschutz, Zivildienst, Polizei, öffentliche Sicherheit und Ordnung, Cybersicherheit, Landesversorgung.
 aps:8.1:
+  it: "Politica economica"
   de: Wirtschaftslage und Wirtschaftspolitik — Konjunktur, Regional- und Standortförderung, Unternehmensrecht, Wettbewerb, Konsumentenschutz, Tourismus, Wirtschaftsordnung.
 aps:8.2:
+  it: "Finanze pubbliche"
   de: Finanzen von Bund, Kantonen und Gemeinden — Budget/Voranschlag, Rechnung, Sparprogramme, Schulden, Steuern, Finanzausgleich.
 aps:8.3:
+  it: "Moneta e credito"
   de: Geld- und Finanzmarkt — Geldpolitik, Nationalbank, Banken, Börsen, private Versicherungen, Finanzmarktaufsicht.
 aps:8.4:
+  it: "Agricoltura"
   de: Landwirtschaft und Ernährung sowie Tiere und Wald — Agrarpolitik, Lebensmittel, Pflanzen- und Tierproduktion, Tierschutz, Jagd und Fischerei, Wolf und Grossraubtiere, Forstwirtschaft, Gentechnik.
 aps:8.5:
+  it: "Lavoro"
   de: Arbeitswelt — Arbeitsrecht, Arbeitsmarkt, Löhne, Gesamtarbeitsverträge und Sozialpartner, Arbeitszeit, Schutz der Arbeitnehmenden.
 
 # Themen -------------------------------------------------------------------------------------
 
 aps:1.1.1:
+  it: "Identità nazionale"
   de: Selbstverständnis und Zusammenhalt der Schweiz, nationale Symbole, Nationalfeiertag, Landeshymne, Swissness.
   alt: {de: [Nationalfeiertag, Landeshymne, Zusammenhalt], fr: [identité suisse, fête nationale], it: [identità nazionale, festa nazionale]}
 aps:1.1.2:
+  it: "Questioni costituzionali"
   de: Bundesverfassung als Ganzes, Totalrevision, Verfassungsgerichtsbarkeit und grundlegende Staatsorganisation.
   alt: {de: [Bundesverfassung, Verfassungsrevision, Verfassungsgerichtsbarkeit], fr: [Constitution fédérale, révision constitutionnelle], it: [Costituzione federale]}
 aps:1.1.3:
+  it: "Questioni territoriali"
   de: Gebietsfragen, Grenzen und Fusionen von Kantonen und Gemeinden, Gebietsaustausch, Kantonswechsel von Gemeinden.
   alt: {de: [Gemeindefusion, Gebietsaustausch, Kantonswechsel, Grenzbereinigung], fr: [fusion de communes, changement de canton], it: [aggregazione comunale, fusione di comuni]}
 aps:1.1.4:
+  it: "Questione giurassiana"
   de: Jurafrage, Kantonszugehörigkeit von Moutier und des Berner Juras.
   alt: {de: [Moutier, Berner Jura], fr: [question jurassienne, Moutier, Jura bernois], it: [questione giurassiana]}
 aps:1.2.1:
+  it: "Consiglio federale"
   de: Zusammensetzung, Organisation und Arbeit des Bundesrats bzw. einer Kantons- oder Stadtregierung als Gremium.
   alt: {de: [Regierungsrat, Stadtrat, Gemeinderat, Exekutive], fr: [Conseil fédéral, Conseil d'Etat, Municipalité, exécutif], it: [Consiglio federale, Consiglio di Stato, Municipio]}
 aps:1.2.2:
+  it: "Amministrazione"
   de: Öffentliche Verwaltung, Verwaltungsreform, Personal und Löhne des öffentlichen Dienstes, Behördenorganisation, E-Government-Organisation, Beschaffungswesen.
   alt: {de: [Staatspersonal, Bundespersonal, öffentliche Beschaffung, Submission, Verwaltungsreform], fr: [administration publique, personnel de l'Etat, marchés publics], it: [amministrazione pubblica, personale dello Stato, appalti pubblici]}
 aps:1.2.3:
+  it: "Concordanza"
   de: Konkordanz und Zauberformel, Zusammensetzung von Regierungen nach Parteien.
   alt: {de: [Zauberformel], fr: [formule magique], it: [concordanza, formula magica]}
 aps:1.2.4:
+  it: "Parlamento"
   de: Organisation und Verfahren des Parlaments (Bund, Kanton, Gemeinde) — Geschäftsordnung, Kommissionen, Vereidigungen, Wahlen in Ämter durch das Parlament, Rücktritte, Parlamentsbetrieb.
   alt: {de: [Grosser Rat, Kantonsrat, Landrat, Gemeinderat, Stadtparlament, Geschäftsordnung, Vereidigung, Kommission], fr: [Grand Conseil, Conseil communal, Conseil municipal, prestation de serment, règlement], it: [Gran Consiglio, Consiglio comunale, giuramento]}
 aps:1.2.5:
+  it: "Lobbismo"
   de: Interessenvertretung und Lobbyismus im Parlament, Zugangsbadges, Offenlegung von Interessenbindungen.
   alt: {de: [Interessenbindungen, Lobbying, Transparenz], fr: [lobbyisme, liens d'intérêts], it: [lobbismo, legami d'interesse]}
 aps:1.2.6:
+  it: "Tribunali"
   de: Gerichte und Justizorganisation, Wahl von Richterinnen und Richtern, Staatsanwaltschaft als Behörde, Bundesgericht.
   alt: {de: [Gericht, Bundesgericht, Richterwahl, Justiz, Staatsanwaltschaft], fr: [tribunal, Tribunal fédéral, juges, justice, Ministère public], it: [tribunale, giustizia, giudici]}
 aps:1.2.7:
+  it: "Federalismo"
   de: Aufgabenteilung zwischen Bund, Kantonen und Gemeinden, Subsidiarität, interkantonale Zusammenarbeit und Konkordate.
   alt: {de: [Aufgabenteilung, Subsidiarität, Konkordat, Bund und Kantone], fr: [fédéralisme, répartition des tâches, concordat], it: [federalismo, ripartizione dei compiti]}
 aps:1.2.8:
+  it: "Cantoni"
   de: Kanton als Institution — Kantonsverfassung, Gewährleistung, kantonale Organisation.
   alt: {de: [Kantonsverfassung, Gewährleistung], fr: [constitution cantonale, garantie], it: [costituzione cantonale]}
 aps:1.2.9:
+  it: "Città, regioni, comuni"
   de: Gemeinden, Städte und Regionen als Institutionen — Gemeindeorganisation, Gemeindeautonomie, Agglomerationen, Gemeindereglemente, Partnerschaften.
   alt: {de: [Gemeindeordnung, Gemeindeautonomie, Agglomeration, Städtepartnerschaft], fr: [communes, autonomie communale, agglomération, règlement communal], it: [comuni, autonomia comunale]}
 aps:1.2.10:
+  it: "Sistema dei partiti"
   de: Parteienlandschaft und Kräfteverhältnisse insgesamt, Fraktionen.
   alt: {de: [Parteienlandschaft, Fraktionen], fr: [paysage politique, groupes parlementaires], it: [sistema partitico]}
 aps:1.2.11:
+  it: "Partiti"
   de: Einzelne Parteien, ihre Programme, Organisation und Finanzen.
   alt: {de: [SVP, SP, FDP, Mitte, Grüne, GLP, EVP], fr: [UDC, PS, PLR, Centre, Verts, PVL], it: [partiti]}
 aps:1.2.12:
+  it: "Associazioni"
   de: Verbände, Gewerkschaften und Wirtschaftsverbände als politische Akteure.
   alt: {de: [Verband, Gewerkschaft, Arbeitgeberverband, Gewerbeverband], fr: [associations, syndicats, faîtières], it: [associazioni, sindacati]}
 aps:2.1.1:
+  it: "Votazione popolare"
   de: Konkrete Volksabstimmungen und deren Ergebnisse, Abstimmungserläuterungen.
   alt: {de: [Abstimmung, Urnengang, Abstimmungsergebnis], fr: [votation, scrutin], it: [votazione popolare]}
 aps:2.1.2:
+  it: "Referendum"
   de: Referenden — fakultatives und obligatorisches Referendum, Behörden- und Finanzreferendum.
   alt: {de: [Finanzreferendum, Behördenreferendum, Kantonsreferendum], fr: [référendum facultatif, référendum obligatoire, référendum financier], it: [referendum]}
 aps:2.1.3:
+  it: "Iniziativa popolare"
   de: Volksinitiativen und Gemeindeinitiativen — Gültigkeit, Behandlung, Gegenvorschläge.
   alt: {de: [Initiative, Gegenvorschlag, Einzelinitiative, Gemeindeinitiative], fr: [initiative populaire, contre-projet], it: [iniziativa popolare, controprogetto]}
 aps:2.1.4:
+  it: "Landsgemeinde"
   de: Landsgemeinde und Gemeindeversammlung als Versammlungsdemokratie.
   alt: {de: [Gemeindeversammlung], fr: [assemblée communale], it: [assemblea comunale]}
 aps:2.1.5:
+  it: "Procedura di voto e di elezione"
   de: Verfahren bei Wahlen und Abstimmungen — Wahlsystem, Proporz/Majorz, E-Voting, Stimmzettel, Wahlkreise.
   alt: {de: [E-Voting, Proporz, Majorz, Wahlkreis, Stimmzettel, briefliche Stimmabgabe], fr: [vote électronique, système électoral, bulletin], it: [voto elettronico, sistema elettorale]}
 aps:2.1.6:
+  it: "Diritto di voto e di eleggibilità"
   de: Stimm- und Wahlrecht — Stimmrechtsalter, Ausländerstimmrecht, Stimmrecht für Menschen mit Beeinträchtigung.
   alt: {de: [Stimmrechtsalter 16, Ausländerstimmrecht], fr: [droit de vote des étrangers, vote à 16 ans], it: [diritto di voto]}
 aps:2.1.7:
+  it: "Partecipazione politica"
   de: Politische Beteiligung, Stimmbeteiligung, Jugendparlamente, Petitionen und Mitwirkungsverfahren.
   alt: {de: [Petition, Stimmbeteiligung, Jugendparlament, Partizipation], fr: [pétition, participation, parlement des jeunes], it: [petizione, partecipazione]}
 aps:2.1.8:
+  it: "Campagne politiche"
   de: Abstimmungs- und Wahlkampagnen, Behördeninformation vor Abstimmungen.
   alt: {de: [Abstimmungskampf, Wahlkampf], fr: [campagne de votation, campagne électorale], it: [campagna elettorale]}
 aps:2.1.9:
+  it: "Finanziamento della politica"
   de: Finanzierung von Parteien und Kampagnen, Transparenz der Politikfinanzierung.
   alt: {de: [Parteispenden, Transparenzinitiative], fr: [financement des partis, transparence], it: [finanziamento dei partiti]}
 aps:2.2.1:
+  it: "Elezioni del Consiglio nazionale e del Consiglio degli Stati"
   de: Wahlen in National- und Ständerat.
   alt: {de: [Nationalratswahlen, Ständeratswahlen], fr: [élections fédérales], it: [elezioni federali]}
 aps:2.2.2:
+  it: "Elezioni dei governi cantonali"
   de: Wahlen in Kantonsregierungen.
   alt: {de: [Regierungsratswahlen], fr: [élection au Conseil d'Etat], it: [elezione del Consiglio di Stato]}
 aps:2.2.3:
+  it: "Elezioni dei parlamenti cantonali"
   de: Wahlen in Kantonsparlamente.
   alt: {de: [Grossratswahlen, Kantonsratswahlen], fr: [élection au Grand Conseil], it: [elezione del Gran Consiglio]}
 aps:2.2.4:
+  it: "Elezioni comunali"
   de: Wahlen in Gemeindebehörden und Stadtparlamente durch das Volk.
   alt: {de: [Gemeindewahlen, Stadtratswahlen], fr: [élections communales], it: [elezioni comunali]}
 aps:3.1.1:
+  it: "Relazioni con l'Unione europea (UE)"
   de: Beziehungen zur EU — Bilaterale Verträge, institutionelles Abkommen, Schengen/Dublin, Personenfreizügigkeit als Vertrag, Kohäsionsbeitrag.
   alt: {de: [EU, Bilaterale, Schengen, Dublin, Rahmenabkommen, Personenfreizügigkeit], fr: [UE, bilatérales, accord-cadre, libre circulation], it: [UE, bilaterali, libera circolazione]}
 aps:3.1.2:
+  it: "Relazioni con altri Stati"
   de: Beziehungen zu einzelnen Staaten, Staatsbesuche, Sanktionen, Konflikte im Ausland (z. B. Ukraine, Nahost) aus Sicht der Schweizer Aussenpolitik.
   alt: {de: [Sanktionen, Staatsbesuch, Ukraine, Russland, Israel, Palästina, China], fr: [relations bilatérales, sanctions], it: [relazioni bilaterali, sanzioni]}
 aps:3.1.3:
+  it: "Relazioni con organizzazioni internazionali"
   de: UNO, Europarat, OSZE, WTO, OECD und andere internationale Organisationen, internationales Genf.
   alt: {de: [UNO, Europarat, OSZE, WHO, internationales Genf], fr: [ONU, Conseil de l'Europe, Genève internationale], it: [ONU, Consiglio d'Europa]}
 aps:3.1.4:
+  it: "Neutralità"
   de: Neutralität und Neutralitätspolitik.
   alt: {de: [Neutralitätspolitik], fr: [neutralité], it: [neutralità]}
 aps:3.1.5:
+  it: "Buoni uffici"
   de: Gute Dienste, Vermittlung, Schutzmachtmandate, Friedensförderung.
   alt: {de: [Vermittlung, Friedensförderung, Schutzmachtmandat], fr: [bons offices, médiation], it: [buoni uffici, mediazione]}
 aps:3.1.6:
+  it: "Politica economica esterna"
   de: Aussenhandel, Freihandelsabkommen, Zölle, Exportkontrolle ziviler Güter, Investitionsschutz.
   alt: {de: [Freihandelsabkommen, Zoll, Zölle, Exporte, Handelsabkommen], fr: [libre-échange, douane, exportations], it: [libero scambio, dazi, esportazioni]}
 aps:3.1.7:
+  it: "Politica di sviluppo"
   de: Entwicklungszusammenarbeit, humanitäre Hilfe im Ausland, Wiederaufbau, internationale Zusammenarbeit (IZA).
   alt: {de: [Entwicklungshilfe, humanitäre Hilfe, DEZA, Wiederaufbau], fr: [coopération au développement, aide humanitaire, DDC], it: [cooperazione allo sviluppo, aiuto umanitario]}
 aps:3.1.8:
+  it: "Svizzeri all'estero"
   de: Schweizerinnen und Schweizer im Ausland, Konsulate, Auslandschweizerorganisation.
   alt: {de: [Auslandschweizer, Fünfte Schweiz], fr: [Suisses de l'étranger, cinquième Suisse], it: [Svizzeri all'estero]}
 aps:4.1.1:
+  it: "Evoluzione della popolazione"
   de: Bevölkerungsentwicklung, Demografie, Bevölkerungsstatistik, Volkszählung.
   alt: {de: [Demografie, Bevölkerungswachstum, Geburtenrate], fr: [démographie, natalité], it: [demografia]}
 aps:4.1.2:
+  it: "Migrazione"
   de: Zuwanderung, Ausländerrecht, Aufenthaltsbewilligungen, Integration von Ausländerinnen und Ausländern, Personenfreizügigkeit innenpolitisch.
   alt: {de: [Zuwanderung, Ausländer, Integration, Aufenthaltsbewilligung, Ausländer- und Integrationsgesetz, AIG], fr: [immigration, étrangers, intégration, permis de séjour, LEI], it: [immigrazione, stranieri, integrazione]}
 aps:4.1.3:
+  it: "Asilo"
   de: Asylverfahren, Asylunterkünfte, Flüchtlinge, Schutzstatus S, Rückführungen.
   alt: {de: [Flüchtlinge, Asylsuchende, Asylzentrum, Status S, Ausschaffung, Asylgesetz], fr: [asile, réfugiés, requérants d'asile, statut S, renvoi], it: [asilo, rifugiati, richiedenti l'asilo]}
 aps:4.1.4:
+  it: "Donne e parità dei sessi"
   de: Gleichstellung von Frau und Mann, Lohngleichheit, häusliche und geschlechtsspezifische Gewalt, Frauenförderung.
   alt: {de: [Gleichstellung, Lohngleichheit, häusliche Gewalt, Feminizid], fr: [égalité, violence domestique, égalité salariale], it: [parità, violenza domestica]}
 aps:4.1.5:
+  it: "Famiglie"
   de: Familienpolitik, Kinderbetreuung, Kitas, Familienzulagen, Vereinbarkeit von Familie und Beruf, Eltern- und Vaterschaftsurlaub.
   alt: {de: [Kita, Kinderbetreuung, Familienzulagen, Elternzeit, Vaterschaftsurlaub, Tagesstrukturen], fr: [crèche, accueil extrafamilial, allocations familiales, congé parental], it: [asilo nido, assegni familiari, congedo parentale]}
 aps:4.1.6:
+  it: "Bambini e giovani"
   de: Kinder und Jugendliche — Kinderschutz, Jugendförderung, Kinderrechte, Jugendarbeit, Schutz vor Gefahren für Kinder.
   alt: {de: [Kinderschutz, Jugendarbeit, Kinderrechte, Jugendförderung], fr: [protection de l'enfance, jeunesse, droits de l'enfant], it: [protezione dell'infanzia, giovani]}
 aps:4.1.7:
+  it: "Questioni legate all'età"
   de: Ältere Menschen, Alterspolitik, Betreuung im Alter, Altersheime als soziales Thema.
   alt: {de: [Senioren, Alterspolitik, Betreuung im Alter], fr: [personnes âgées, seniors], it: [anziani]}
 aps:4.1.8:
+  it: "LGBTQIA+"
   de: Rechte und Lage von LGBTQIA+-Menschen, Ehe für alle, Diskriminierungsschutz wegen sexueller Orientierung.
   alt: {de: [Ehe für alle, Homosexualität, Transmenschen, queer], fr: [mariage pour tous, homosexualité, transgenre], it: [matrimonio per tutti]}
 aps:4.1.9:
+  it: "Persone con disabilità"
   de: Gleichstellung und Inklusion von Menschen mit Behinderungen, Barrierefreiheit, Behindertenrechtskonvention. Nicht die Invalidenversicherung als Versicherung.
   alt: {de: [Behinderung, Inklusion, Barrierefreiheit, BehiG], fr: [handicap, inclusion, accessibilité], it: [disabilità, inclusione]}
 aps:4.1.10:
+  it: "Nomadi"
   de: Fahrende, Jenische, Sinti und Roma, Stand- und Durchgangsplätze.
   alt: {de: [Jenische, Durchgangsplatz, Standplatz], fr: [gens du voyage, Yéniches, aire de transit], it: [nomadi, Jenisch]}
 aps:4.2.1:
+  it: "Scuola dell'obbligo"
   de: Obligatorische Schule (Kindergarten, Primar, Sekundarstufe I), Lehrpersonen, Lehrplan, Sonderpädagogik, Schulhäuser und Schulraum.
   alt: {de: [Volksschule, Primarschule, Kindergarten, Lehrplan 21, Lehrpersonen, Schulhaus, Schulraum], fr: [école obligatoire, enseignants, école primaire, bâtiment scolaire], it: [scuola dell'obbligo, docenti, scuola elementare, sede scolastica]}
 aps:4.2.2:
+  it: "Formazione professionale"
   de: Berufsbildung, Lehre, Berufsschulen, höhere Berufsbildung, Lehrstellen.
   alt: {de: [Lehre, Lehrstelle, Berufsschule, Berufsmaturität, EFZ], fr: [apprentissage, formation professionnelle, CFC], it: [apprendistato, formazione professionale]}
 aps:4.2.3:
+  it: "Scuole medie superiori"
   de: Gymnasien, Maturität, Fachmittelschulen.
   alt: {de: [Gymnasium, Maturität, Kantonsschule, FMS], fr: [gymnase, maturité, collège], it: [liceo, maturità]}
 aps:4.2.4:
+  it: "Scuole universitarie"
   de: Universitäten, ETH, Fachhochschulen, pädagogische Hochschulen, Studiengebühren, Stipendien.
   alt: {de: [Universität, ETH, Fachhochschule, Studiengebühren, Stipendien], fr: [université, EPF, haute école, bourses d'études], it: [università, SUPSI, borse di studio]}
 aps:4.2.5:
+  it: "Ricerca"
   de: Forschungspolitik und Forschungsförderung, Innovation, Horizon Europe.
   alt: {de: [Forschungsförderung, Innovation, Nationalfonds, Horizon Europe], fr: [recherche, innovation, Fonds national], it: [ricerca, innovazione]}
 aps:4.3.1:
+  it: "Cultura"
   de: Kulturpolitik und Kulturförderung, Museen, Theater, Bibliotheken, Kulturbauten, Film und Musik.
   alt: {de: [Kulturförderung, Museum, Theater, Bibliothek, Kulturzentrum], fr: [culture, musée, théâtre, bibliothèque], it: [cultura, museo, teatro, biblioteca]}
 aps:4.3.2:
+  it: "Questioni linguistiche"
   de: Landessprachen, Mehrsprachigkeit, Sprachunterricht in der Schule, Sprachgebrauch und Terminologie in Gesetzen.
   alt: {de: [Mehrsprachigkeit, Frühfranzösisch, Landessprachen, Rätoromanisch, gendergerechte Sprache], fr: [plurilinguisme, langues nationales], it: [plurilinguismo, lingue nazionali, italianità]}
 aps:4.3.3:
+  it: "Religione e chiese"
   de: Kirchen und Religionsgemeinschaften, Verhältnis Staat–Kirche, Kirchensteuer, Islam, religiöse Symbole.
   alt: {de: [Landeskirchen, Kirchensteuer, Islam, Religionsgemeinschaft], fr: [Eglises, religion, impôt ecclésiastique], it: [Chiese, religione]}
 aps:4.3.4:
+  it: "Protezione del paesaggio e dei monumenti"
   de: Ortsbild- und Heimatschutz, Denkmalpflege, geschützte Bauten, archäologisches Erbe.
   alt: {de: [Denkmalschutz, Ortsbildschutz, Inventar, ISOS], fr: [patrimoine, monuments historiques, protection des sites], it: [patrimonio, monumenti]}
 aps:4.3.5:
+  it: "Diritto d'autore"
   de: Urheberrecht und geistiges Eigentum an Werken.
   alt: {de: [geistiges Eigentum, Urheberrechtsgesetz], fr: [droit d'auteur, propriété intellectuelle], it: [diritto d'autore]}
 aps:4.4.1:
+  it: "Aspetti generali della politica dei media"
   de: Medienpolitik allgemein, Medienförderung, Medienvielfalt, Service public der Medien.
   alt: {de: [Medienförderung, Medienvielfalt, Journalismus], fr: [aide aux médias, pluralité des médias, journalisme], it: [promozione dei media, giornalismo]}
 aps:4.4.2:
+  it: "Stampa"
   de: Zeitungen und Zeitschriften, Presseförderung, Zustellung von Zeitungen.
   alt: {de: [Zeitungen, Presseförderung], fr: [journaux, aide à la presse], it: [giornali, stampa]}
 aps:4.4.3:
+  it: "Radio e televisione"
   de: Radio und Fernsehen, SRG, Serafe-Gebühr, private Sender.
   alt: {de: [SRG, SRF, Serafe, Radio- und Fernsehgebühr, RTVG], fr: [SSR, RTS, redevance], it: [SSR, RSI, canone]}
 aps:4.4.4:
+  it: "Media digitali"
   de: Online-Medien und Plattformen, soziale Netzwerke, Desinformation, Regulierung von Plattformen.
   alt: {de: [soziale Medien, Plattformen, Desinformation, Online-Medien], fr: [réseaux sociaux, plateformes, désinformation], it: [social media, piattaforme]}
 aps:4.4.5:
+  it: "Sondaggi"
   de: Meinungsumfragen und deren Veröffentlichung.
   alt: {de: [Umfragen], fr: [sondages], it: [sondaggi]}
 aps:5.1.1:
+  it: "Politica sanitaria"
   de: Gesundheitspolitik allgemein, Gesundheitsversorgung, Gesundheitskosten, Prävention, psychische Gesundheit, Gesundheitsförderung.
   alt: {de: [Gesundheitswesen, Gesundheitskosten, Prävention, psychische Gesundheit, Gesundheitsversorgung], fr: [santé, coûts de la santé, prévention, santé mentale], it: [sanità, costi della salute, prevenzione]}
 aps:5.1.2:
+  it: "Medici e personale curante"
   de: Ärztinnen, Pflegefachpersonen, Gesundheitsberufe, Pflegeinitiative, Fachkräftemangel im Gesundheitswesen, Hausarztmedizin, Spitex.
   alt: {de: [Pflege, Pflegepersonal, Hausärzte, Gesundheitsberufe, Spitex, Pflegeinitiative], fr: [soins infirmiers, médecins, personnel soignant], it: [infermieri, medici, personale curante]}
 aps:5.1.3:
+  it: "Ospedali"
   de: Spitäler, Spitalplanung, Spitalfinanzierung, Notfall, Rettungsdienste, Pflegeheime als Einrichtungen.
   alt: {de: [Spital, Kantonsspital, Spitalliste, Notfall, Rettungsdienst, Pflegeheim], fr: [hôpital, planification hospitalière, urgences, EMS], it: [ospedale, pronto soccorso, casa di cura]}
 aps:5.1.4:
+  it: "Medicamenti"
   de: Medikamente, Arzneimittelpreise, Versorgung mit Heilmitteln, Apotheken, Impfstoffe als Produkte.
   alt: {de: [Arzneimittel, Medikamentenpreise, Apotheken, Lieferengpässe, Heilmittel], fr: [médicaments, prix des médicaments, pharmacies], it: [medicamenti, farmacie]}
 aps:5.1.5:
+  it: "Stupefacenti"
   de: Suchtmittel und Suchtpolitik — Alkohol, Tabak, Cannabis, Drogen, Glücksspielsucht.
   alt: {de: [Cannabis, Drogen, Alkohol, Tabak, Rauchen, Sucht, Glücksspiel], fr: [drogues, cannabis, alcool, tabac, addiction], it: [droghe, cannabis, alcol, tabacco, dipendenze]}
 aps:5.1.6:
+  it: "Ricerca medica"
   de: Medizinische Forschung, Forschung am Menschen, Transplantation, Organspende, Biobanken.
   alt: {de: [Organspende, Transplantation, Humanforschung], fr: [don d'organes, recherche sur l'être humain], it: [donazione di organi]}
 aps:5.1.7:
+  it: "Procreazione con assistenza medica"
   de: Fortpflanzungsmedizin, Eizellenspende, Leihmutterschaft, Präimplantationsdiagnostik.
   alt: {de: [Eizellenspende, Leihmutterschaft, künstliche Befruchtung], fr: [procréation assistée, don d'ovules], it: [procreazione assistita]}
 aps:5.1.8:
+  it: "Epidemie e pandemie"
   de: Epidemien und Pandemien, Covid-19, Impfkampagnen, Epidemiengesetz.
   alt: {de: [Covid-19, Corona, Pandemie, Epidemiengesetz, Impfung], fr: [pandémie, Covid-19, vaccination], it: [pandemia, Covid-19, vaccinazione]}
 aps:5.1.9:
+  it: "Assistenza sociale"
   de: Sozialhilfe, Armut, Existenzminimum, Obdachlosigkeit, Sozialdienste.
   alt: {de: [Armut, Sozialdienst, SKOS, Obdachlosigkeit, Existenzminimum], fr: [aide sociale, pauvreté, sans-abri], it: [assistenza sociale, povertà]}
 aps:5.1.10:
+  it: "Sport"
   de: Sport und Sportförderung, Sportanlagen, Sportveranstaltungen, Hooliganismus bei Sportanlässen.
   alt: {de: [Sportförderung, Sportanlage, Stadion, Schwimmbad, Eisbahn], fr: [sport, installations sportives, stade, piscine], it: [sport, impianti sportivi, stadio, piscina]}
 aps:5.2.1:
+  it: "Assicurazioni sociali in generale"
   de: Sozialversicherungen insgesamt und ihre Finanzierung, Koordination mehrerer Sozialwerke.
   alt: {de: [Sozialwerke, Sozialversicherungsrecht, ATSG], fr: [assurances sociales], it: [assicurazioni sociali]}
 aps:5.2.2:
+  it: "Assicurazione vecchiaia e superstiti (AVS)"
   de: Alters- und Hinterlassenenversicherung (AHV), Renten der 1. Säule, Rentenalter, 13. AHV-Rente.
   alt: {de: [AHV, Rente, Rentenalter, 13. AHV-Rente, Altersvorsorge], fr: [AVS, rente, âge de la retraite], it: [AVS, rendita, età di pensionamento]}
 aps:5.2.3:
+  it: "Assicurazione invalidità (AI)"
   de: Invalidenversicherung (IV), IV-Renten, Eingliederung, Invaliditätsbegriff.
   alt: {de: [IV, IV-Rente, Invalidität, Eingliederung], fr: [AI, rente AI, invalidité], it: [AI, invalidità]}
 aps:5.2.4:
+  it: "Assicurazione malattie"
   de: Obligatorische Krankenversicherung (KVG) — Krankenkassenprämien, Prämienverbilligung, Franchise, Leistungskatalog, Tarife, Wahl der Ärztin und Kostenbeteiligung. Nicht Grundrechte oder öffentliche Finanzen.
   alt: {de: [Krankenkasse, KVG, Prämien, Krankenkassenprämien, Prämienverbilligung, Franchise, Grundversicherung, Tarmed, Tardoc, freie Arztwahl], fr: [LAMal, assurance-maladie, primes, caisse-maladie, subsides, franchise], it: [LAMal, cassa malati, premi, sussidi]}
 aps:5.2.5:
+  it: "Assicurazione infortuni"
   de: Unfallversicherung (UVG, Suva).
   alt: {de: [UVG, Suva, Unfall], fr: [LAA, Suva, accident], it: [LAINF, infortuni]}
 aps:5.2.6:
+  it: "Assicurazione contro la disoccupazione (AD)"
   de: Arbeitslosenversicherung, Kurzarbeit, Arbeitslosenentschädigung, RAV.
   alt: {de: [ALV, Kurzarbeit, Arbeitslosengeld, RAV], fr: [assurance-chômage, chômage partiel, ORP], it: [disoccupazione, lavoro ridotto, URC]}
 aps:5.2.7:
+  it: "Assicurazione maternità"
   de: Mutterschaftsversicherung und Mutterschaftsentschädigung.
   alt: {de: [Mutterschaftsurlaub], fr: [congé maternité], it: [congedo maternità]}
 aps:5.2.8:
+  it: "Indennità di perdita di guadagno (IPG)"
   de: Erwerbsersatz für Dienstleistende und Eltern (EO).
   alt: {de: [EO, Erwerbsersatz], fr: [APG], it: [IPG]}
 aps:5.2.9:
+  it: "Previdenza professionale"
   de: Berufliche Vorsorge, Pensionskassen, BVG, Umwandlungssatz, 2. Säule, Pensionskasse des Staatspersonals.
   alt: {de: [Pensionskasse, BVG, 2. Säule, Umwandlungssatz, Freizügigkeit], fr: [LPP, caisse de pension, 2e pilier], it: [LPP, cassa pensioni, secondo pilastro]}
 aps:5.2.10:
+  it: "Previdenza privata"
   de: Private Vorsorge, Säule 3a.
   alt: {de: [Säule 3a, 3. Säule], fr: [3e pilier], it: [terzo pilastro]}
 aps:5.2.11:
+  it: "Prestazioni complementari (PC)"
   de: Ergänzungsleistungen zu AHV und IV.
   alt: {de: [EL], fr: [PC], it: [PC]}
 aps:6.1.1:
+  it: "Politica dei trasporti"
   de: Verkehrspolitik allgemein, Gesamtverkehr, Mobilitätskonzepte, Verkehrsfinanzierung, Velo- und Fussverkehr.
   alt: {de: [Mobilität, Velo, Velowege, Fussverkehr, Verkehrsplanung, Agglomerationsprogramm], fr: [mobilité, vélo, pistes cyclables, mobilité douce], it: [mobilità, bicicletta, piste ciclabili]}
 aps:6.1.2:
+  it: "Trasporti pubblici"
   de: Öffentlicher Verkehr — Bus, Tram, Regionalverkehr, Billettpreise, Fahrplan, ÖV-Angebot.
   alt: {de: [ÖV, Bus, Tram, Regionalverkehr, Fahrplan, Billett, Tarifverbund], fr: [transports publics, bus, tram, horaire], it: [trasporti pubblici, autobus, orario]}
 aps:6.1.3:
+  it: "Traffico stradale"
   de: Strassenverkehr und Strassen — Nationalstrassen, Kantons- und Gemeindestrassen, Strassenbau, Verkehrssicherheit, Tempo 30, Parkierung, Führerausweis, Strassenverkehrsgesetz (SVG), Motorfahrzeuge.
   alt: {de: [Strasse, Autobahn, Nationalstrasse, Tempo 30, Parkplätze, Führerausweis, SVG, Verkehrssicherheit, Strassenschwellen, Umfahrung], fr: [routes, autoroute, zone 30, stationnement, permis de conduire, LCR], it: [strade, autostrada, parcheggi, licenza di condurre, LCStr]}
 aps:6.1.4:
+  it: "Ferrovie"
   de: Eisenbahn, Bahninfrastruktur, SBB, Bahnausbau, Güterverkehr auf der Schiene.
   alt: {de: [SBB, Bahn, Bahnausbau, Güterverkehr, Bahnhof], fr: [CFF, rail, chemin de fer, gare], it: [FFS, ferrovia, stazione]}
 aps:6.1.5:
+  it: "Traffico aereo"
   de: Luftfahrt, Flughäfen, Fluglärm als Verkehrsfrage, Flugsicherung, Drohnen im zivilen Luftraum.
   alt: {de: [Flughafen, Luftverkehr, Skyguide, Drohnen], fr: [aviation, aéroport], it: [aviazione, aeroporto]}
 aps:6.1.6:
+  it: "Navigazione"
   de: Schifffahrt auf Seen und Rhein, Häfen.
   alt: {de: [Schiff, Rheinhäfen], fr: [navigation, bateaux], it: [navigazione]}
 aps:6.1.7:
+  it: "Posta"
   de: Post, Poststellen, Grundversorgung mit Postdiensten.
   alt: {de: [Poststelle, Postnetz], fr: [La Poste, offices postaux], it: [Posta, uffici postali]}
 aps:6.1.8:
+  it: "Telecomunicazioni"
   de: Telekommunikation, Mobilfunk, 5G, Breitband, Swisscom.
   alt: {de: [Mobilfunk, 5G, Antennen, Breitband, Glasfaser, Swisscom], fr: [téléphonie mobile, antennes, fibre optique], it: [telefonia mobile, antenne, fibra ottica]}
 aps:6.1.9:
+  it: "Digitalizzazione"
   de: Digitalisierung von Verwaltung, Wirtschaft und Gesellschaft — E-Government, E-ID, künstliche Intelligenz, digitale Infrastruktur, IT-Projekte des Staates.
   alt: {de: [E-Government, E-ID, künstliche Intelligenz, KI, IT, Software, Digitalisierung], fr: [numérisation, cyberadministration, intelligence artificielle, IA], it: [digitalizzazione, intelligenza artificiale]}
 aps:6.2.1:
+  it: "Politica energetica"
   de: Energiepolitik allgemein, Energiestrategie, Energieeffizienz, Gebäudeenergie, Heizungsersatz, Energiegesetz.
   alt: {de: [Energiestrategie, Energieeffizienz, Energiegesetz, Heizung, Wärmepumpe, Fernwärme, Gebäudeprogramm], fr: [politique énergétique, efficacité énergétique, chauffage, chauffage à distance], it: [politica energetica, efficienza energetica, teleriscaldamento]}
 aps:6.2.2:
+  it: "Rete e distribuzione elettrica"
   de: Stromversorgung, Stromnetz, Strompreise, Strommarkt, Elektrizitätswerke.
   alt: {de: [Strompreis, Stromnetz, Elektrizitätswerk, Strommarkt, Stromversorgung, Winterstrom], fr: [électricité, prix de l'électricité, réseau électrique], it: [elettricità, rete elettrica, prezzo dell'elettricità]}
 aps:6.2.3:
+  it: "Petrolio e gas"
   de: Erdöl, Erdgas, Gasversorgung, Treibstoffe.
   alt: {de: [Gas, Erdgas, Heizöl, Treibstoff, Gasnetz], fr: [gaz, pétrole, mazout], it: [gas, petrolio]}
 aps:6.2.4:
+  it: "Forza idrica"
   de: Wasserkraft, Wasserzinsen, Stauseen, Restwasser.
   alt: {de: [Wasserkraftwerk, Wasserzins, Stausee], fr: [hydroélectricité, redevance hydraulique, barrage], it: [energia idroelettrica, canoni d'acqua, diga]}
 aps:6.2.5:
+  it: "Energie rinnovabili"
   de: Erneuerbare Energien — Solarenergie, Photovoltaik, Windkraft, Biomasse, Geothermie.
   alt: {de: [Solar, Photovoltaik, Solaranlage, Windkraft, Windpark, Biogas, Geothermie], fr: [photovoltaïque, solaire, éolien, biomasse, géothermie], it: [fotovoltaico, solare, eolico, geotermia]}
 aps:6.2.6:
+  it: "Energia nucleare"
   de: Kernenergie, Atomkraftwerke, neue Reaktoren, radioaktive Abfälle und Tiefenlager.
   alt: {de: [AKW, Atomkraft, Kernkraftwerk, Small Modular Reactors, Tiefenlager, Atommüll], fr: [nucléaire, centrale nucléaire, déchets radioactifs], it: [nucleare, centrale nucleare]}
 aps:6.3.1:
+  it: "Pianificazione del territorio"
   de: Raumplanung, Richtplan, Zonenplan, Ein- und Umzonung, Bauzonen, Bauen ausserhalb der Bauzone, Verdichtung, Arealentwicklung.
   alt: {de: [Richtplan, Zonenplan, Umzonung, Bauzone, Nutzungsplanung, Gestaltungsplan, RPG, Baubewilligung], fr: [aménagement du territoire, plan d'affectation, zone à bâtir, plan directeur, permis de construire], it: [pianificazione del territorio, piano regolatore, zona edificabile]}
 aps:6.3.2:
+  it: "Costruzione di abitazioni e proprietà"
   de: Wohnungsbau, gemeinnütziger Wohnungsbau, Wohneigentum, Eigenmietwert, Wohnungsknappheit.
   alt: {de: [Wohnungsnot, gemeinnütziger Wohnungsbau, Genossenschaft, Eigenmietwert, Wohneigentum], fr: [logement, coopératives d'habitation, valeur locative, pénurie de logements], it: [alloggio, cooperative d'abitazione, valore locativo]}
 aps:6.3.3:
+  it: "Alloggio e pigioni"
   de: Mietrecht, Mietzinse, Kündigungsschutz, Mieterinnen und Vermieter.
   alt: {de: [Miete, Mietzins, Mietrecht, Kündigungsschutz, Referenzzinssatz], fr: [bail, loyer, droit du bail, locataires], it: [locazione, pigione, inquilini]}
 aps:6.3.4:
+  it: "Diritto fondiario"
   de: Bodenrecht, Grundstückkauf durch Ausländer (Lex Koller), Baurecht, Landverkäufe der öffentlichen Hand.
   alt: {de: [Lex Koller, Grundstück, Baurecht, Landverkauf, Liegenschaft], fr: [droit foncier, Lex Koller, terrain, droit de superficie], it: [diritto fondiario, terreno]}
 aps:6.4.1:
+  it: "Politica di protezione dell'ambiente"
   de: Umweltpolitik allgemein, Umweltschutzgesetz, Umweltverträglichkeit, Ressourcenverbrauch.
   alt: {de: [Umweltpolitik, USG, Nachhaltigkeit, Ressourcen], fr: [environnement, durabilité], it: [ambiente, sostenibilità]}
 aps:6.4.2:
+  it: "Protezione della natura"
   de: Natur- und Landschaftsschutz, Biodiversität, Schutzgebiete, Pärke, Bäume und Grünflächen.
   alt: {de: [Biodiversität, Landschaftsschutz, Schutzgebiet, Naturpark, Grünflächen, Bäume, ökologischer Ausgleich], fr: [biodiversité, paysage, réserve naturelle, espaces verts], it: [biodiversità, paesaggio, aree verdi]}
 aps:6.4.3:
+  it: "Protezione del suolo"
   de: Bodenschutz, Altlasten, Bodenversiegelung.
   alt: {de: [Altlasten, Versiegelung], fr: [sites contaminés, sols], it: [siti inquinati, suolo]}
 aps:6.4.4:
+  it: "Protezione delle acque"
   de: Gewässerschutz, Trinkwasser, Abwasser, Renaturierung von Gewässern, Pestizide im Wasser.
   alt: {de: [Trinkwasser, Abwasser, Kläranlage, Grundwasser, Renaturierung], fr: [eau potable, eaux usées, protection des eaux], it: [acqua potabile, acque di scarico]}
 aps:6.4.5:
+  it: "Protezione dell'aria"
   de: Luftreinhaltung, Luftschadstoffe, Feinstaub, Ozon.
   alt: {de: [Feinstaub, Luftqualität, Stickoxide], fr: [qualité de l'air, particules fines], it: [qualità dell'aria, polveri fini]}
 aps:6.4.6:
+  it: "Politica climatica"
   de: Klimaschutz und Klimaanpassung, CO2-Gesetz, Treibhausgase, Netto-Null, Klimastrategie, Hitze in Städten.
   alt: {de: [Klimaschutz, CO2, Netto-Null, Klimawandel, Treibhausgase, Klimaanpassung, Hitze], fr: [climat, CO2, zéro net, changement climatique], it: [clima, CO2, cambiamenti climatici]}
 aps:6.4.7:
+  it: "Protezione contro il rumore"
   de: Lärmschutz, Strassen-, Bahn- und Fluglärm als Umweltfrage, Lärmsanierung.
   alt: {de: [Lärm, Strassenlärm, Fluglärm, Lärmsanierung], fr: [bruit, assainissement du bruit], it: [rumore]}
 aps:6.4.8:
+  it: "Rifiuti e riciclaggio"
   de: Abfall, Recycling, Kreislaufwirtschaft, Littering, Entsorgung.
   alt: {de: [Abfall, Recycling, Kreislaufwirtschaft, Littering, Kehricht, Plastik], fr: [déchets, recyclage, économie circulaire], it: [rifiuti, riciclaggio]}
 aps:6.4.9:
+  it: "Protezione dai pericoli naturali"
   de: Schutz vor Naturgefahren — Hochwasser, Murgänge, Lawinen, Bergstürze, Erdbeben, Unwetter.
   alt: {de: [Hochwasser, Hochwasserschutz, Lawinen, Murgang, Bergsturz, Unwetter, Erdbeben], fr: [dangers naturels, crues, avalanches, éboulement], it: [pericoli naturali, alluvioni, valanghe, frane]}
 aps:7.1.1:
+  it: "Diritti fondamentali"
   de: Grundrechte und Menschenrechte, Diskriminierungsverbot, Meinungs- und Versammlungsfreiheit, Rassismus, Rechtsgleichheit. Nur wenn das Grundrecht selbst Thema ist.
   alt: {de: [Menschenrechte, Diskriminierung, Rassismus, Meinungsfreiheit, Versammlungsfreiheit, Demonstration], fr: [droits fondamentaux, droits humains, discrimination, racisme], it: [diritti fondamentali, diritti umani, discriminazione]}
 aps:7.1.2:
+  it: "Diritto penale"
   de: Strafrecht und Strafverfahren, Strafvollzug, Gefängnisse, Jugendstrafrecht, Strafen.
   alt: {de: [StGB, Strafprozess, Strafvollzug, Gefängnis, Strafe], fr: [droit pénal, code pénal, prison, exécution des peines], it: [diritto penale, carcere]}
 aps:7.1.3:
+  it: "Diritto civile"
   de: Zivilrecht — Personen-, Familien-, Erb-, Sachen- und Obligationenrecht ohne Arbeits- und Mietrecht, Kindes- und Erwachsenenschutz (KESB).
   alt: {de: [ZGB, Erbrecht, Familienrecht, KESB, Obligationenrecht, Scheidung], fr: [code civil, droit successoral, APEA], it: [codice civile, diritto successorio]}
 aps:7.1.4:
+  it: "Diritto internazionale"
   de: Völkerrecht, internationale Verträge und deren Verhältnis zum Landesrecht, Europäische Menschenrechtskonvention.
   alt: {de: [Völkerrecht, EMRK, Staatsvertrag], fr: [droit international, CEDH], it: [diritto internazionale, CEDU]}
 aps:7.1.5:
+  it: "Cittadinanza"
   de: Bürgerrecht und Einbürgerung, Einbürgerungsgesuche, Erwerb und Verlust des Bürgerrechts.
   alt: {de: [Einbürgerung, Bürgerrecht, Einbürgerungsgesuch], fr: [naturalisation, droit de cité], it: [naturalizzazione, cittadinanza]}
 aps:7.1.6:
+  it: "Assistenza giudiziaria"
   de: Internationale Rechtshilfe und Auslieferung.
   alt: {de: [Auslieferung], fr: [entraide judiciaire, extradition], it: [assistenza giudiziaria, estradizione]}
 aps:7.1.7:
+  it: "Protezione dei dati"
   de: Datenschutz, Überwachung durch den Staat, Videoüberwachung, Umgang mit Personendaten.
   alt: {de: [Datenschutz, Videoüberwachung, Personendaten, Überwachung, DSG], fr: [protection des données, vidéosurveillance, données personnelles], it: [protezione dei dati, videosorveglianza]}
 aps:7.2.1:
+  it: "Questioni fondamentali sull'esercito"
   de: Grundsätzliche Fragen zur Armee, Armeebotschaft, Armeebudget, Sicherheitspolitischer Bericht. Nicht Strassenverkehr oder Polizei.
   alt: {de: [Armee, Militär, Armeebotschaft, VBS], fr: [armée, militaire, DDPS], it: [esercito, militare]}
 aps:7.2.2:
+  it: "Organizzazione militare"
   de: Organisation der Armee, Dienstpflicht, Militärdienst, Waffenplätze.
   alt: {de: [Dienstpflicht, Rekrutenschule, Waffenplatz], fr: [obligation de servir, école de recrues], it: [obbligo di servizio]}
 aps:7.2.3:
+  it: "Armamento"
   de: Rüstungsbeschaffung, Kampfflugzeuge, Kriegsmaterialexporte, Rüstungsindustrie.
   alt: {de: [Kampfjet, F-35, Kriegsmaterial, Rüstungsexporte, Waffenexporte], fr: [armement, avions de combat, matériel de guerre], it: [armamento, aerei da combattimento, materiale bellico]}
 aps:7.2.4:
+  it: "Impieghi militari"
   de: Einsätze der Armee im In- und Ausland, Friedensmissionen.
   alt: {de: [Armeeeinsatz, Swisscoy, Friedensmission], fr: [engagement de l'armée], it: [impiego dell'esercito]}
 aps:7.2.5:
+  it: "Protezione della popolazione"
   de: Bevölkerungsschutz, Zivilschutz, Schutzräume, Katastrophenvorsorge, Alarmierung.
   alt: {de: [Zivilschutz, Schutzraum, Katastrophenschutz, Feuerwehr], fr: [protection civile, abri, pompiers], it: [protezione civile, rifugio, pompieri]}
 aps:7.2.6:
+  it: "Servizio civile e obiezione di coscienza"
   de: Zivildienst und Dienstverweigerung.
   alt: {de: [Zivildienst], fr: [service civil], it: [servizio civile]}
 aps:7.2.7:
+  it: "Sicurezza pubblica"
   de: Öffentliche Sicherheit und Ordnung, Gewalt im öffentlichen Raum, Waffenrecht, Extremismus, Terrorismusbekämpfung.
   alt: {de: [Sicherheit, Gewalt, Waffenrecht, Extremismus, Terrorismus], fr: [sécurité publique, violence, armes, terrorisme], it: [sicurezza pubblica, violenza, terrorismo]}
 aps:7.2.8:
+  it: "Polizia"
   de: Polizei, Polizeibestand, Polizeigesetz, Polizeieinsätze.
   alt: {de: [Kantonspolizei, Stadtpolizei, Polizeigesetz], fr: [police], it: [polizia]}
 aps:7.2.9:
+  it: "Cibersicurezza"
   de: Cybersicherheit, Cyberangriffe, Schutz kritischer Infrastrukturen vor Angriffen im Netz.
   alt: {de: [Cyberangriff, Hackerangriff, Cyberkriminalität], fr: [cyberattaque, cybercriminalité], it: [attacco informatico]}
 aps:7.2.10:
+  it: "Sicurezza dell'approvvigionamento"
   de: Wirtschaftliche Landesversorgung, Pflichtlager, Versorgungsengpässe.
   alt: {de: [Landesversorgung, Pflichtlager, Versorgungsengpass], fr: [approvisionnement économique du pays, stocks obligatoires], it: [approvvigionamento economico]}
 aps:8.1.1:
+  it: "Situazione e politica congiunturale"
   de: Konjunktur, Wirtschaftslage, Teuerung, Konjunkturprogramme, Wirtschaftshilfen in Krisen.
   alt: {de: [Konjunktur, Teuerung, Inflation, Rezession], fr: [conjoncture, inflation, récession], it: [congiuntura, inflazione]}
 aps:8.1.2:
+  it: "Politica strutturale"
   de: Struktur-, Regional- und Standortpolitik, Wirtschaftsförderung, Neue Regionalpolitik, Berggebiete.
   alt: {de: [Wirtschaftsförderung, Standortförderung, Regionalpolitik, NRP, Berggebiet], fr: [promotion économique, politique régionale], it: [promozione economica, politica regionale]}
 aps:8.1.3:
+  it: "Diritto societario"
   de: Gesellschafts- und Unternehmensrecht, Aktienrecht, Konzernverantwortung, Handelsregister.
   alt: {de: [Aktienrecht, Konzernverantwortung, Handelsregister], fr: [droit des sociétés, responsabilité des multinationales], it: [diritto societario]}
 aps:8.1.4:
+  it: "Concorrenza"
   de: Wettbewerb, Kartellrecht, Preisüberwachung, Hochpreisinsel.
   alt: {de: [Kartellgesetz, Preisüberwacher, Hochpreisinsel, WEKO], fr: [concurrence, cartels, Surveillant des prix], it: [concorrenza, cartelli]}
 aps:8.1.5:
+  it: "Protezione dei consumatori"
   de: Konsumentenschutz, Produktsicherheit, Preisbekanntgabe, Lebensmitteldeklaration aus Sicht der Konsumenten.
   alt: {de: [Konsumentenschutz, Produktsicherheit, Deklaration], fr: [protection des consommateurs], it: [protezione dei consumatori]}
 aps:8.1.6:
+  it: "Turismo"
   de: Tourismus, Tourismusförderung, Kurtaxen, Hotellerie, Bergbahnen.
   alt: {de: [Tourismus, Kurtaxe, Hotellerie, Bergbahnen, Ferienwohnungen], fr: [tourisme, taxe de séjour, hôtellerie, remontées mécaniques], it: [turismo, tassa di soggiorno]}
 aps:8.1.7:
+  it: "Ordinamento economico"
   de: Wirtschaftsordnung, Wirtschaftsfreiheit, staatliche Unternehmen und Beteiligungen, Gewerbe- und Ladenöffnung, Bürokratieabbau.
   alt: {de: [Ladenöffnungszeiten, Gewerbe, Service public, Regulierung, staatsnahe Betriebe, Bürokratieabbau], fr: [ouverture des magasins, entreprises publiques, régulation], it: [orari di apertura, aziende pubbliche]}
 aps:8.2.1:
+  it: "Preventivo"
   de: Budget bzw. Voranschlag, Finanzplan, Nachtragskredite einer staatlichen Ebene.
   alt: {de: [Voranschlag, Budget, Finanzplan, Nachtragskredit, Aufgaben- und Finanzplan], fr: [budget, plan financier, crédit supplémentaire], it: [preventivo, piano finanziario]}
 aps:8.2.2:
+  it: "Consuntivo dello Stato"
   de: Staats- und Gemeinderechnung, Jahresrechnung, Geschäftsbericht, Rechnungsabschluss.
   alt: {de: [Jahresrechnung, Rechnung, Geschäftsbericht, Rechnungsabschluss], fr: [comptes, comptes annuels, rapport de gestion], it: [consuntivo, conti annuali]}
 aps:8.2.3:
+  it: "Ordinamento finanziario e misure di risparmio"
   de: Finanzordnung, Schuldenbremse, Sparprogramme, Entlastungspakete, Verpflichtungskredite allgemein.
   alt: {de: [Schuldenbremse, Sparpaket, Entlastungspaket, Verschuldung], fr: [frein à l'endettement, mesures d'économie], it: [freno all'indebitamento, misure di risparmio]}
 aps:8.2.4:
+  it: "Imposte"
   de: Steuern und Abgaben — Einkommens-, Vermögens-, Gewinn-, Mehrwert- und Liegenschaftssteuern, Steuerfuss, Steuergesetz.
   alt: {de: [Steuer, Steuerfuss, Mehrwertsteuer, MWST, Steuergesetz, Gebühren, Abgaben, Steuersenkung], fr: [impôts, fiscalité, TVA, coefficient fiscal, taxes], it: [imposte, fiscalità, IVA, moltiplicatore]}
 aps:8.2.5:
+  it: "Perequazione finanziaria"
   de: Finanzausgleich zwischen Bund und Kantonen oder zwischen Gemeinden.
   alt: {de: [NFA, Finanzausgleich, Lastenausgleich], fr: [péréquation financière, RPT], it: [perequazione finanziaria]}
 aps:8.2.6:
+  it: "Finanze dei cantoni e dei comuni"
   de: Finanzhaushalt einzelner Kantone und Gemeinden, Kredite für Bauprojekte und Anschaffungen der Gemeinde, Beteiligungen.
   alt: {de: [Kredit, Verpflichtungskredit, Investitionskredit, Gemeindefinanzen], fr: [crédit d'investissement, finances communales, crédit d'ouvrage], it: [credito, finanze comunali]}
 aps:8.3.1:
+  it: "Politica monetaria"
   de: Geld- und Währungspolitik, Frankenkurs, Bargeld.
   alt: {de: [Frankenkurs, Bargeld, Währung], fr: [politique monétaire, franc, argent liquide], it: [politica monetaria, franco, contanti]}
 aps:8.3.2:
+  it: "Mercati finanziari"
   de: Finanzplatz, Finanzmarktaufsicht, Geldwäscherei, Vermögensverwaltung, Kryptowährungen.
   alt: {de: [Finanzplatz, FINMA, Geldwäscherei, Krypto], fr: [place financière, FINMA, blanchiment], it: [piazza finanziaria, riciclaggio]}
 aps:8.3.3:
+  it: "Banca nazionale"
   de: Schweizerische Nationalbank, Gewinnausschüttung der SNB.
   alt: {de: [SNB, Nationalbank, Gewinnausschüttung], fr: [BNS], it: [BNS]}
 aps:8.3.4:
+  it: "Banche"
   de: Banken, Kantonalbanken, Bankenregulierung, Too big to fail.
   alt: {de: [Kantonalbank, UBS, Too big to fail, Bankenaufsicht], fr: [banques, banque cantonale], it: [banche, banca cantonale]}
 aps:8.3.5:
+  it: "Borse"
   de: Börsen und Wertpapierhandel.
   alt: {de: [Börse, Wertpapiere], fr: [bourse], it: [borsa]}
 aps:8.3.6:
+  it: "Assicurazioni"
   de: Privatversicherungen und Versicherungsaufsicht (nicht Sozialversicherungen).
   alt: {de: [Versicherungsaufsicht, Gebäudeversicherung], fr: [assurances privées], it: [assicurazioni private]}
 aps:8.4.1:
+  it: "Politica agricola"
   de: Agrarpolitik, Direktzahlungen, landwirtschaftliche Betriebe, Ernährungssicherheit.
   alt: {de: [Direktzahlungen, Bauern, Landwirtschaftsbetrieb, AP22+], fr: [politique agricole, paiements directs, paysans], it: [politica agricola, pagamenti diretti]}
 aps:8.4.2:
+  it: "Persone occupate nell'agricoltura"
   de: Beschäftigte, Einkommen und soziale Lage in der Landwirtschaft.
   alt: {de: [Bauernfamilien, bäuerliches Einkommen], fr: [revenu paysan], it: [reddito agricolo]}
 aps:8.4.3:
+  it: "Derrate alimentari"
   de: Lebensmittel, Lebensmittelsicherheit, Ernährung, Food Waste, Herkunftsdeklaration.
   alt: {de: [Lebensmittelsicherheit, Ernährung, Food Waste, Lebensmittelverschwendung], fr: [denrées alimentaires, alimentation, gaspillage alimentaire], it: [derrate alimentari, spreco alimentare]}
 aps:8.4.4:
+  it: "Produzione vegetale"
   de: Pflanzenbau, Pflanzenschutzmittel, Saatgut, Weinbau, Obst und Gemüse.
   alt: {de: [Pestizide, Pflanzenschutzmittel, Weinbau, Saatgut], fr: [pesticides, viticulture, semences], it: [pesticidi, viticoltura]}
 aps:8.4.5:
+  it: "Produzione animale"
   de: Tierproduktion, Milch- und Fleischmarkt, Nutztierhaltung als Produktion.
   alt: {de: [Milchpreis, Fleisch, Nutztiere], fr: [production animale, lait, viande], it: [produzione animale, latte, carne]}
 aps:8.4.6:
+  it: "Detenzione e protezione degli animali"
   de: Tierhaltung und Tierschutz, Haustiere, Hunde, Tierwohl.
   alt: {de: [Tierschutz, Tierwohl, Hunde, Haustiere, Massentierhaltung], fr: [protection des animaux, bien-être animal, chiens], it: [protezione degli animali, cani]}
 aps:8.4.7:
+  it: "Sperimentazione animale"
   de: Tierversuche.
   alt: {de: [Tierversuchsverbot], fr: [expérimentation animale], it: [sperimentazione animale]}
 aps:8.4.8:
+  it: "Caccia e pesca"
   de: Jagd und Fischerei, Jagdgesetz, Wildtiermanagement, Fischbestände.
   alt: {de: [Jagd, Jagdgesetz, Fischerei, Wildtiere, Wild], fr: [chasse, loi sur la chasse, pêche, faune sauvage], it: [caccia, pesca, fauna selvatica]}
 aps:8.4.9:
+  it: "Grandi predatori"
   de: Grossraubtiere — Wolf, Bär, Luchs, Herdenschutz, Regulierung.
   alt: {de: [Wolf, Bär, Luchs, Herdenschutz, Wolfsregulierung], fr: [loup, ours, lynx, protection des troupeaux], it: [lupo, orso, lince]}
 aps:8.4.10:
+  it: "Selvicoltura"
   de: Wald und Forstwirtschaft, Waldschutz, Holz.
   alt: {de: [Wald, Holz, Waldgesetz, Forst], fr: [forêt, bois, sylviculture], it: [bosco, legno, selvicoltura]}
 aps:8.4.11:
+  it: "Ingegneria genetica"
   de: Gentechnik und neue Züchtungsverfahren in Landwirtschaft und Lebensmitteln.
   alt: {de: [Gentechnik, GVO, Genomeditierung, neue Züchtungsmethoden], fr: [génie génétique, OGM], it: [ingegneria genetica, OGM]}
 aps:8.4.12:
+  it: "Protezione dell'ambiente nell'agricoltura"
   de: Umweltwirkungen der Landwirtschaft — Nährstoffe, Pestizide, Biodiversitätsförderflächen, Biolandbau.
   alt: {de: [Biolandbau, Nährstoffe, Ammoniak], fr: [agriculture biologique, nutriments], it: [agricoltura biologica]}
 aps:8.5.1:
+  it: "Diritto del lavoro"
   de: Arbeitsrecht, Arbeitsverträge, Kündigungsschutz am Arbeitsplatz, Arbeitsrecht des Staatspersonals.
   alt: {de: [Arbeitsvertrag, Kündigung, Arbeitsgesetz], fr: [droit du travail, contrat de travail], it: [diritto del lavoro, contratto di lavoro]}
 aps:8.5.2:
+  it: "Mercato del lavoro"
   de: Arbeitsmarkt, Arbeitslosigkeit, Fachkräftemangel, Arbeitsintegration, Grenzgänger.
   alt: {de: [Arbeitslosigkeit, Fachkräftemangel, Grenzgänger, Arbeitsintegration], fr: [marché du travail, chômage, pénurie de main-d'œuvre, frontaliers], it: [mercato del lavoro, disoccupazione, frontalieri]}
 aps:8.5.3:
+  it: "Salari"
   de: Löhne, Mindestlohn, Lohnschutz, Lohnmassnahmen für Staatspersonal.
   alt: {de: [Mindestlohn, Lohnschutz, Lohnerhöhung, Teuerungsausgleich], fr: [salaire minimum, salaires], it: [salario minimo, salari]}
 aps:8.5.4:
+  it: "Partenariato sociale"
   de: Sozialpartnerschaft, Gesamtarbeitsverträge, flankierende Massnahmen, Streiks.
   alt: {de: [GAV, Gesamtarbeitsvertrag, Sozialpartner, Streik, flankierende Massnahmen], fr: [CCT, partenaires sociaux, grève], it: [CCL, partner sociali, sciopero]}
 aps:8.5.5:
+  it: "Orario di lavoro"
   de: Arbeitszeit, Ferien, Teilzeit, Sonntagsarbeit.
   alt: {de: [Arbeitszeit, Ferien, Teilzeit, Sonntagsarbeit, Homeoffice], fr: [temps de travail, vacances, temps partiel], it: [orario di lavoro, vacanze]}
 aps:8.5.6:
+  it: "Protezione dei lavoratori"
   de: Schutz der Arbeitnehmenden, Gesundheitsschutz am Arbeitsplatz, Schwarzarbeit, Scheinselbständigkeit.
   alt: {de: [Arbeitssicherheit, Schwarzarbeit, Scheinselbständigkeit], fr: [protection des travailleurs, travail au noir], it: [protezione dei lavoratori, lavoro nero]}
