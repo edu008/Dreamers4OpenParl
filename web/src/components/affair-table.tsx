@@ -68,7 +68,7 @@ export function AffairTable({ rows }: { rows: TopicRow[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-collapse text-sm">
+      <table className="data-table w-full min-w-[34rem] border-collapse text-sm">
         <caption className="sr-only">Geschäfte zu diesem Thema</caption>
         <thead className="border-b border-border">
           <tr>

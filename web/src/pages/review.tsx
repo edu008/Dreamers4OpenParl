@@ -36,7 +36,7 @@ function AffairCell({ row }: { row: QueueRow }) {
 function OpenTable({ rows }: { rows: QueueRow[] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-collapse text-sm">
+      <table className="data-table w-full min-w-[34rem] border-collapse text-sm">
         <caption className="sr-only">Labels mit Prüfbedarf</caption>
         <thead className="border-b border-border">
           <tr>
@@ -80,7 +80,7 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
   const review = useReview()
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-collapse text-sm">
+      <table className="data-table w-full min-w-[34rem] border-collapse text-sm">
         <caption className="sr-only">Entschiedene Labels</caption>
         <thead className="border-b border-border">
           <tr>

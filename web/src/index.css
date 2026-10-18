@@ -156,3 +156,19 @@
     font-variant-numeric: tabular-nums;
     }
 }
+
+/* Tabellen-Variante zum Vergleich: ?tabelle=tint zeigt getönte Zeilen statt Zeilenlinien
+   (Vorbild: Designsystem der Schweizer Bundesverwaltung). Ohne Angabe gilt die Linien-Variante. */
+html[data-table="tint"] .data-table thead {
+  background: var(--margin-tint);
+  border-bottom-width: 0;
+}
+html[data-table="tint"] .data-table thead th {
+  padding-block: 0.625rem;
+}
+html[data-table="tint"] .data-table tbody tr {
+  border-bottom-width: 0;
+}
+html[data-table="tint"] .data-table tbody tr:nth-child(even) {
+  background: color-mix(in oklab, var(--margin-tint) 55%, transparent);
+}
