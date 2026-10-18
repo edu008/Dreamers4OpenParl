@@ -50,7 +50,7 @@ Nach dem Ingest läuft die Pipeline in drei Kommandos (PRD 7.1, [ARCHITEKTUR.md]
 
 ```bash
 uv run parltopics registry sync                          # tags.yaml in die Tabelle tags, je registry_version einmal
-uv run parltopics inputs --body CHE --since 2026-01-01   # Klassifikationstexte (affair_inputs)
+uv run parltopics inputs --body CHE --since 2026-01-01   # Klassifikationstexte (affair_inputs) und Volltext
 uv run parltopics classify --task classify:aps --body CHE --since 2026-01-01 --limit 20
 uv run parltopics jobs summary                           # Jobs je Aufgabe und Status
 ```

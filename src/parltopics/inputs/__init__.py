@@ -4,6 +4,7 @@ Mit Texten (Bund, einige Kantone): Titel, eingereichter Text, Begründung, übri
 der Regierung und die Titel-Zeilen aus affair_texts zählen nicht, der Titel kommt aus affairs.
 Ohne Texte: Titel und das älteste Dokument mit Text (PRD 15, Frage 8), sonst nur der Titel.
 Als Titel dient der lange Titel aus raw, wenn es ihn in der Sprache gibt, sonst der kurze.
+Im selben Durchlauf entsteht das Volltext-Dokument je Geschäft (search_documents, PRD F15).
 """
 
 import functools
@@ -62,6 +63,26 @@ SET text = EXCLUDED.text, language = EXCLUDED.language, source = EXCLUDED.source
     input_hash = EXCLUDED.input_hash, built_at = now()
 WHERE affair_inputs.input_hash <> EXCLUDED.input_hash
 RETURNING affair_id
+"""
+# Volltext: neu, wenn das Dokument fehlt oder älter ist als sein Text. Der Titel (erste Zeile)
+# zählt mehr als der Rest. In derselben Transaktion wie UPSERT, also mit demselben now().
+SEARCH = """
+WITH stale AS (
+    SELECT i.affair_id, i.language, i.text, position(chr(10) IN i.text) AS cut,
+           (CASE i.language WHEN 'de' THEN 'german' WHEN 'fr' THEN 'french'
+                            WHEN 'it' THEN 'italian' ELSE 'simple' END)::regconfig AS config
+    FROM affair_inputs i LEFT JOIN search_documents d ON d.affair_id = i.affair_id
+    WHERE i.affair_id = ANY(%s) AND (d.affair_id IS NULL OR d.updated_at < i.built_at)
+)
+INSERT INTO search_documents (affair_id, language, document, updated_at)
+SELECT affair_id, language,
+       setweight(to_tsvector(config, CASE WHEN cut > 0 THEN left(text, cut - 1) ELSE text END), 'A')
+       || setweight(to_tsvector(config, CASE WHEN cut > 0 THEN substr(text, cut + 1) ELSE '' END),
+                    'D'),
+       now()
+FROM stale
+ON CONFLICT (affair_id) DO UPDATE
+SET language = EXCLUDED.language, document = EXCLUDED.document, updated_at = EXCLUDED.updated_at
 """
 # Geänderter Text öffnet erledigte Jobs aller Aufgaben (PRD 7.7, F18); failed bleibt failed.
 REOPEN = """
@@ -173,6 +194,7 @@ class InputResult:
     unchanged: int
     skipped: int  # weder Titel noch Text
     reopened: int  # erledigte Jobs, deren Text sich geändert hat
+    indexed: int  # Volltext-Dokumente neu geschrieben
 
 
 def build_inputs(
@@ -183,7 +205,7 @@ def build_inputs(
     limit: int | None = None,
 ) -> InputResult:
     """Baut affair_inputs für die gefilterten Geschäfte, in Stapeln mit je einer Transaktion."""
-    changed = unchanged = skipped = reopened = 0
+    changed = unchanged = skipped = reopened = indexed = 0
     last = seen = 0
     cursor = conn.cursor(row_factory=dict_row)
     while limit is None or seen < limit:
@@ -217,7 +239,8 @@ def build_inputs(
                 new = [row["affair_id"] for row in cursor.execute(UPSERT, columns).fetchall()]
             if new:
                 reopened += conn.execute(REOPEN, (new,)).rowcount
+            indexed += conn.execute(SEARCH, (ids,)).rowcount
         changed += len(new)
         unchanged += len(rows) - len(new)
         last, seen = ids[-1], seen + len(ids)
-    return InputResult(changed, unchanged, skipped, reopened)
+    return InputResult(changed, unchanged, skipped, reopened, indexed)

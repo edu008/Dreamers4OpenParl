@@ -220,7 +220,8 @@ def inputs(
         )
     typer.echo(
         f"{result.changed} neu oder geändert, {result.unchanged} unverändert,"
-        f" {result.skipped} ohne Text, {result.reopened} Jobs wieder geöffnet"
+        f" {result.skipped} ohne Text, {result.reopened} Jobs wieder geöffnet,"
+        f" {result.indexed} im Volltext neu"
     )
 
 

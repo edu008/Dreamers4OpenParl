@@ -51,7 +51,7 @@ Diagramm: [01-systemarchitektur](architecture/01-systemarchitektur.html).
 |---|---|---|
 | 1 Download (online) | `parltopics download --bundle data/import --bodies CHE` | Import-Bündel, nur geänderte Dateien |
 | 2 Ingest | `parltopics ingest --bundle data/import` | Quelltabellen, Zeilenzahlen gegen `index.json` geprüft |
-| 3 Input | `parltopics inputs` | `affair_inputs` mit Text, Sprache, `input_hash` |
+| 3 Input | `parltopics inputs` | `affair_inputs` mit Text, Sprache, `input_hash`; `search_documents` für den Volltext, wenn das Dokument fehlt oder älter ist als sein Text |
 | 4 Registry | `parltopics registry sync` | Tabelle `tags`, `scheme_hash` je Schema |
 | 5 Jobs öffnen | `parltopics classify --task classify:aps …` | `classification_jobs` auf `open`, Lauf in `classification_runs` |
 | 6 Klassifikation | `parltopics worker` oder `classify --wait` | Labels, Rohvorschläge, Job-Status |
