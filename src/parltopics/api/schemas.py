@@ -305,3 +305,31 @@ class GoldLabel(BaseModel):
     reviewed_by: str | None
     reviewed_at: datetime | None
     sample: bool = Field(description="Geschäft der Stichprobe (jedes 50.)")
+
+
+class GraphNode(BaseModel):
+    id: str = Field(description="Seite und Tag", examples=["aps:6"])
+    label: str = Field(examples=["Infrastruktur und Umwelt"])
+    kind: PageKind = Field(description="bereich in der Übersicht, sonst kapitel oder tag")
+    count: int = Field(description="Geschäfte mit aktivem Label auf diesem Knoten")
+    group: str = Field(description="APS-Bereich, zum Beispiel für die Farbe", examples=["aps:6"])
+
+
+class GraphEdge(BaseModel):
+    a: str
+    b: str
+    weight: int = Field(description="Geschäfte, die beide Knoten tragen")
+
+
+class TopicGraph(BaseModel):
+    area: str | None = Field(description="geöffneter Bereich; null in der Übersicht")
+    nodes: list[GraphNode] = Field(description="sortiert wie der Seitenbaum")
+    edges: list[GraphEdge] = Field(description="stärkste zuerst, höchstens limit")
+    hidden: int = Field(description="Kanten ab min_weight, die wegen limit fehlen")
+
+
+class RelatedTopic(BaseModel):
+    tag_id: str = Field(examples=["adhoc:digitalisierung-breit"])
+    name_de: str
+    shared: int = Field(description="Geschäfte mit beiden Themen (aktive Labels)")
+    in_registry: bool = Field(description="in der Registry als verwandt eingetragen")

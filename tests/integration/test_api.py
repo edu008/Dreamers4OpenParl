@@ -262,3 +262,52 @@ def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
         assert found("numériser", language="fr") == (1, [70437])
         assert found("digitalisieren", language="fr") == (0, [])
         assert client.get("/v1/search", params={"q": "a"}).status_code == 422
+
+
+def test_topic_graph_by_area_and_related_topics(conn, repo_root, api_settings):
+    migrate(conn, repo_root / "migrations")
+    sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
+    seed(conn)  # 70435: aktiv aps:6.1.9
+    conn.execute(
+        "INSERT INTO affairs (id, body_key, raw) VALUES (70436, 'CHE', '{}'), (70437, 'CHE', '{}')"
+    )
+    label = (
+        "INSERT INTO affair_tags (affair_id, tag_id, scheme, confidence, task, stage,"
+        " model_version, prompt_version, registry_version, input_hash)"
+        " VALUES (%s, %s, split_part(%s, ':', 1), 0.8, 'classify:aps', '8b', 'm', 'p', 'v', 'h')"
+    )
+    for affair_id, tag_id in [
+        (70435, "aps:2.4.1"),
+        (70435, "aps:6.1"),
+        (70436, "aps:6.1.9"),
+        (70436, "aps:2.4.1"),
+        (70437, "aps:6.1.9"),
+        (70437, "adhoc:digitalisierung-breit"),
+    ]:
+        conn.execute(label, (affair_id, tag_id, tag_id))
+
+    with TestClient(create_app(api_settings)) as client:
+        overview = client.get("/v1/graph/topics").json()
+        nodes = [(n["id"], n["kind"], n["count"], n["group"]) for n in overview["nodes"]]
+        assert nodes == [("aps:2", "bereich", 2, "aps:2"), ("aps:6", "bereich", 3, "aps:6")]
+        assert overview["nodes"][0]["label"] == "Wirtschaft"
+        assert overview["edges"] == [{"a": "aps:2", "b": "aps:6", "weight": 2}]
+        assert (overview["area"], overview["hidden"]) == (None, 0)
+        assert client.get("/v1/graph/topics", params={"min_weight": 3}).json()["edges"] == []
+
+        area = client.get("/v1/graph/topics", params={"area": "aps:6"}).json()
+        nodes = [(n["id"], n["kind"], n["count"]) for n in area["nodes"]]
+        assert nodes == [("aps:6.1", "kapitel", 1), ("aps:6.1.9", "tag", 3)]
+        assert area["edges"] == [{"a": "aps:6.1", "b": "aps:6.1.9", "weight": 1}]
+        for unknown in ("aps:6.1", "aps:9"):  # Kapitel ist kein Bereich
+            assert client.get("/v1/graph/topics", params={"area": unknown}).status_code == 404
+
+        related = client.get("/v1/topics/aps:6.1.9/related").json()
+        rows = [(row["tag_id"], row["shared"], row["in_registry"]) for row in related]
+        assert rows == [
+            ("adhoc:digitalisierung-breit", 1, True),  # aus der Registry zuerst
+            ("aps:2.4.1", 2, False),
+            ("aps:6.1", 1, False),
+        ]
+        assert related[0]["name_de"] == "Digitalisierung (breit)"
+        assert client.get("/v1/topics/aps:9.9/related").status_code == 404

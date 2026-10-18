@@ -101,6 +101,38 @@ FROM affair_tags l
 WHERE l.review_status IS NOT NULL AND l.status IN ('active', 'rejected')
 ORDER BY l.reviewed_at, l.id
 """
+# Graph (F20), Themen untereinander: Kantengewicht = gemeinsame Geschäfte. Ohne Bereich ein
+# Knoten je APS-Bereich (der Teil der ID vor dem ersten Punkt), mit Bereich seine Themen.
+GRAPH_LABELLED = """
+SELECT DISTINCT affair_id,
+       CASE WHEN %(area)s::text IS NULL THEN split_part(tag_id, '.', 1) ELSE tag_id END AS node
+FROM affair_tags
+WHERE status = 'active' AND scheme = 'aps'
+  AND (%(area)s::text IS NULL OR tag_id LIKE %(area)s::text || '.%%')
+"""
+GRAPH_NODES = f"""
+WITH labelled AS ({GRAPH_LABELLED})
+SELECT node, count(*) AS count FROM labelled GROUP BY node
+"""
+GRAPH_EDGES = f"""
+WITH labelled AS ({GRAPH_LABELLED})
+SELECT x.node AS a, y.node AS b, count(*) AS weight, count(*) OVER () AS qualifying
+FROM labelled x JOIN labelled y ON y.affair_id = x.affair_id AND x.node < y.node
+GROUP BY x.node, y.node
+HAVING count(*) >= %(min_weight)s
+ORDER BY weight DESC, a, b
+LIMIT %(limit)s
+"""
+CO_TOPICS = """
+SELECT o.tag_id, t.name_de, count(DISTINCT o.affair_id) AS shared
+FROM affair_tags l
+JOIN affair_tags o ON o.affair_id = l.affair_id AND o.tag_id <> l.tag_id AND o.status = 'active'
+JOIN tags t ON t.tag_id = o.tag_id
+WHERE l.tag_id = %(tag_id)s AND l.status = 'active'
+GROUP BY o.tag_id, t.name_de
+ORDER BY shared DESC, o.tag_id
+LIMIT %(limit)s
+"""
 RUNS = """
 SELECT id, task, kind, started_at, finished_at, n_total, n_done, n_failed, n_escalated,
        prompt_version, registry_version,
@@ -354,3 +386,26 @@ def calibration(conn: psycopg.Connection) -> list[dict]:
 
 def gold(conn: psycopg.Connection) -> list[dict]:
     return conn.cursor(row_factory=dict_row).execute(GOLD).fetchall()
+
+
+def topic_graph(
+    conn: psycopg.Connection, *, area: str | None, min_weight: int, limit: int
+) -> tuple[list[dict], list[dict], int]:
+    """Knoten, die stärksten Kanten und die Zahl der Kanten, die wegen limit fehlen.
+
+    shortcut: rechnet bei jedem Aufruf über alle aktiven Labels; bei voller Klassifikation
+    (rund 650k Labels) das Ergebnis nach jedem Lauf zwischenspeichern.
+    """
+    params = {"area": area, "min_weight": min_weight, "limit": limit}
+    cursor = conn.cursor(row_factory=dict_row)
+    nodes = sorted(
+        cursor.execute(GRAPH_NODES, params).fetchall(), key=lambda n: sort_key(n["node"])
+    )
+    edges = cursor.execute(GRAPH_EDGES, params).fetchall()
+    return nodes, edges, (edges[0]["qualifying"] - len(edges)) if edges else 0
+
+
+def co_topics(conn: psycopg.Connection, tag_id: str, limit: int) -> list[dict]:
+    """Themen mit den meisten gemeinsamen Geschäften (aktive Labels)."""
+    params = {"tag_id": tag_id, "limit": limit}
+    return conn.cursor(row_factory=dict_row).execute(CO_TOPICS, params).fetchall()

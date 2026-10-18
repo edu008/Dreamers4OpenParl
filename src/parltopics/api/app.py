@@ -31,17 +31,20 @@ from parltopics.api.schemas import (
     BodyOut,
     Calibration,
     GoldLabel,
+    GraphNode,
     JobCounts,
     JobsSummary,
     Lang,
     PageDetail,
     PageOut,
     PageTree,
+    RelatedTopic,
     ReviewIn,
     ReviewQueue,
     SearchResult,
     Stats,
     TopicAffairs,
+    TopicGraph,
     TopicOut,
 )
 from parltopics.classify.queue import summary as job_summary
@@ -313,6 +316,84 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             limit=limit,
             offset=offset,
             items=[{**row, "label": row} for row in rows],
+        )
+
+    @api.get(
+        "/topics/{tag_id}/related",
+        tags=["Themen"],
+        summary="Verwandte Themen",
+        responses={404: {"description": "Thema unbekannt"}, **no_database},
+    )
+    def topic_related(
+        tag_id: str, conn: Conn, limit: Annotated[int, Query(ge=1, le=50)] = 10
+    ) -> list[RelatedTopic]:
+        """Zuerst die in der Registry als verwandt eingetragenen Themen (related), dann die
+        Themen mit den meisten gemeinsamen Geschäften. shared zählt aktive Labels."""
+        if not queries.tag_exists(conn, tag_id):
+            raise HTTPException(404, f"Thema {tag_id} unbekannt")
+        registry, _ = load()
+        shared = {row["tag_id"]: row for row in queries.co_topics(conn, tag_id, limit)}
+        known = {tag.tag_id: tag for tag in registry.tags}
+        curated = known[tag_id].related if tag_id in known else []
+        related = []
+        for other in curated:
+            if other not in known:
+                continue
+            row = shared.pop(other, None)
+            related.append(
+                RelatedTopic(
+                    tag_id=other,
+                    name_de=known[other].pref_label.de,
+                    shared=row["shared"] if row else 0,
+                    in_registry=True,
+                )
+            )
+        return related + [RelatedTopic(**row, in_registry=False) for row in shared.values()]
+
+    @api.get(
+        "/graph/topics",
+        tags=["Themen"],
+        summary="Themen-Graph",
+        responses={
+            404: {"description": "Bereich unbekannt"},
+            503: {"description": "Registry nicht lesbar oder Datenbank nicht erreichbar"},
+        },
+    )
+    def graph_topics(
+        conn: Conn,
+        area: Annotated[
+            str | None,
+            Query(description="APS-Bereich, z. B. aps:6; ohne: ein Knoten je Bereich"),
+        ] = None,
+        min_weight: Annotated[int, Query(ge=1, description="nur Kanten ab so vielen")] = 1,
+        limit: Annotated[int, Query(ge=1, le=500, description="höchstens so viele Kanten")] = 60,
+        lang: LangQuery = "de",
+    ) -> TopicGraph:
+        """Themen untereinander (F20): Ohne area ein Knoten je APS-Bereich, mit area die Themen
+        dieses Bereichs. Kantengewicht = Zahl der Geschäfte, die beide Knoten tragen. Das
+        Layout rechnet die Web-App."""
+        _, tree = load()
+        if area is not None and (area not in tree or tree[area].kind != "bereich"):
+            raise HTTPException(404, f"Bereich {area} gibt es nicht")
+        nodes, edges, hidden = queries.topic_graph(
+            conn, area=area, min_weight=min_weight, limit=limit
+        )
+        return TopicGraph(
+            area=area,
+            nodes=[
+                GraphNode(
+                    id=node["node"],
+                    label=tree[node["node"]].title_in(lang)
+                    if node["node"] in tree
+                    else node["node"],
+                    kind=tree[node["node"]].kind if node["node"] in tree else "tag",
+                    count=node["count"],
+                    group=node["node"].split(".")[0],
+                )
+                for node in nodes
+            ],
+            edges=edges,
+            hidden=hidden,
         )
 
     @api.post(
