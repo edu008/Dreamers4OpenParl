@@ -32,7 +32,7 @@ export function SortHeader({
       <button
         type="button"
         onClick={onSort}
-        className="whitespace-nowrap underline-offset-4 hover:underline focus-visible:underline"
+        className="-mx-1 -my-2 whitespace-nowrap px-1 py-2 underline-offset-4 hover:underline focus-visible:underline"
       >
         {label}
         {active ? (dir === "asc" ? " ↑" : " ↓") : ""}
