@@ -17,16 +17,23 @@ from pathlib import Path
 from threading import Lock
 from typing import Annotated, Literal
 
+import openai
 import psycopg
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from psycopg_pool import ConnectionPool, PoolClosed, PoolTimeout
+from pydantic import ValidationError
 
 from parltopics import __version__
 from parltopics.api import queries, reviews
 from parltopics.api.schemas import (
+    AdhocActivated,
+    AdhocCreated,
+    AdhocIn,
+    AdhocPreview,
+    AdhocScope,
     AffairTopics,
     BodyOut,
     Calibration,
@@ -34,6 +41,7 @@ from parltopics.api.schemas import (
     GraphNode,
     JobCounts,
     JobsSummary,
+    KeywordsIn,
     Lang,
     PageDetail,
     PageOut,
@@ -47,9 +55,12 @@ from parltopics.api.schemas import (
     TopicGraph,
     TopicOut,
 )
+from parltopics.classify import adhoc
 from parltopics.classify.queue import summary as job_summary
 from parltopics.config import Settings, get_settings
+from parltopics.llm import JSONExtractionError
 from parltopics.registry import Registry, RegistryError, load_registry
+from parltopics.registry.edit import adhoc_id
 from parltopics.wiki.tree import (
     Page,
     TreeError,
@@ -77,6 +88,7 @@ TAGS = [
     {"name": "Review", "description": "Entscheide von Menschen zu Labels, mit Name und Zeit."},
     {"name": "Suche", "description": "Volltext über Titel und Texte (de, fr, it), ohne LLM."},
     {"name": "Evaluation", "description": "Kalibrierung und Gold-Set aus den Entscheiden."},
+    {"name": "Ad-hoc", "description": "Neue Themen ohne Training: Stichwörter, Kandidaten, Jobs."},
     {"name": "Jobs", "description": "Stand der Klassifikation je Aufgabe."},
     {"name": "Seiten", "description": "Seitenbaum des ParlWiki."},
     {"name": "System", "description": "Betrieb."},
@@ -418,6 +430,109 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         affair = queries.affair_topics(conn, body.affair_id)
         assert affair is not None  # ein Label hängt immer an einem Geschäft (Fremdschlüssel)
         return AffairTopics(**affair)
+
+    @api.post(
+        "/adhoc/keywords",
+        tags=["Ad-hoc"],
+        summary="Stichwörter für ein neues Thema",
+        responses={
+            502: {"description": "Antwort des Modells unbrauchbar"},
+            503: {"description": "LLM nicht erreichbar"},
+        },
+    )
+    async def adhoc_keywords(body: KeywordsIn) -> adhoc.Keywords:
+        """Apertus 70B schlägt Suchbegriffe in DE, FR und IT vor (generate_keywords). Ein Mensch
+        prüft und ergänzt sie, bevor POST /v1/adhoc das Thema anlegt."""
+        try:
+            return await adhoc.suggest_keywords(settings, body.name_de, body.description_de)
+        except openai.APIError as error:
+            raise HTTPException(503, f"LLM nicht erreichbar: {type(error).__name__}") from error
+        except (JSONExtractionError, ValidationError) as error:
+            raise HTTPException(502, "Die Antwort des Modells ist unbrauchbar") from error
+
+    @api.post(
+        "/adhoc/preview",
+        tags=["Ad-hoc"],
+        summary="Kandidaten für Stichwörter zählen",
+        responses=no_database,
+    )
+    def adhoc_preview(body: AdhocScope, conn: Conn) -> AdhocPreview:
+        """Wie viele Geschäfte die Stichwörter treffen und wie gross die Stichprobe ist, ohne
+        etwas anzulegen und ohne Modell. Beispiele: die neuesten Kandidaten."""
+        candidates, sample = adhoc.find_affairs(
+            conn, body.keywords, bodies=body.bodies, since=body.since
+        )
+        return AdhocPreview(
+            candidates=len(candidates),
+            sample=len(sample),
+            examples=queries.affair_heads(conn, candidates[:5]),
+        )
+
+    @api.post(
+        "/adhoc",
+        tags=["Ad-hoc"],
+        summary="Ad-hoc-Thema anlegen und auswerten",
+        responses={
+            409: {"description": "Das Thema gibt es schon"},
+            422: {"description": "Ungültige Angaben, etwa ein unbekanntes broader-Tag"},
+            **no_database,
+        },
+    )
+    def adhoc_create(body: AdhocIn, conn: Conn) -> AdhocCreated:
+        """Legt das Thema mit Status proposed in der Registry an und öffnet Jobs
+        classify:adhoc:<name> für Kandidaten und Stichprobe. Die Worker prüfen sie mit
+        Apertus; die Treffer erscheinen sofort als vorläufig (tag_status proposed). Ohne
+        Anmeldung im Hack-MVP; user_name steht im Tag (created.by) und im Lauf."""
+        registry, _ = load()
+        tag_id = adhoc_id(body.name_de)
+        if any(tag.tag_id == tag_id for tag in registry.tags):
+            raise HTTPException(409, f"{tag_id} gibt es schon")
+        try:
+            created = adhoc.create(
+                conn,
+                settings,
+                name_de=body.name_de,
+                definition_de=body.description_de,
+                keywords=body.keywords,
+                by=body.user_name,
+                broader=body.broader,
+                bodies=body.bodies,
+                since=body.since,
+            )
+        except RegistryError as error:
+            raise HTTPException(422, str(error)) from error
+        return AdhocCreated(
+            tag_id=created.tag_id,
+            registry_version=created.registry_version,
+            run_id=created.run.run_id,
+            jobs=created.run.total,
+            candidates=created.candidates,
+            sample=created.sample,
+        )
+
+    @api.post(
+        "/adhoc/{tag_id}/activate",
+        tags=["Ad-hoc"],
+        summary="Ad-hoc-Thema freischalten",
+        responses={
+            404: {"description": "Kein Ad-hoc-Thema der Registry"},
+            409: {"description": "Schon aktiv"},
+            **no_database,
+        },
+    )
+    def adhoc_activate(tag_id: str, conn: Conn) -> AdhocActivated:
+        """Setzt ein bewährtes Thema von proposed auf active. Ab dann bietet Stufe 2 von
+        classify:aps es allen Geschäften an, und es bekommt eine Querschnittsseite."""
+        registry, _ = load()
+        tag = next((tag for tag in registry.tags if tag.tag_id == tag_id), None)
+        if tag is None or tag.scheme != "adhoc":
+            raise HTTPException(404, f"{tag_id} ist kein Ad-hoc-Thema der Registry")
+        if tag.status == "active":
+            raise HTTPException(409, f"{tag_id} ist schon aktiv")
+        registry = adhoc.activate(conn, settings, tag_id)
+        return AdhocActivated(
+            tag_id=tag_id, status="active", registry_version=registry.registry_version
+        )
 
     @api.get(
         "/eval/calibration",

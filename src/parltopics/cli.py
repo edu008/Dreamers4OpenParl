@@ -107,6 +107,25 @@ def registry_sync() -> None:
         typer.echo(f"  {scheme:<6} scheme_hash {digest[:16]}")
 
 
+@registry_app.command("activate")
+def registry_activate(
+    tag_id: Annotated[str, typer.Argument(help="Ad-hoc-Tag, z. B. adhoc:velowege")],
+) -> None:
+    """Ad-hoc-Thema freischalten: proposed → active, danach in Stufe 2 von classify:aps."""
+    from parltopics.classify.adhoc import activate
+    from parltopics.db import connect
+    from parltopics.registry import RegistryError
+
+    settings = get_settings()
+    try:
+        with connect(settings.database_url, autocommit=True) as conn:
+            registry = activate(conn, settings, tag_id)
+    except RegistryError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"{tag_id} ist aktiv, registry_version {registry.registry_version}")
+
+
 @registry_app.command("import-aps")
 def registry_import_aps(
     xlsx: Annotated[Path, typer.Argument(help="aps_topics.xlsx aus dem hackapertus-Datensatz")],
@@ -227,7 +246,7 @@ def inputs(
 
 @app.command()
 def classify(
-    task: Annotated[str, typer.Option(help="classify:aps (Ad-hoc und Nachklassifizierung: M2)")],
+    task: Annotated[str, typer.Option(help="classify:aps; Ad-hoc-Themen: parltopics adhoc")],
     body: Annotated[list[str] | None, typer.Option(help="body_keys")] = None,
     since: Annotated[datetime | None, typer.Option(formats=DATE, help="Geschäfte ab Datum")] = None,
     limit: Annotated[int | None, typer.Option(min=1, help="höchstens so viele Geschäfte")] = None,
@@ -240,7 +259,10 @@ def classify(
     from parltopics.registry.sync import synced_version
 
     if task != TASK_APS:
-        raise typer.BadParameter("In M1 gibt es nur classify:aps.", param_hint="--task")
+        raise typer.BadParameter(
+            "classify öffnet nur classify:aps; Ad-hoc-Themen legt `parltopics adhoc` an.",
+            param_hint="--task",
+        )
     settings = get_settings()
     classifier = load_classifier(settings)
     # Die Verbindung hält die Lauf-Sperre, bis der Lauf mit --wait fertig ist.
@@ -317,11 +339,59 @@ def jobs_summary() -> None:
 
 @app.command()
 def adhoc(
-    name: Annotated[str, typer.Argument(help="Name des Themas")],
+    name: Annotated[str, typer.Argument(help="Name des Themas (Deutsch)")],
     description_file: Annotated[Path, typer.Option(help="Beschreibung als Textdatei")],
+    keywords_file: Annotated[
+        Path | None,
+        typer.Option(help='Stichwörter als JSON {"de": [], "fr": [], "it": []}; sonst von 70B'),
+    ] = None,
+    body: Annotated[list[str] | None, typer.Option(help="nur diese Parlamente")] = None,
+    since: Annotated[datetime | None, typer.Option(formats=DATE, help="ab Datum")] = None,
+    broader: Annotated[list[str] | None, typer.Option(help="APS-Tags für die Verlinkung")] = None,
+    by: Annotated[str, typer.Option(help="wer das Thema anlegt")] = "cli",
+    yes: Annotated[bool, typer.Option("--yes", help="ohne Rückfrage anlegen")] = False,
+    wait: Annotated[bool, typer.Option(help="die Jobs gleich abarbeiten")] = False,
 ) -> None:
     """Ad-hoc-Thema anlegen und über Kandidaten und Stichprobe auswerten (F8)."""
-    _planned("M2", "F8")
+    from parltopics.classify import adhoc as topics
+    from parltopics.classify.queue import adhoc_task
+    from parltopics.db import connect
+    from parltopics.registry import RegistryError
+
+    settings = get_settings()
+    description = description_file.read_text(encoding="utf-8").strip()
+    if keywords_file is not None:
+        keywords = topics.Keywords.model_validate_json(keywords_file.read_text(encoding="utf-8"))
+    else:
+        keywords = asyncio.run(topics.suggest_keywords(settings, name, description))
+    day = since.date() if since else None
+    with connect(settings.database_url, autocommit=True) as conn:
+        candidates, sample = topics.find_affairs(conn, keywords, bodies=body or None, since=day)
+        typer.echo(f"Stichwörter: {keywords.model_dump_json()}")
+        typer.echo(f"{len(candidates)} Kandidaten, {len(sample)} Geschäfte in der Stichprobe")
+        if not yes:
+            typer.confirm("Thema als proposed anlegen und die Jobs öffnen?", abort=True)
+        try:
+            created = topics.create(
+                conn,
+                settings,
+                name_de=name,
+                definition_de=description,
+                keywords=keywords,
+                by=by,
+                broader=broader or None,
+                bodies=body or None,
+                since=day,
+            )
+        except RegistryError as error:
+            typer.secho(str(error), fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1) from error
+    typer.echo(
+        f"{created.tag_id} angelegt (registry_version {created.registry_version}),"
+        f" Lauf {created.run.run_id} mit {created.run.total} Jobs"
+    )
+    if wait:
+        _run_worker(settings, task=adhoc_task(created.tag_id), once=True)
 
 
 @app.command()

@@ -18,7 +18,8 @@ AFFAIR_HEAD = """
 LABEL_COLUMNS = """
        l.id, l.tag_id, t.name_de, l.scheme, l.confidence, l.evidence, l.evidence_verified, l.status,
        l.review_status, l.reviewed_by, l.reviewed_at, l.task, l.stage, l.model_version,
-       l.prompt_version, l.registry_version, l.input_hash, l.run_id, l.created_at"""
+       l.prompt_version, l.registry_version, l.input_hash, l.run_id, l.created_at,
+       t.status AS tag_status"""
 
 AFFAIR = f"""
 SELECT {AFFAIR_HEAD}, a.url_external, i.text, i.language, s.summary AS summary_de
@@ -409,3 +410,11 @@ def co_topics(conn: psycopg.Connection, tag_id: str, limit: int) -> list[dict]:
     """Themen mit den meisten gemeinsamen Geschäften (aktive Labels)."""
     params = {"tag_id": tag_id, "limit": limit}
     return conn.cursor(row_factory=dict_row).execute(CO_TOPICS, params).fetchall()
+
+
+def affair_heads(conn: psycopg.Connection, ids: list[int]) -> list[dict]:
+    """Köpfe dieser Geschäfte in der Reihenfolge von ids."""
+    sql = f"""SELECT {AFFAIR_HEAD} FROM affairs a LEFT JOIN bodies b ON b.body_key = a.body_key
+              WHERE a.id = ANY(%s)"""
+    rows = {row["affair_id"]: row for row in conn.cursor(row_factory=dict_row).execute(sql, (ids,))}
+    return [rows[affair_id] for affair_id in ids if affair_id in rows]

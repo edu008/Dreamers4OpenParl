@@ -96,7 +96,8 @@ async def suggest_keywords(
     prompt = load_prompt(settings.prompts_dir, KEYWORDS_PROMPT)
     messages = prompt.messages({}, {"name": name, "description": description})
     async with LLMClient(settings, transport=transport) as client:
-        reply = await client.chat(messages, large=True)
+        # Ein Mensch wartet auf die Antwort: ein zweiter Versuch statt langer Wiederholung.
+        reply = await client.chat(messages, large=True, attempts=2)
     return Keywords.model_validate(extract_json(reply.content))
 
 

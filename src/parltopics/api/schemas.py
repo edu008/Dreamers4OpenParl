@@ -5,6 +5,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
+from parltopics.classify.adhoc import Keywords
 from parltopics.wiki.tree import PageKind
 
 Stage = Literal["8b", "70b", "human"]
@@ -141,6 +142,9 @@ class LabelOut(BaseModel):
     input_hash: str
     run_id: int | None
     created_at: datetime
+    tag_status: Literal["proposed", "active", "merged", "retired"] = Field(
+        description="Status des Themas; proposed heisst: noch nicht freigegeben, Treffer vorläufig"
+    )
 
 
 class AffairHead(BaseModel):
@@ -333,3 +337,47 @@ class RelatedTopic(BaseModel):
     name_de: str
     shared: int = Field(description="Geschäfte mit beiden Themen (aktive Labels)")
     in_registry: bool = Field(description="in der Registry als verwandt eingetragen")
+
+
+UserName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+
+
+class KeywordsIn(BaseModel):
+    name_de: str = Field(min_length=2, max_length=120, examples=["Velowege"])
+    description_de: str = Field(min_length=10, max_length=2000)
+
+
+class AdhocScope(BaseModel):
+    keywords: Keywords
+    bodies: list[str] | None = Field(None, description='nur diese Parlamente, z. B. ["CHE"]')
+    since: date | None = Field(None, description="nur Geschäfte ab diesem Datum")
+
+
+class AdhocPreview(BaseModel):
+    candidates: int = Field(description="Geschäfte mit Stichworttreffer")
+    sample: int = Field(description="Stichprobe ohne Treffer (jedes 50. Geschäft)")
+    examples: list[AffairHead] = Field(description="die neuesten Kandidaten, höchstens fünf")
+
+
+class AdhocIn(AdhocScope):
+    name_de: str = Field(min_length=2, max_length=120, examples=["Velowege"])
+    description_de: str = Field(min_length=10, max_length=2000)
+    broader: list[str] = Field(
+        default_factory=list, description="APS-Tags, auf deren Seiten das Thema verlinkt wird"
+    )
+    user_name: UserName = Field(description="wer das Thema anlegt", examples=["Mia Muster"])
+
+
+class AdhocCreated(BaseModel):
+    tag_id: str = Field(examples=["adhoc:velowege"])
+    registry_version: str
+    run_id: int
+    jobs: int = Field(description="Jobs des Laufs: Kandidaten und Stichprobe")
+    candidates: int
+    sample: int
+
+
+class AdhocActivated(BaseModel):
+    tag_id: str
+    status: Literal["active"]
+    registry_version: str

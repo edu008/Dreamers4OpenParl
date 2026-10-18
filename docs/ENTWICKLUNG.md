@@ -59,6 +59,8 @@ uv run parltopics jobs summary                           # Jobs je Aufgabe und S
 
 `classify` öffnet die Jobs eines Laufs und arbeitet sie mit `--wait` (Standard) gleich ab; je Geschäft erscheint eine Logzeile mit Status, Stufe und Grund einer Eskalation. Mit `--no-wait` übernehmen Worker die Jobs, auch mehrere parallel: `uv run parltopics worker --task classify:aps --once` endet, sobald keine Jobs mehr offen sind. Ein zweiter Aufruf mit denselben Filtern öffnet nichts, solange sich Text, Prompt und Registry nicht ändern.
 
+Ein Ad-hoc-Thema (PRD 7.4) legt `uv run parltopics adhoc "Velowege" --description-file velo.txt --body CHE` an: 70B schlägt Stichwörter in DE/FR/IT vor (oder `--keywords-file` mit `{"de": [], "fr": [], "it": []}`), das Kommando zeigt Kandidaten und Stichprobe und fragt vor dem Anlegen. Das Tag steht danach mit Status `proposed` in `registry/tags.yaml`, die Jobs `classify:adhoc:<name>` sind offen; `--wait` arbeitet sie gleich ab. Bewährt sich das Thema: `uv run parltopics registry activate adhoc:velowege`. Dasselbe geht über die API (`/v1/adhoc/keywords`, `/v1/adhoc/preview`, `/v1/adhoc`, `/v1/adhoc/{tag_id}/activate`). Weil beides `registry/tags.yaml` ändert, die Datei danach committen.
+
 Ohne LLM-Endpunkt hilft der Mock aus den Tests: `uv run uvicorn app:app --app-dir tests/mock_llm --port 8080` und in `.env` `LLM_BASE_URL=http://127.0.0.1:8080/v1`. Er wählt immer das erste angebotene Kapitel und Thema.
 
 ## Gemeinsame Datenbank über Tailscale
