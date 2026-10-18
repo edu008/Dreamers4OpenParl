@@ -4,14 +4,17 @@ import { BrowserRouter } from "react-router"
 
 import "./index.css"
 import App from "./App.tsx"
+import { ReviewProvider } from "@/components/review-provider.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider defaultTheme="light">
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <ReviewProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </ReviewProvider>
     </ThemeProvider>
   </StrictMode>
 )

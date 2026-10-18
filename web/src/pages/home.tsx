@@ -11,15 +11,19 @@ export function HomePage() {
   return (
     <>
       <div className="flex flex-col gap-2">
-        <h1 className="font-reading text-2xl leading-tight font-semibold text-balance">
+        <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
           Themen der Schweizer Parlamente
         </h1>
         <p className="max-w-[68ch] text-muted-foreground">
-          Geschäfte aus Bund, Kantonen und Gemeinden, nach Themen geordnet und mit der Textstelle
-          belegt, die das Thema begründet. Wähle einen Bereich, ein Kapitel und dann ein Thema.
+          Geschäfte aus Bund, Kantonen und Gemeinden, nach Themen geordnet und
+          mit der Textstelle belegt, die das Thema begründet. Wähle einen
+          Bereich, ein Kapitel und dann ein Thema.
         </p>
       </div>
-      <section aria-labelledby="topics-heading" className="flex flex-col gap-3 border-t border-foreground pt-4">
+      <section
+        aria-labelledby="topics-heading"
+        className="flex flex-col gap-3 pt-2"
+      >
         <h2 id="topics-heading" className="font-heading text-lg font-medium">
           Themenübersicht
         </h2>
@@ -36,7 +40,9 @@ export function HomePage() {
             <AlertDescription>{tree.error}</AlertDescription>
           </Alert>
         )}
-        {tree.data && heart && <PageTree pages={tree.data.pages} root={heart} />}
+        {tree.data && heart && (
+          <PageTree pages={tree.data.pages} root={heart} />
+        )}
       </section>
     </>
   )

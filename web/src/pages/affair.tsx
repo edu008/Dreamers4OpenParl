@@ -1,14 +1,19 @@
 import { Link, useParams } from "react-router"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { EvidenceText, isEvidenceFound } from "@/components/evidence-text"
+import { EvidenceText } from "@/components/evidence-text"
 import { MarginNotes, type MarginLabel } from "@/components/margin-notes"
+import { Button } from "@/components/ui/button"
+import { useReview } from "@/hooks/use-review"
+import { buildQueue, nextOpenRow } from "@/lib/review-queue"
+import { evidenceFound, reviewReasons } from "@/lib/label-state"
 import { findSampleAffair } from "@/lib/sample-affairs"
 
-// Schwelle aus der Klassifikation (CONFIDENCE_THRESHOLD, Startwert 0.6). Wird später aus der API gelesen.
-const REVIEW_BELOW = 0.6
-
-const LANGUAGE_NAME = { de: "Deutsch", fr: "Französisch", it: "Italienisch" } as const
+const LANGUAGE_NAME = {
+  de: "Deutsch",
+  fr: "Französisch",
+  it: "Italienisch",
+} as const
 
 function formatDate(iso: string): string {
   const [year, month, day] = iso.split("-")
@@ -18,14 +23,17 @@ function formatDate(iso: string): string {
 export function AffairPage() {
   const { affairId = "" } = useParams()
   const affair = findSampleAffair(affairId)
+  const { decisions } = useReview()
+  const next = nextOpenRow(buildQueue(decisions), affairId)
 
   if (!affair) {
     return (
       <Alert>
         <AlertTitle>Geschäft nicht gefunden</AlertTitle>
         <AlertDescription>
-          Zu {affairId} gibt es noch keine Daten. Bis die API Labels liefert, zeigt die Seite nur
-          Beispielgeschäfte. <Link to="/geschaefte/70435">Beispiel öffnen</Link>
+          Zu {affairId} gibt es noch keine Daten. Bis die API Labels liefert,
+          zeigt die Seite nur Beispielgeschäfte.{" "}
+          <Link to="/geschaefte/70435">Beispiel öffnen</Link>
         </AlertDescription>
       </Alert>
     )
@@ -33,12 +41,8 @@ export function AffairPage() {
 
   const labels: MarginLabel[] = affair.labels.map((label) => ({
     ...label,
-    evidenceFound:
-      label.evidence !== null && isEvidenceFound(affair.paragraphs, label.evidence),
-    needsReview:
-      label.confidence < REVIEW_BELOW ||
-      label.evidence === null ||
-      !isEvidenceFound(affair.paragraphs, label.evidence),
+    evidenceFound: evidenceFound(affair, label),
+    needsReview: reviewReasons(affair, label).length > 0,
   }))
   const spans = labels
     .filter((label) => label.evidence !== null && label.evidenceFound)
@@ -53,16 +57,43 @@ export function AffairPage() {
         / Geschäft {affair.number}
       </nav>
       <p className="text-xs text-muted-foreground">
-        Beispieldaten, nicht aus OpenParlData. Echte Labels folgen mit der Klassifikation.
+        Beispieldaten, nicht aus OpenParlData. Echte Labels folgen mit der
+        Klassifikation.
       </p>
+      <nav
+        aria-label="Review"
+        className="flex flex-wrap items-center gap-3 text-xs"
+      >
+        {next ? (
+          <Button
+            size="sm"
+            variant="outline"
+            nativeButton={false}
+            render={<Link to={`/geschaefte/${next.affair.id}`} />}
+          >
+            Nächstes offenes Label
+          </Button>
+        ) : (
+          <span className="text-muted-foreground">
+            Keine weiteren offenen Labels.
+          </span>
+        )}
+        <Link
+          to="/review"
+          className="text-muted-foreground underline underline-offset-2"
+        >
+          Zur Warteschlange
+        </Link>
+      </nav>
       <div className="grid gap-0 border-t border-foreground lg:grid-cols-[minmax(0,1fr)_14rem]">
         <div className="flex flex-col gap-4 py-5 lg:pr-8">
           <p className="tabular text-xs text-muted-foreground">
-            {affair.number} · {affair.type} · {affair.body} · {formatDate(affair.date)}
+            {affair.number} · {affair.type} · {affair.body} ·{" "}
+            {formatDate(affair.date)}
           </p>
           <h1
             lang={affair.language}
-            className="font-reading text-2xl leading-tight font-semibold text-balance"
+            className="font-heading text-2xl leading-tight font-semibold text-balance"
           >
             {affair.title}
           </h1>
@@ -82,7 +113,10 @@ export function AffairPage() {
               <>
                 {" "}
                 ·{" "}
-                <a href={affair.sourceUrl} className="underline underline-offset-2">
+                <a
+                  href={affair.sourceUrl}
+                  className="underline underline-offset-2"
+                >
                   Quelle
                 </a>
               </>
@@ -90,6 +124,7 @@ export function AffairPage() {
           </p>
         </div>
         <MarginNotes
+          affairId={affair.id}
           labels={labels}
           versions={{
             model: affair.model,
