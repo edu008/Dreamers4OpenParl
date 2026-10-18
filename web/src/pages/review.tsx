@@ -2,17 +2,40 @@ import { useState } from "react"
 import { Link } from "react-router"
 
 import { Confidence } from "@/components/confidence"
+import { PlainHeader, SortHeader } from "@/components/sort-header"
 import { Button } from "@/components/ui/button"
+import { compareValues, useSort, type SortDir } from "@/hooks/use-sort"
 import { useReview } from "@/hooks/use-review"
 import { reviewKey } from "@/lib/review"
 import { buildQueue, type QueueRow } from "@/lib/review-queue"
 
-const HEAD = "px-3 py-2 text-left text-xs font-semibold text-foreground"
 const ALL = "alle"
+
+type OpenKey = "affair" | "label" | "confidence"
+type DoneKey = "affair" | "label" | "confidence" | "date"
 
 function formatDate(iso: string): string {
   const date = new Date(iso)
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("de-CH")
+}
+
+function sortValue(row: QueueRow, key: DoneKey): string | number {
+  switch (key) {
+    case "affair":
+      return row.affair.title
+    case "label":
+      return row.label.name
+    case "confidence":
+      return row.label.confidence
+    case "date":
+      return row.entry?.at ?? ""
+  }
+}
+
+function sortRows(rows: QueueRow[], key: DoneKey, dir: SortDir): QueueRow[] {
+  return [...rows].sort((a, b) =>
+    compareValues(sortValue(a, key), sortValue(b, key), dir)
+  )
 }
 
 function AffairCell({ row }: { row: QueueRow }) {
@@ -34,28 +57,37 @@ function AffairCell({ row }: { row: QueueRow }) {
 }
 
 function OpenTable({ rows }: { rows: QueueRow[] }) {
+  const sort = useSort<OpenKey>("confidence", "asc")
+  const sorted = sortRows(rows, sort.key, sort.dir)
   return (
     <div className="overflow-x-auto">
-      <table className="data-table w-full min-w-[34rem] border-collapse text-sm">
+      <table className="w-full min-w-[34rem] border-collapse text-sm">
         <caption className="sr-only">Labels mit Prüfbedarf</caption>
-        <thead className="border-b border-border">
+        <thead className="border-b border-border bg-margin-tint">
           <tr>
-            <th scope="col" className={HEAD}>
-              Geschäft
-            </th>
-            <th scope="col" className={HEAD}>
-              Label
-            </th>
-            <th scope="col" className={HEAD}>
-              Konfidenz
-            </th>
-            <th scope="col" className={HEAD}>
-              Grund
-            </th>
+            <SortHeader
+              label="Geschäft"
+              active={sort.key === "affair"}
+              dir={sort.dir}
+              onSort={() => sort.sortBy("affair", "asc")}
+            />
+            <SortHeader
+              label="Label"
+              active={sort.key === "label"}
+              dir={sort.dir}
+              onSort={() => sort.sortBy("label", "asc")}
+            />
+            <SortHeader
+              label="Konfidenz"
+              active={sort.key === "confidence"}
+              dir={sort.dir}
+              onSort={() => sort.sortBy("confidence", "asc")}
+            />
+            <PlainHeader>Grund</PlainHeader>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {sorted.map((row) => (
             <tr
               key={`${row.affair.id}|${row.label.tagId}`}
               className="border-b border-border align-top"
@@ -76,28 +108,45 @@ function OpenTable({ rows }: { rows: QueueRow[] }) {
 
 function DoneTable({ rows }: { rows: QueueRow[] }) {
   const review = useReview()
+  const sort = useSort<DoneKey>("date", "desc")
+  const sorted = sortRows(rows, sort.key, sort.dir)
   return (
     <div className="overflow-x-auto">
-      <table className="data-table w-full min-w-[34rem] border-collapse text-sm">
+      <table className="w-full min-w-[34rem] border-collapse text-sm">
         <caption className="sr-only">Entschiedene Labels</caption>
-        <thead className="border-b border-border">
+        <thead className="border-b border-border bg-margin-tint">
           <tr>
-            <th scope="col" className={HEAD}>
-              Geschäft
-            </th>
-            <th scope="col" className={HEAD}>
-              Label
-            </th>
-            <th scope="col" className={HEAD}>
-              Entscheid
-            </th>
-            <th scope="col" className={HEAD}>
+            <SortHeader
+              label="Geschäft"
+              active={sort.key === "affair"}
+              dir={sort.dir}
+              onSort={() => sort.sortBy("affair", "asc")}
+            />
+            <SortHeader
+              label="Label"
+              active={sort.key === "label"}
+              dir={sort.dir}
+              onSort={() => sort.sortBy("label", "asc")}
+            />
+            <SortHeader
+              label="Konfidenz"
+              active={sort.key === "confidence"}
+              dir={sort.dir}
+              onSort={() => sort.sortBy("confidence", "desc")}
+            />
+            <SortHeader
+              label="Entscheid"
+              active={sort.key === "date"}
+              dir={sort.dir}
+              onSort={() => sort.sortBy("date", "desc")}
+            />
+            <PlainHeader>
               <span className="sr-only">Aktion</span>
-            </th>
+            </PlainHeader>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
+          {sorted.map((row) => {
             const entry = row.entry
             if (!entry) return null
             const key = reviewKey(row.affair.id, row.label.tagId)
@@ -105,6 +154,9 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
               <tr key={key} className="border-b border-border align-top">
                 <AffairCell row={row} />
                 <td className="px-3 py-3">{row.label.name}</td>
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <Confidence value={row.label.confidence} />
+                </td>
                 <td className="px-3 py-3 text-xs">
                   <span className="font-semibold">
                     {entry.decision === "confirmed" ? "Bestätigt" : "Verworfen"}
@@ -134,8 +186,8 @@ function DoneTable({ rows }: { rows: QueueRow[] }) {
   )
 }
 
-// Arbeitsliste: Labels mit Prüfbedarf, die unsichersten zuerst. Entschiedene stehen getrennt,
-// eingeklappt, damit die Liste oben nur zeigt, was noch zu tun ist.
+// Arbeitsliste: Labels mit Prüfbedarf, standardmässig die unsichersten zuerst. Entschiedene
+// stehen getrennt, eingeklappt, damit die Liste oben nur zeigt, was noch zu tun ist.
 export function ReviewPage() {
   const review = useReview()
   const [topic, setTopic] = useState(ALL)
