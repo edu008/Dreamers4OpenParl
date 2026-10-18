@@ -33,6 +33,26 @@ jobs:
       - run: uv run pytest
       - run: uv run parltopics registry validate
 
+  web:
+    name: Web-App
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
+      - run: node ../scripts/check-web-dist.mjs dist
+
   diagrams:
     name: Diagramme aktuell
     runs-on: ubuntu-latest
@@ -48,11 +68,16 @@ jobs:
   offline:
     name: Air-Gap-Bundle und Offline-Test
     runs-on: ubuntu-latest
-    needs: python
+    needs: [python, web]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
-      - name: Offline-Test (Image aus Wheels, internes Docker-Netz)
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Offline-Test (Image aus Wheels und web/dist, internes Docker-Netz)
         run: make offline-test
       - name: Bundle bauen
         run: make bundle
@@ -62,5 +87,6 @@ jobs:
           cd "$RUNNER_TEMP"/parltopics-bundle-*/
           ./load-bundle.sh "$RUNNER_TEMP/parltopics-base"
           test -f "$RUNNER_TEMP/parltopics-base/registry/tags.yaml"
+          test -f web/dist/index.html
           grep -q "^PARLTOPICS_VERSION=$(cat VERSION)$" "$RUNNER_TEMP/parltopics-base/.env"
           grep -q "^REGISTRY_DIR=$RUNNER_TEMP/parltopics-base/registry$" "$RUNNER_TEMP/parltopics-base/.env"

@@ -22,9 +22,30 @@ step "Registry prüfen"
 step "LLM-Endpunkt (Mock) erreichbar"
 "${COMPOSE[@]}" exec -T api parltopics llm check
 
-step "Web-App antwortet"
-"${COMPOSE[@]}" exec -T api python -c \
-  "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/healthz', timeout=5).read().decode())"
+step "Web-App antwortet: SPA aus web/dist, Routen, Assets, Seitenbaum"
+"${COMPOSE[@]}" exec -T api python - <<'PY'
+import json
+import re
+import urllib.request
+
+
+def get(path: str) -> str:
+    with urllib.request.urlopen(f"http://localhost:8000{path}", timeout=5) as response:
+        return response.read().decode()
+
+
+print("healthz:", get("/healthz"))
+html = get("/")
+assert 'id="root"' in html, "index.html der SPA fehlt"
+assert not re.search(r'(?:src|href)="(?:https?:)?//', html), "index.html lädt von aussen"
+assets = re.findall(r'(?:src|href)="(/assets/[^"]+)"', html)
+assert assets, "index.html verweist auf keine Assets"
+for asset in assets:
+    get(asset)
+assert 'id="root"' in get("/tags/aps:6.1.9"), "SPA-Fallback für /tags/... fehlt"
+assert json.loads(get("/v1/pages"))["pages"][0]["page_id"] == "heart"
+print(f"ok: SPA mit {len(assets)} Assets, Fallback und Seitenbaum")
+PY
 
 step "Internet ist nicht erreichbar"
 if "${COMPOSE[@]}" exec -T api python -c \

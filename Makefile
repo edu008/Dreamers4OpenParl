@@ -3,6 +3,8 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 UV ?= uv
+NPM ?= npm
+WEB := web
 PARLTOPICS_VERSION ?= dev
 BUNDLE_VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 TEST_DATABASE_URL ?= postgresql://parltopics:parltopics@localhost:5432/parltopics
@@ -12,6 +14,7 @@ export PARLTOPICS_VERSION
 export ARCHIFY_UPDATE_CHECK_DISABLED := 1
 
 .PHONY: help setup lint format test test-integration db db-down migrate api \
+        web-dev web-build web-lint web-check \
         diagrams diagrams-check wheels image offline-test bundle clean
 
 help: ## Ziele anzeigen
@@ -46,6 +49,23 @@ migrate: ## Migrationen anwenden
 api: ## Web-App und API lokal mit Reload auf http://127.0.0.1:8000
 	$(UV) run uvicorn parltopics.api.app:app --reload --host 127.0.0.1 --port 8000
 
+$(WEB)/node_modules: $(WEB)/package-lock.json
+	cd $(WEB) && $(NPM) ci
+	@touch $@
+
+web-dev: $(WEB)/node_modules ## Vite auf http://127.0.0.1:5173, API-Aufrufe gehen an make api
+	cd $(WEB) && $(NPM) run dev -- --host 127.0.0.1
+
+web-build: $(WEB)/node_modules ## Web-App nach web/dist bauen und auf externe URLs prüfen
+	cd $(WEB) && $(NPM) run build
+	node scripts/check-web-dist.mjs $(WEB)/dist
+
+web-lint: $(WEB)/node_modules ## ESLint und Typprüfung der Web-App
+	cd $(WEB) && $(NPM) run lint
+	cd $(WEB) && $(NPM) run typecheck
+
+web-check: web-lint web-build ## Lint, Typprüfung, Build und Prüfung der Web-App
+
 diagrams: ## Diagramme mit Archify bauen (braucht Chrome oder Chromium)
 	node scripts/diagrams.mjs build
 
@@ -55,7 +75,7 @@ diagrams-check: ## Diagramme prüfen: Schema und Aktualität der HTML-Dateien
 wheels: ## Wheels für das Air-Gap-Image laden (online)
 	deploy/airgap/build-wheels.sh
 
-image: wheels ## App-Image aus den Wheels bauen
+image: wheels web-build ## App-Image aus den Wheels und web/dist bauen
 	docker build -f deploy/Dockerfile -t parltopics-app:$(PARLTOPICS_VERSION) .
 
 offline-test: image ## Offline-Test in einem Docker-Netz ohne Internet
@@ -65,4 +85,4 @@ bundle: ## Air-Gap-Bundle nach dist/ bauen (online), Version aus git describe
 	PARLTOPICS_VERSION=$(BUNDLE_VERSION) deploy/airgap/build-bundle.sh
 
 clean: ## Erzeugte Dateien entfernen
-	rm -rf dist .archify deploy/airgap/wheels .pytest_cache .ruff_cache
+	rm -rf dist .archify deploy/airgap/wheels .pytest_cache .ruff_cache $(WEB)/dist
