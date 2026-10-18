@@ -9,6 +9,7 @@ from parltopics.wiki.tree import PageKind
 
 Stage = Literal["8b", "70b", "human"]
 Lang = Literal["de", "fr", "it", "rm"]
+Reason = Literal["low_confidence", "no_evidence", "evidence_unverified", "sample"]
 LEVEL = "country, canton, city oder municipality"
 
 
@@ -132,15 +133,20 @@ class TopicOut(BaseModel):
     n_affairs: int = Field(description="Geschäfte mit aktivem Label")
 
 
-class TopicAffair(BaseModel):
-    affair_id: int = Field(examples=[70435])
+class AffairHead(BaseModel):
+    """Kopf eines Geschäfts in Listen."""
+
+    affair_id: int = Field(description="OpenParlData-ID", examples=[70435])
     body_key: str = Field(examples=["CHE"])
     body_name: str | None = Field(description="Name des Parlaments", examples=["Schweiz"])
     body_level: str | None = Field(description=LEVEL, examples=["country"])
     number: str | None
     title: str | None
-    type: str | None
+    type: str | None = Field(description="harmonisierter Typ (englisch)", examples=["Motion"])
     begin_date: date | None
+
+
+class TopicAffair(AffairHead):
     confidence: float = Field(ge=0, le=1)
     evidence: str | None
     evidence_verified: bool
@@ -152,3 +158,27 @@ class TopicAffairs(BaseModel):
     limit: int
     offset: int
     items: list[TopicAffair] = Field(description="nach Konfidenz, dann neueste zuerst")
+
+
+class ReviewItem(AffairHead):
+    """Ein Label mit Prüfbedarf oder Entscheid, mit dem Kopf seines Geschäfts."""
+
+    label: LabelOut
+    reasons: list[Reason] = Field(
+        description="low_confidence: Konfidenz unter threshold; no_evidence: ohne Beleg;"
+        " evidence_unverified: Beleg nicht im Text gefunden;"
+        " sample: Stichprobe (jedes 50. Geschäft)"
+    )
+
+
+class ReviewQueue(BaseModel):
+    threshold: float = Field(
+        description="CONFIDENCE_THRESHOLD der Klassifikation; darunter gilt sie als tief",
+        examples=[0.6],
+    )
+    total: int = Field(description="Treffer insgesamt, unabhängig von limit und offset")
+    limit: int
+    offset: int
+    items: list[ReviewItem] = Field(
+        description="open: tiefste Konfidenz zuerst; done: neuester Entscheid zuerst"
+    )

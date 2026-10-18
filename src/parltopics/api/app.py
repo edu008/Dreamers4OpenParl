@@ -36,6 +36,7 @@ from parltopics.api.schemas import (
     PageOut,
     PageTree,
     ReviewIn,
+    ReviewQueue,
     TopicAffairs,
     TopicOut,
 )
@@ -272,6 +273,40 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(404, f"Thema {tag_id} unbekannt")
         total, items = found
         return TopicAffairs(total=total, limit=limit, offset=offset, items=items)
+
+    @api.get(
+        "/reviews/queue", tags=["Review"], summary="Labels mit Prüfbedarf", responses=no_database
+    )
+    def review_queue(
+        conn: Conn,
+        state: Annotated[
+            Literal["open", "done"],
+            Query(description="open: ohne Entscheid und mit Grund; done: mit Entscheid"),
+        ] = "open",
+        tag_id: Annotated[str | None, Query(description="nur dieses Thema")] = None,
+        body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> ReviewQueue:
+        """Warteschlange der Review-Seite (F9). Offen sind aktive Labels ohne Entscheid mit
+        mindestens einem Grund: Konfidenz unter `threshold`, kein oder kein gefundener Beleg,
+        Stichprobe. Erledigt sind Labels mit Entscheid, auch verworfene."""
+        total, rows = queries.review_queue(
+            conn,
+            state=state,
+            tag_id=tag_id,
+            body_key=body_key,
+            threshold=settings.confidence_threshold,
+            limit=limit,
+            offset=offset,
+        )
+        return ReviewQueue(
+            threshold=settings.confidence_threshold,
+            total=total,
+            limit=limit,
+            offset=offset,
+            items=[{**row, "label": row} for row in rows],
+        )
 
     @api.post(
         "/reviews",
