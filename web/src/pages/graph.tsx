@@ -7,13 +7,10 @@ import {
   groupColor,
   HEIGHT,
   loadGraphData,
+  radius,
   WIDTH,
   type GraphData,
 } from "@/lib/graph"
-
-function radius(count: number, kind: "bereich" | "thema"): number {
-  return kind === "bereich" ? 9 : 5 + Math.sqrt(count) * 2
-}
 
 // Themengraph: zeigt, welche Themen zusammenhängen. Klick auf einen Punkt öffnet die Seite.
 export function GraphPage() {
