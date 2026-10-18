@@ -63,8 +63,10 @@ SELECT page.*,
        ts_headline((CASE page.language WHEN 'de' THEN 'german' WHEN 'fr' THEN 'french'
                                        WHEN 'it' THEN 'italian' ELSE 'simple' END)::regconfig,
                    i.text, {TSQUERY}, %(headline)s) AS headline,
-       (SELECT coalesce(json_agg(json_build_object('tag_id', l.tag_id, 'name_de', t.name_de)
-                                 ORDER BY l.confidence DESC), '[]')
+       (SELECT coalesce(json_agg(json_build_object(
+                    'tag_id', l.tag_id, 'name_de', t.name_de, 'confidence', l.confidence,
+                    'evidence', l.evidence, 'evidence_verified', l.evidence_verified,
+                    'stage', l.stage) ORDER BY l.confidence DESC), '[]')
         FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
         WHERE l.affair_id = page.affair_id AND l.status = 'active') AS topics
 FROM page JOIN affair_inputs i ON i.affair_id = page.affair_id
