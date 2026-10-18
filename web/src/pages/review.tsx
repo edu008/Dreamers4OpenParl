@@ -25,7 +25,7 @@ function AffairCell({ row }: { row: QueueRow }) {
       <Link
         to={`/geschaefte/${affair.id}`}
         lang={affair.language}
-        className="font-reading text-base leading-snug font-semibold underline-offset-4 hover:underline"
+        className="text-base leading-snug font-medium underline-offset-4 hover:underline"
       >
         {affair.title}
       </Link>
@@ -65,9 +65,7 @@ function OpenTable({ rows }: { rows: QueueRow[] }) {
               <td className="px-3 py-3 whitespace-nowrap">
                 <Confidence value={row.label.confidence} />
               </td>
-              <td className="px-3 py-3 text-xs font-semibold text-level-medium">
-                {row.reasons.join(", ")}
-              </td>
+              <td className="px-3 py-3 text-xs">{row.reasons.join(", ")}</td>
             </tr>
           ))}
         </tbody>
@@ -151,7 +149,7 @@ export function ReviewPage() {
   return (
     <>
       <div className="flex flex-col gap-2">
-        <h1 className="font-reading text-2xl leading-tight font-semibold text-balance">
+        <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
           Review
         </h1>
         <p className="max-w-[68ch] text-muted-foreground">

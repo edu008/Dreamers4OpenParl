@@ -109,7 +109,7 @@ export function AffairTable({ rows }: { rows: TopicRow[] }) {
                 <Link
                   to={`/geschaefte/${affair.id}`}
                   lang={affair.language}
-                  className="font-reading text-base leading-snug font-semibold text-foreground underline-offset-4 hover:underline"
+                  className="text-base leading-snug font-medium text-foreground underline-offset-4 hover:underline"
                 >
                   {affair.title}
                 </Link>

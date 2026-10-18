@@ -93,7 +93,7 @@ export function AffairPage() {
           </p>
           <h1
             lang={affair.language}
-            className="font-reading text-2xl leading-tight font-semibold text-balance"
+            className="font-heading text-2xl leading-tight font-semibold text-balance"
           >
             {affair.title}
           </h1>

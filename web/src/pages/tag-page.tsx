@@ -97,18 +97,21 @@ export function TagPage() {
       </Breadcrumb>
       <div className="flex flex-col gap-1">
         <p className="text-xs text-muted-foreground">{KIND_LABEL[page.kind]}</p>
-        <h1 className="font-reading text-2xl leading-tight font-semibold text-balance">
+        <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
           {page.title}
         </h1>
       </div>
       {sampleRows.length > 0 && (
-        <section aria-labelledby="affairs-heading" className="flex flex-col gap-2">
+        <section
+          aria-labelledby="affairs-heading"
+          className="flex flex-col gap-2"
+        >
           <h2 id="affairs-heading" className="font-heading text-lg font-medium">
             Geschäfte
           </h2>
           <p className="text-xs text-muted-foreground">
-            Beispieldaten, nicht aus OpenParlData. Die echte Liste kommt aus der API, sobald
-            Labels vorliegen.
+            Beispieldaten, nicht aus OpenParlData. Die echte Liste kommt aus der
+            API, sobald Labels vorliegen.
           </p>
           <AffairTable rows={sampleRows} />
         </section>
