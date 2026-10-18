@@ -15,6 +15,8 @@ from parltopics.registry.models import Registry, Tag
 
 HEART_ID = "heart"
 HEART_PATH = "HEART.md"
+# Anzeigetitel der Wurzel. page_id und Dateiname bleiben intern ("heart", HEART.md).
+HEART_TITLES = {"de": "Themen", "fr": "Thèmes", "it": "Temi"}
 YEAR_SPLIT_THRESHOLD = 1000
 
 PageKind = Literal["heart", "bereich", "kapitel", "tag", "querschnitt"]
@@ -33,6 +35,8 @@ class TreeError(ValueError):
 
 @dataclass(frozen=True)
 class Page:
+    """title ist der deutsche Anzeigetitel; titles trägt alle Sprachen der Registry (prefLabel)."""
+
     page_id: str
     kind: PageKind
     title: str
@@ -40,6 +44,11 @@ class Page:
     tag_id: str | None = None
     parent_id: str | None = None
     linked_from: tuple[str, ...] = ()
+    titles: dict[str, str] = field(default_factory=dict, compare=False)
+
+    def title_in(self, lang: str) -> str:
+        """Titel in der gewünschten Sprache, sonst Deutsch."""
+        return self.titles.get(lang) or self.title
 
 
 def page_kind(tag: Tag) -> PageKind:
@@ -78,7 +87,13 @@ def sort_key(page_id: str) -> tuple:
 def build_tree(registry: Registry) -> dict[str, Page]:
     """Seite für jedes aktive Tag plus Heart. Ad-hoc-Tags hängen als Querschnitt unter Heart."""
     pages: dict[str, Page] = {
-        HEART_ID: Page(page_id=HEART_ID, kind="heart", title="Heart", path=HEART_PATH)
+        HEART_ID: Page(
+            page_id=HEART_ID,
+            kind="heart",
+            title=HEART_TITLES["de"],
+            path=HEART_PATH,
+            titles=dict(HEART_TITLES),
+        )
     }
     active = {tag.tag_id: tag for tag in registry.active()}
     for tag in active.values():
@@ -100,6 +115,7 @@ def build_tree(registry: Registry) -> dict[str, Page]:
             tag_id=tag.tag_id,
             parent_id=parent,
             linked_from=linked,
+            titles=tag.pref_label.model_dump(exclude_none=True),
         )
     return pages
 
