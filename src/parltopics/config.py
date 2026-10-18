@@ -35,8 +35,6 @@ class Settings(BaseSettings):
     migrations_dir: Path = Path("migrations")
     web_dist_dir: Path = Path("web/dist")
 
-    review_token: SecretStr | None = None
-
     # Seitenbaum und Zusammenfassungen (PRD 7.9): Schwellen und Eingabegrenzen.
     page_tag_changes: int = Field(5, ge=1)
     page_parent_changes: int = Field(1, ge=1)

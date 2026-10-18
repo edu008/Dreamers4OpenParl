@@ -42,7 +42,9 @@ make help                     # alle Ziele
 
 Die API-Dokumentation für die Web-App steht nach `make api` unter <http://127.0.0.1:8000/v1/docs> (Swagger UI aus dem Paket, ohne CDN); das Schema unter `/v1/openapi.json`.
 
-Review-Entscheide schreibt `POST /v1/reviews` (bestätigen, verwerfen, ändern, hinzufügen, zurücknehmen). Er braucht `REVIEW_TOKEN` in `.env`, sonst antwortet er 503; die Web-App schickt den Token als `Authorization: Bearer <token>`, in Swagger über «Authorize». Die Aktion `undo` braucht Migration 0004: Auf der gemeinsamen Datenbank führt die betreibende Person `make migrate` aus.
+Review-Entscheide schreibt `POST /v1/reviews` (bestätigen, verwerfen, ändern, hinzufügen, zurücknehmen), die offenen Fälle liefert `GET /v1/reviews/queue`. Im Hack-MVP gibt es keine Anmeldung und keine Rollen: Wer die API erreicht, kann entscheiden; an jedem Entscheid stehen Name und Zeit, und jeder lässt sich mit `undo` zurücknehmen. Die Aktion `undo` braucht Migration 0004: Auf der gemeinsamen Datenbank führt die betreibende Person `make migrate` aus.
+
+Die Volltextsuche `GET /v1/search` (de, fr, it, ohne LLM) liest `search_documents`. Das füllt `parltopics inputs` gleich mit; Klassifikationstexte, die vor dieser Version gebaut wurden, bekommen ihr Dokument beim nächsten `inputs`-Lauf mit denselben Filtern.
 
 ## Klassifikation
 
@@ -50,7 +52,7 @@ Nach dem Ingest läuft die Pipeline in drei Kommandos (PRD 7.1, [ARCHITEKTUR.md]
 
 ```bash
 uv run parltopics registry sync                          # tags.yaml in die Tabelle tags, je registry_version einmal
-uv run parltopics inputs --body CHE --since 2026-01-01   # Klassifikationstexte (affair_inputs)
+uv run parltopics inputs --body CHE --since 2026-01-01   # Klassifikationstexte (affair_inputs) und Volltext
 uv run parltopics classify --task classify:aps --body CHE --since 2026-01-01 --limit 20
 uv run parltopics jobs summary                           # Jobs je Aufgabe und Status
 ```

@@ -13,9 +13,9 @@ from parltopics.config import Settings
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tags_example.yaml"
 
 
-def client_for(dist: Path, registry: Path = FIXTURE, **overrides) -> TestClient:
+def client_for(dist: Path, registry: Path = FIXTURE) -> TestClient:
     """Ohne `with`: die App startet nicht, ihr Datenbank-Pool bleibt geschlossen."""
-    settings = Settings(_env_file=None, web_dist_dir=dist, registry_path=registry, **overrides)
+    settings = Settings(_env_file=None, web_dist_dir=dist, registry_path=registry)
     return TestClient(create_app(settings))
 
 
@@ -73,30 +73,32 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/affairs/{affair_id}/topics",
         "/v1/topics/{tag_id}/affairs",
         "/v1/reviews",
+        "/v1/reviews/queue",
+        "/v1/pages/{page_id}/affairs",
+        "/v1/bodies",
+        "/v1/search",
     } <= set(paths)
     parameters = paths["/v1/topics/{tag_id}/affairs"]["get"]["parameters"]
     names = {parameter["name"] for parameter in parameters}
     assert {"tag_id", "body_key", "from", "to", "min_confidence", "limit", "offset"} <= names
+    parameters = paths["/v1/pages/{page_id}/affairs"]["get"]["parameters"]
+    assert {"page_id", "level", "type", "from", "to"} <= {p["name"] for p in parameters}
+    parameters = paths["/v1/search"]["get"]["parameters"]
+    names = {"q", "topic", "body_key", "level", "from", "to", "limit", "offset"}
+    assert names <= {p["name"] for p in parameters}
 
 
 def test_database_endpoints_answer_503_without_database(tmp_path):
     client = client_for(tmp_path)
-    for path in ("/v1/jobs/summary", "/v1/topics", "/v1/affairs/1/topics"):
+    paths = ("/v1/jobs/summary", "/v1/topics", "/v1/affairs/1/topics", "/v1/reviews/queue")
+    for path in (*paths, "/v1/bodies"):
         assert client.get(path).status_code == 503
     assert client.get("/healthz").status_code == 200
 
 
-def test_reviews_need_a_configured_and_correct_token(tmp_path):
+def test_reviews_need_no_token_only_the_database(tmp_path):
     body = {"affair_id": 1, "tag_id": "aps:6.1.9", "action": "confirm", "user_name": "Mia"}
-    right = {"Authorization": "Bearer geheim"}
-    assert client_for(tmp_path).post("/v1/reviews", json=body, headers=right).status_code == 503
-    client = client_for(tmp_path, review_token="geheim")
-    for headers in ({}, {"Authorization": "Bearer falsch"}, {"Authorization": "Basic geheim"}):
-        response = client.post("/v1/reviews", json=body, headers=headers)
-        assert response.status_code == 401
-        assert response.headers["www-authenticate"] == "Bearer"
-    # Token und Body stimmen, es fehlt nur die Datenbank.
-    assert client.post("/v1/reviews", json=body, headers=right).status_code == 503
+    assert client_for(tmp_path).post("/v1/reviews", json=body).status_code == 503
 
 
 @pytest.mark.parametrize(

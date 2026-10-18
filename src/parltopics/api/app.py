@@ -9,7 +9,7 @@ nicht von einem CDN (PRD 9, Offline); FastAPIs Standardseiten /docs und /redoc b
 OpenAPI-Schema steht unter /v1/openapi.json.
 """
 
-import secrets
+import time
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import date
@@ -21,7 +21,6 @@ import psycopg
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from psycopg_pool import ConnectionPool, PoolClosed, PoolTimeout
 
@@ -29,6 +28,7 @@ from parltopics import __version__
 from parltopics.api import queries, reviews
 from parltopics.api.schemas import (
     AffairTopics,
+    BodyOut,
     JobCounts,
     JobsSummary,
     Lang,
@@ -36,6 +36,8 @@ from parltopics.api.schemas import (
     PageOut,
     PageTree,
     ReviewIn,
+    ReviewQueue,
+    SearchResult,
     TopicAffairs,
     TopicOut,
 )
@@ -57,7 +59,8 @@ SWAGGER = Path(__file__).parent / "static" / "swagger"  # swagger-ui-dist, Apach
 
 DESCRIPTION = """Sidecar-API von ParlTopics (PRD F10): Themen zu Geschäften aus OpenParlData,
 klassifiziert mit Apertus. Geschäfts-IDs sind OpenParlData-IDs. Alle Endpunkte lesen nur, ausser
-POST /v1/reviews: Er braucht den REVIEW_TOKEN als `Authorization: Bearer <token>` («Authorize»).
+POST /v1/reviews für Review-Entscheide. Im Hack-MVP gibt es dafür keine Anmeldung und keine Rollen;
+an jedem Entscheid stehen Name und Zeit.
 
 Ohne Datenbank antworten die Endpunkte unter Geschäfte, Themen, Review und Jobs mit 503;
 /healthz und die Seiten unter /v1/pages funktionieren weiter."""
@@ -65,7 +68,8 @@ Ohne Datenbank antworten die Endpunkte unter Geschäfte, Themen, Review und Jobs
 TAGS = [
     {"name": "Geschäfte", "description": "Ein Geschäft mit seinen Themen, Belegen und Versionen."},
     {"name": "Themen", "description": "Tags der Registry (APS und Ad-hoc) und ihre Geschäfte."},
-    {"name": "Review", "description": "Entscheide von Menschen zu Labels (mit REVIEW_TOKEN)."},
+    {"name": "Review", "description": "Entscheide von Menschen zu Labels, mit Name und Zeit."},
+    {"name": "Suche", "description": "Volltext über Titel und Texte (de, fr, it), ohne LLM."},
     {"name": "Jobs", "description": "Stand der Klassifikation je Aufgabe."},
     {"name": "Seiten", "description": "Seitenbaum des ParlWiki."},
     {"name": "System", "description": "Betrieb."},
@@ -98,7 +102,6 @@ NO_BUILD_PAGE = """<!doctype html>
 """
 
 LangQuery = Annotated[Lang, Query(description="Sprache der Titel, sonst Deutsch")]
-BEARER = HTTPBearer(auto_error=False, description="REVIEW_TOKEN aus der Konfiguration der API")
 
 
 def page_out(page: Page, lang: Lang) -> PageOut:
@@ -188,18 +191,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     no_database = {503: {"description": "Datenbank nicht erreichbar"}}
     no_registry = {503: {"description": "Registry nicht lesbar"}}
 
-    def reviewer(
-        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(BEARER)],
-    ) -> None:
-        expected = settings.review_token.get_secret_value() if settings.review_token else ""
-        if not expected:
-            raise HTTPException(503, "Review nicht eingerichtet: REVIEW_TOKEN fehlt")
-        given = credentials.credentials if credentials else ""
-        if not secrets.compare_digest(given.encode(), expected.encode()):
-            raise HTTPException(
-                401, "Token fehlt oder ist falsch", headers={"WWW-Authenticate": "Bearer"}
-            )
-
     @app.get("/healthz", tags=["System"], summary="Lebenszeichen der API")
     def healthz() -> dict[str, str]:
         return {"status": "ok", "version": __version__}
@@ -208,13 +199,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         "/jobs/summary", tags=["Jobs"], summary="Jobs je Aufgabe und Status", responses=no_database
     )
     def jobs_summary(conn: Conn) -> JobsSummary:
-        """Zahl der Klassifikations-Jobs je Aufgabe und Status (F18)."""
+        """Zahl der Klassifikations-Jobs je Aufgabe und Status (F18) und die letzten Läufe."""
         tasks: dict[str, JobCounts] = {}
         for task, status, count in job_summary(conn):
             counts = tasks.setdefault(task, JobCounts(task=task))
             setattr(counts, status, count)
             counts.total += count
-        return JobsSummary(tasks=list(tasks.values()))
+        return JobsSummary(tasks=list(tasks.values()), runs=queries.runs(conn))
+
+    @api.get("/bodies", tags=["Geschäfte"], summary="Parlamente", responses=no_database)
+    def bodies(conn: Conn) -> list[BodyOut]:
+        """Parlamente mit klassifizierten Geschäften: Bund, Kantone, Städte, Gemeinden, je nach
+        Name. Für Filter (`body_key`) und Übersichten."""
+        return [BodyOut(**row) for row in queries.bodies(conn)]
 
     @api.get(
         "/affairs/{affair_id}/topics",
@@ -258,9 +255,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         offset: Annotated[int, Query(ge=0)] = 0,
     ) -> TopicAffairs:
         """Geschäfte mit aktivem Label, nach Konfidenz und dann neueste zuerst, seitenweise."""
-        found = queries.topic_affairs(
+        if not queries.tag_exists(conn, tag_id):
+            raise HTTPException(404, f"Thema {tag_id} unbekannt")
+        total, items = queries.topic_affairs(
             conn,
-            tag_id,
+            [tag_id],
             body_key=body_key,
             date_from=date_from,
             date_to=date_to,
@@ -268,24 +267,50 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             limit=limit,
             offset=offset,
         )
-        if found is None:
-            raise HTTPException(404, f"Thema {tag_id} unbekannt")
-        total, items = found
         return TopicAffairs(total=total, limit=limit, offset=offset, items=items)
+
+    @api.get(
+        "/reviews/queue", tags=["Review"], summary="Labels mit Prüfbedarf", responses=no_database
+    )
+    def review_queue(
+        conn: Conn,
+        state: Annotated[
+            Literal["open", "done"],
+            Query(description="open: ohne Entscheid und mit Grund; done: mit Entscheid"),
+        ] = "open",
+        tag_id: Annotated[str | None, Query(description="nur dieses Thema")] = None,
+        body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> ReviewQueue:
+        """Warteschlange der Review-Seite (F9). Offen sind aktive Labels ohne Entscheid mit
+        mindestens einem Grund: Konfidenz unter `threshold`, kein oder kein gefundener Beleg,
+        Stichprobe. Erledigt sind Labels mit Entscheid, auch verworfene."""
+        total, rows = queries.review_queue(
+            conn,
+            state=state,
+            tag_id=tag_id,
+            body_key=body_key,
+            threshold=settings.confidence_threshold,
+            limit=limit,
+            offset=offset,
+        )
+        return ReviewQueue(
+            threshold=settings.confidence_threshold,
+            total=total,
+            limit=limit,
+            offset=offset,
+            items=[{**row, "label": row} for row in rows],
+        )
 
     @api.post(
         "/reviews",
         tags=["Review"],
         summary="Entscheid zum Label eines Themas",
-        dependencies=[Depends(reviewer)],
         responses={
-            401: {"description": "Token fehlt oder ist falsch"},
             404: {"description": "Kein passendes Label, Thema unbekannt oder Geschäft ohne Text"},
             409: {"description": "Für das Thema gibt es schon ein aktives Label"},
-            503: {
-                "description": "Datenbank nicht erreichbar, REVIEW_TOKEN nicht gesetzt oder"
-                " Migration 0004 fehlt (undo)"
-            },
+            503: {"description": "Datenbank nicht erreichbar oder Migration 0004 fehlt (undo)"},
         },
     )
     def review(body: ReviewIn, conn: Conn) -> AffairTopics:
@@ -300,6 +325,50 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         affair = queries.affair_topics(conn, body.affair_id)
         assert affair is not None  # ein Label hängt immer an einem Geschäft (Fremdschlüssel)
         return AffairTopics(**affair)
+
+    @api.get("/search", tags=["Suche"], summary="Volltextsuche", responses=no_database)
+    def search(
+        conn: Conn,
+        q: Annotated[
+            str,
+            Query(
+                min_length=2,
+                max_length=200,
+                description='Suchbegriffe; "…" für eine Wortfolge, -wort schliesst aus,'
+                " or für oder",
+            ),
+        ],
+        topic: Annotated[str | None, Query(description="nur mit diesem aktiven Thema")] = None,
+        body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
+        level: Annotated[
+            Literal["country", "canton", "city", "municipality"] | None,
+            Query(description="Ebene des Parlaments"),
+        ] = None,
+        date_from: Annotated[date | None, Query(alias="from", description="ab Datum")] = None,
+        date_to: Annotated[date | None, Query(alias="to", description="bis Datum")] = None,
+        limit: Annotated[int, Query(ge=1, le=50)] = 20,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> SearchResult:
+        """Volltextsuche über die Klassifikationstexte (Titel und Texte), ohne Sprachangabe: Die
+        Begriffe werden deutsch, französisch und italienisch auf ihren Stamm zurückgeführt. Rang
+        nach ts_rank_cd, Treffer im Titel zählen mehr. Je Treffer ein Ausschnitt mit markierten
+        Begriffen und die aktiven Themen."""
+        start = time.perf_counter()
+        total, items = queries.search(
+            conn,
+            q=q,
+            topic=topic,
+            body_key=body_key,
+            level=level,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            offset=offset,
+        )
+        duration_ms = round((time.perf_counter() - start) * 1000)
+        return SearchResult(
+            q=q, total=total, limit=limit, offset=offset, duration_ms=duration_ms, items=items
+        )
 
     @api.get("/pages", tags=["Seiten"], summary="Seitenbaum des ParlWiki", responses=no_registry)
     def pages(lang: LangQuery = "de") -> PageTree:
@@ -339,6 +408,58 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             children=[page_out(child, lang) for child in children(tree, page_id)],
             linked=[page_out(other, lang) for other in linked],
         )
+
+    @api.get(
+        "/pages/{page_id}/affairs",
+        tags=["Seiten"],
+        summary="Geschäfte einer Seite und ihrer Unterseiten",
+        responses={
+            404: {"description": "Seite unbekannt"},
+            503: {"description": "Registry nicht lesbar oder Datenbank nicht erreichbar"},
+        },
+    )
+    def page_affairs(
+        page_id: str,
+        conn: Conn,
+        body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
+        level: Annotated[
+            Literal["country", "canton", "city", "municipality"] | None,
+            Query(description="Ebene des Parlaments"),
+        ] = None,
+        affair_type: Annotated[
+            str | None, Query(alias="type", description="harmonisierter Typ, z. B. Motion")
+        ] = None,
+        date_from: Annotated[date | None, Query(alias="from", description="ab Datum")] = None,
+        date_to: Annotated[date | None, Query(alias="to", description="bis Datum")] = None,
+        min_confidence: Annotated[float, Query(ge=0, le=1)] = 0.0,
+        limit: Annotated[int, Query(ge=1, le=500)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> TopicAffairs:
+        """Geschäfte mit aktivem Label auf dieser Seite oder einer Seite darunter: auf einer
+        Tag- oder Querschnittsseite die ihres Tags, auf Kapitel, Bereich und Heart die aller
+        Unterseiten. Eine Zeile je Geschäft und Thema: Ein Geschäft mit zwei Themen eines
+        Kapitels erscheint zweimal. Verlinkte Querschnittsseiten zählen nicht dazu."""
+        _, tree = load()
+        if page_id not in tree:
+            raise HTTPException(404, f"Seite {page_id} gibt es nicht")
+        tag_ids = [
+            page.tag_id
+            for page in tree.values()
+            if page.tag_id and (page.page_id == page_id or page_id in ancestors(tree, page.page_id))
+        ]
+        total, items = queries.topic_affairs(
+            conn,
+            tag_ids,
+            body_key=body_key,
+            level=level,
+            affair_type=affair_type,
+            date_from=date_from,
+            date_to=date_to,
+            min_confidence=min_confidence,
+            limit=limit,
+            offset=offset,
+        )
+        return TopicAffairs(total=total, limit=limit, offset=offset, items=items)
 
     app.include_router(api)
 

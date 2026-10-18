@@ -4,6 +4,7 @@ Mit Texten (Bund, einige Kantone): Titel, eingereichter Text, Begründung, übri
 der Regierung und die Titel-Zeilen aus affair_texts zählen nicht, der Titel kommt aus affairs.
 Ohne Texte: Titel und das älteste Dokument mit Text (PRD 15, Frage 8), sonst nur der Titel.
 Als Titel dient der lange Titel aus raw, wenn es ihn in der Sprache gibt, sonst der kurze.
+Im selben Durchlauf entsteht das Volltext-Dokument je Geschäft (search_documents, PRD F15).
 """
 
 import functools
@@ -62,6 +63,39 @@ SET text = EXCLUDED.text, language = EXCLUDED.language, source = EXCLUDED.source
     input_hash = EXCLUDED.input_hash, built_at = now()
 WHERE affair_inputs.input_hash <> EXCLUDED.input_hash
 RETURNING affair_id
+"""
+# Volltext: neu, wenn das Dokument fehlt oder älter ist als sein Text. updated_at ist das
+# built_at des gelesenen Texts, nicht now(): Schreibt ein anderer Lauf den Text gleichzeitig neu,
+# bleibt das Dokument älter als der neue Text und wird beim nächsten Lauf ersetzt. Titel zählen
+# mehr als der Rest: die erste Zeile des Texts und die Titel der anderen Sprachen, damit eine
+# Anfrage auf Französisch auch ein Geschäft mit deutschem Text findet.
+SEARCH = """
+WITH stale AS (
+    SELECT i.affair_id, i.language, i.text, i.built_at, position(chr(10) IN i.text) AS cut,
+           (CASE i.language WHEN 'de' THEN 'german' WHEN 'fr' THEN 'french'
+                            WHEN 'it' THEN 'italian' ELSE 'simple' END)::regconfig AS config,
+           CASE WHEN i.language <> 'de' THEN coalesce(a.raw->>'title_long_de', a.title_de) END
+               AS title_de,
+           CASE WHEN i.language <> 'fr' THEN coalesce(a.raw->>'title_long_fr', a.title_fr) END
+               AS title_fr,
+           CASE WHEN i.language <> 'it' THEN coalesce(a.raw->>'title_long_it', a.title_it) END
+               AS title_it
+    FROM affair_inputs i JOIN affairs a ON a.id = i.affair_id
+    LEFT JOIN search_documents d ON d.affair_id = i.affair_id
+    WHERE i.affair_id = ANY(%s) AND (d.affair_id IS NULL OR d.updated_at < i.built_at)
+)
+INSERT INTO search_documents (affair_id, language, document, updated_at)
+SELECT affair_id, language,
+       setweight(to_tsvector(config, CASE WHEN cut > 0 THEN left(text, cut - 1) ELSE text END)
+                 || to_tsvector('german', coalesce(title_de, ''))
+                 || to_tsvector('french', coalesce(title_fr, ''))
+                 || to_tsvector('italian', coalesce(title_it, '')), 'A')
+       || setweight(to_tsvector(config, CASE WHEN cut > 0 THEN substr(text, cut + 1) ELSE '' END),
+                    'D'),
+       built_at
+FROM stale
+ON CONFLICT (affair_id) DO UPDATE
+SET language = EXCLUDED.language, document = EXCLUDED.document, updated_at = EXCLUDED.updated_at
 """
 # Geänderter Text öffnet erledigte Jobs aller Aufgaben (PRD 7.7, F18); failed bleibt failed.
 REOPEN = """
@@ -178,6 +212,7 @@ class InputResult:
     unchanged: int
     skipped: int  # weder Titel noch Text
     reopened: int  # erledigte Jobs, deren Text sich geändert hat
+    indexed: int  # Volltext-Dokumente neu geschrieben
 
 
 def build_inputs(
@@ -188,7 +223,7 @@ def build_inputs(
     limit: int | None = None,
 ) -> InputResult:
     """Baut affair_inputs für die gefilterten Geschäfte, in Stapeln mit je einer Transaktion."""
-    changed = unchanged = skipped = reopened = 0
+    changed = unchanged = skipped = reopened = indexed = 0
     last = seen = 0
     cursor = conn.cursor(row_factory=dict_row)
     while limit is None or seen < limit:
@@ -222,7 +257,8 @@ def build_inputs(
                 new = [row["affair_id"] for row in cursor.execute(UPSERT, columns).fetchall()]
             if new:
                 reopened += conn.execute(REOPEN, (new,)).rowcount
+            indexed += conn.execute(SEARCH, (ids,)).rowcount
         changed += len(new)
         unchanged += len(rows) - len(new)
         last, seen = ids[-1], seen + len(ids)
-    return InputResult(changed, unchanged, skipped, reopened)
+    return InputResult(changed, unchanged, skipped, reopened, indexed)

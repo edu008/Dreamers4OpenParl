@@ -11,8 +11,6 @@ from tests.integration.test_api import FIXTURE, seed
 
 pytestmark = pytest.mark.integration
 
-TOKEN = {"Authorization": "Bearer geheim"}
-
 
 @pytest.fixture
 def client(conn, repo_root, api_settings):
@@ -25,7 +23,7 @@ def client(conn, repo_root, api_settings):
 
 def review(client, action, tag_id="aps:6.1.9", **extra):
     body = {"affair_id": 70435, "tag_id": tag_id, "action": action, "user_name": " Mia ", **extra}
-    return client.post("/v1/reviews", json=body, headers=TOKEN)
+    return client.post("/v1/reviews", json=body)
 
 
 def state(response, tag_id="aps:6.1.9"):
@@ -116,7 +114,54 @@ def test_undo_without_migration_0004_is_503_and_changes_nothing(client, conn):
     assert state(client.get("/v1/affairs/70435/topics")) == ("active", "confirmed", "Mia", "70b")
 
 
-def test_wrong_token_is_401(client):
-    body = {"affair_id": 70435, "tag_id": "aps:6.1.9", "action": "confirm", "user_name": "Mia"}
-    wrong = {"Authorization": "Bearer falsch"}
-    assert client.post("/v1/reviews", json=body, headers=wrong).status_code == 401
+def add_label(conn, affair_id, tag_id, confidence, evidence, verified):
+    conn.execute(
+        "INSERT INTO affair_tags (affair_id, tag_id, scheme, confidence, evidence,"
+        " evidence_verified, task, stage, model_version, prompt_version, registry_version,"
+        " input_hash) VALUES (%s, %s, split_part(%s, ':', 1), %s, %s, %s, 'classify:aps', '8b',"
+        " 'm', 'p1', 'v', 'h')",
+        (affair_id, tag_id, tag_id, confidence, evidence, verified),
+    )
+
+
+def test_queue_lists_open_labels_with_reasons_and_decided_ones_as_done(client, conn):
+    conn.execute(
+        "INSERT INTO bodies (id, body_key, name, level, raw)"
+        " VALUES (2, 'ZH', 'Zürich', 'canton', '{}')"
+    )
+    conn.execute(
+        "INSERT INTO affairs (id, body_key, title_de, raw)"
+        " VALUES (70450, 'CHE', 'Stichprobe', '{}'), (70451, 'ZH', 'Ohne Beleg', '{}')"
+    )
+    add_label(conn, 70435, "aps:2.4.1", 0.4, "steht nicht im Text", False)
+    add_label(conn, 70450, "aps:6.1.9", 0.9, "belegt", True)  # 70450 % 50 == 0
+    add_label(conn, 70451, "adhoc:digitalisierung-breit", 0.7, None, False)
+
+    queue = client.get("/v1/reviews/queue").json()
+    assert (queue["threshold"], queue["total"]) == (0.6, 3)  # aps:6.1.9 an 70435 ohne Grund
+    rows = [(row["affair_id"], row["label"]["tag_id"], row["reasons"]) for row in queue["items"]]
+    assert rows == [
+        (70435, "aps:2.4.1", ["low_confidence", "evidence_unverified"]),
+        (70451, "adhoc:digitalisierung-breit", ["no_evidence"]),
+        (70450, "aps:6.1.9", ["sample"]),
+    ]
+    assert (queue["items"][1]["body_name"], queue["items"][1]["title"]) == ("Zürich", "Ohne Beleg")
+    only = client.get("/v1/reviews/queue", params={"tag_id": "aps:6.1.9"}).json()
+    assert [item["affair_id"] for item in only["items"]] == [70450]
+    assert client.get("/v1/reviews/queue", params={"body_key": "ZH"}).json()["total"] == 1
+    page = client.get("/v1/reviews/queue", params={"limit": 1, "offset": 1}).json()
+    assert (page["total"], [item["affair_id"] for item in page["items"]]) == (3, [70451])
+
+    review(client, "confirm", tag_id="aps:2.4.1")
+    # an 70435 gibt es kein aktives adhoc-Label: nichts ändert sich
+    assert review(client, "reject", tag_id="adhoc:digitalisierung-breit").status_code == 404
+    assert client.get("/v1/reviews/queue").json()["total"] == 2
+    done = client.get("/v1/reviews/queue", params={"state": "done"}).json()
+    (item,) = done["items"]
+    label = item["label"]
+    assert (label["tag_id"], label["review_status"], label["reviewed_by"]) == (
+        "aps:2.4.1",
+        "confirmed",
+        "Mia",
+    )
+    assert item["reasons"] == ["low_confidence", "evidence_unverified"]
