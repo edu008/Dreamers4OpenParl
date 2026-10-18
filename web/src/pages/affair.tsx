@@ -3,6 +3,9 @@ import { Link, useParams } from "react-router"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { EvidenceText } from "@/components/evidence-text"
 import { MarginNotes, type MarginLabel } from "@/components/margin-notes"
+import { Button } from "@/components/ui/button"
+import { useReview } from "@/hooks/use-review"
+import { buildQueue, nextOpenRow } from "@/lib/review-queue"
 import { evidenceFound, reviewReasons } from "@/lib/label-state"
 import { findSampleAffair } from "@/lib/sample-affairs"
 
@@ -20,6 +23,8 @@ function formatDate(iso: string): string {
 export function AffairPage() {
   const { affairId = "" } = useParams()
   const affair = findSampleAffair(affairId)
+  const { decisions } = useReview()
+  const next = nextOpenRow(buildQueue(decisions), affairId)
 
   if (!affair) {
     return (
@@ -55,6 +60,31 @@ export function AffairPage() {
         Beispieldaten, nicht aus OpenParlData. Echte Labels folgen mit der
         Klassifikation.
       </p>
+      <nav
+        aria-label="Review"
+        className="flex flex-wrap items-center gap-3 text-xs"
+      >
+        {next ? (
+          <Button
+            size="sm"
+            variant="outline"
+            nativeButton={false}
+            render={<Link to={`/geschaefte/${next.affair.id}`} />}
+          >
+            Nächstes offenes Label
+          </Button>
+        ) : (
+          <span className="text-muted-foreground">
+            Keine weiteren offenen Labels.
+          </span>
+        )}
+        <Link
+          to="/review"
+          className="text-muted-foreground underline underline-offset-2"
+        >
+          Zur Warteschlange
+        </Link>
+      </nav>
       <div className="grid gap-0 border-t border-foreground lg:grid-cols-[minmax(0,1fr)_14rem]">
         <div className="flex flex-col gap-4 py-5 lg:pr-8">
           <p className="tabular text-xs text-muted-foreground">

@@ -1,31 +1,21 @@
+import { useState } from "react"
 import { Link } from "react-router"
 
 import { Confidence } from "@/components/confidence"
 import { useReview } from "@/hooks/use-review"
-import { reviewReasons } from "@/lib/label-state"
-import { reviewKey } from "@/lib/review"
-import { SAMPLE_AFFAIRS } from "@/lib/sample-affairs"
+import { buildQueue, openRows } from "@/lib/review-queue"
 
 const HEAD = "px-3 py-2 text-left text-xs font-medium text-muted-foreground"
+const ALL = "alle"
 
 // Warteschlange: Labels mit Prüfbedarf, die unsichersten zuerst. Entschiedene rücken ans Ende.
 export function ReviewPage() {
   const review = useReview()
-  const rows = SAMPLE_AFFAIRS.flatMap((affair) =>
-    affair.labels.map((label) => ({
-      affair,
-      label,
-      reasons: reviewReasons(affair, label),
-      entry: review.decisions[reviewKey(affair.id, label.tagId)],
-    }))
-  )
-    .filter((row) => row.reasons.length > 0 || row.entry)
-    .sort(
-      (a, b) =>
-        Number(Boolean(a.entry)) - Number(Boolean(b.entry)) ||
-        a.label.confidence - b.label.confidence
-    )
-  const open = rows.filter((row) => !row.entry).length
+  const [topic, setTopic] = useState(ALL)
+  const queue = buildQueue(review.decisions)
+  const topics = [...new Set(queue.map((row) => row.label.name))].sort()
+  const rows = topic === ALL ? queue : queue.filter((row) => row.label.name === topic)
+  const open = openRows(rows).length
 
   return (
     <>
@@ -50,11 +40,30 @@ export function ReviewPage() {
       </div>
       <section
         aria-labelledby="queue-heading"
-        className="flex flex-col gap-2 border-t border-foreground pt-4"
+        className="flex flex-col gap-3 border-t border-foreground pt-4"
       >
-        <h2 id="queue-heading" className="font-heading text-lg font-medium">
-          Offen: {open}
-        </h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 id="queue-heading" className="font-heading text-lg font-medium">
+            Offen: {open}
+          </h2>
+          {topics.length > 1 && (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              Thema
+              <select
+                value={topic}
+                onChange={(event) => setTopic(event.target.value)}
+                className="h-7 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+              >
+                <option value={ALL}>Alle Themen</option>
+                {topics.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
         {rows.length === 0 ? (
           <p className="text-muted-foreground">Nichts zu prüfen.</p>
         ) : (
