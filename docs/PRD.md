@@ -236,10 +236,10 @@ Die Stichprobe ausserhalb der Kandidaten schätzt, wie viele Treffer die Stichwo
 
 ### 7.6 Suche
 
-- Volltext: PostgreSQL `tsvector` mit Konfigurationen `german`, `french`, `italian`, `simple`, über Titel und Klassifikationstext; Filter Tag, Ebene, Parlament, Jahr, Typ. Funktioniert ohne LLM.
+- Volltext: PostgreSQL `tsvector` mit Konfigurationen `german`, `french`, `italian`, `simple`, über Titel und Klassifikationstext; Filter Tag, Ebene, Parlament, Jahr, Typ. Erkennt die Suche in der Anfrage ein Thema der Registry (auch mit Tippfehler), sucht sie auch mit seinen Bezeichnungen in DE, FR und IT und mit den Geschäften, die es als Label tragen; erkennt sie keines, schlägt 8B höchstens zwei Themen vor. Die Antwort nennt die erkannten Themen und lässt wörtlich suchen. Ohne LLM sucht sie wie getippt.
 - Natürlichsprachige Anfragen laufen als Navigationssuche durch den Seitenbaum (7.10): von Heart über Bereich und Kapitel zur Tag-Seite und erst dann zu den Geschäften, mit Rückweg und Schrittgrenze. Findet sie nichts, greift die Volltextsuche. Die Antwort zeigt den Suchweg.
 - Natürlichsprachige Anfragen mit mehreren Schritten (zum Beispiel Zählen oder Vergleichen) und den Ad-hoc-Dialog beantwortet der Agent (7.8). Er leitet Tags, Filter und Suchbegriffe ab, ruft die Navigationssuche (`navigate_tree`) oder die Volltextsuche auf und fasst die Treffer zu einer Kurzantwort mit Verweisen (OpenParlData-ID) zusammen. Keine Antwort ohne Treffer als Beleg.
-- **Aufteilung:** Die Suchseite ruft zuerst die Navigationssuche auf (`POST /v1/search/navigate`). Den Agenten (`POST /v1/agent/search`) startet der Nutzer ausdrücklich als Dialog, für Fragen mit mehreren Schritten und für den Ad-hoc-Dialog.
+- **Aufteilung:** Das Suchfeld nutzt die Volltextsuche mit Themen (`GET /v1/search`); die Liste der Treffer ist die Antwort, ohne Zusammenfassung. Navigationssuche (`POST /v1/search/navigate`) und Agent (`POST /v1/agent/search`) bleiben als API für Fragen in eigenen Worten, für Fragen mit mehreren Schritten und für den Ad-hoc-Dialog.
 
 ### 7.7 Status und parallele Verarbeitung
 

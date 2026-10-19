@@ -4,8 +4,8 @@
     "01-systemarchitektur": {
       "type": "architecture",
       "quality": "showcase",
-      "source_sha256": "3782cb2b43187dab3c0d01e3642eb22dc666730b9589596ab8b3a61e2b389c7d",
-      "html_sha256": "641bcb3a6893021637ba6638e2f073824fdff2bb4532f0d4d8f088bb80361929"
+      "source_sha256": "721a7c0788ec8d26c6956967a9932ff945db47ff3d50736e5fa7e27cfe8d121e",
+      "html_sha256": "55105749e51029301b12ad3ed1fe643a1d137dcab4ce98a18922258664049ddd"
     },
     "02-pipeline": {
       "type": "workflow",
