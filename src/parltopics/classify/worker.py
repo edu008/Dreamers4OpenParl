@@ -136,6 +136,19 @@ def short_keys(tags: list[Tag]) -> dict[str, str]:
     return unique | keys  # der Kurzname geht vor
 
 
+def _with_chapters(
+    keys: dict[str, str], chapters: list[Tag], topics: dict[str, list[Tag]]
+) -> dict[str, str]:
+    """Auch «kapitel-thema»: v3 zeigt die Themen unter Kapiteln, und 70B schreibt dann oft beides
+    zusammen (umweltschutz-gewaesserschutz, Lauf 29–31)."""
+    joined = {
+        short_key(f"{ch.prompt_id}-{t.prompt_id}"): t.tag_id
+        for ch in chapters
+        for t in topics.get(ch.tag_id, [])
+    }
+    return joined | keys
+
+
 def load_classifier(settings: Settings) -> Classifier:
     registry = load_registry(settings.registry_path)
     chapters = [tag for tag in registry.active("aps") if tag.aps_level == "kapitel"]
@@ -159,7 +172,11 @@ def load_classifier(settings: Settings) -> Classifier:
         stage2=load_prompt(settings.prompts_dir, STAGE_PROMPTS[1]),
         known={tag.tag_id: tag for tag in registry.tags},
         single=single,
-        keys=short_keys([*(t for tags in topics.values() for t in tags), *adhoc]) if single else {},
+        keys=_with_chapters(
+            short_keys([*(t for tags in topics.values() for t in tags), *adhoc]), chapters, topics
+        )
+        if single
+        else {},
     )
 
 

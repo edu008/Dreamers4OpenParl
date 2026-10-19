@@ -3,7 +3,7 @@
 # Jede inhaltliche Änderung erhöht registry_version. Neue Tags nur über Vorschläge und Review.
 # Tag-Seiten im ParlWiki werden aus der Datenbank erzeugt und sind keine zweite Registry.
 # Schreibt ein Werkzeug die Datei neu, gehen diese Kommentare verloren (ADR 0001).
-registry_version: 2026-10-19.5
+registry_version: 2026-10-19.6
 schemes:
   aps:
     label: Année Politique Suisse
@@ -227,6 +227,7 @@ tags:
   alt_labels:
     de:
     - Staatspersonal
+    - Personalpolitik
     - Bundespersonal
     - öffentliche Beschaffung
     - Submission
@@ -1376,6 +1377,7 @@ tags:
   - aps:4.1
   alt_labels:
     de:
+    - Jugendpolitik
     - Kinderschutz
     - Jugendarbeit
     - Kinderrechte

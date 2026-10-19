@@ -183,7 +183,7 @@ aps:1.2.2:
   en: "Public administration"
   it: "Amministrazione"
   de: Öffentliche Verwaltung, Verwaltungsreform, Personal und Löhne des öffentlichen Dienstes, Behördenorganisation, E-Government-Organisation, Beschaffungswesen. Nicht, nur weil eine Verwaltung, ein Departement oder eine Regierung etwas umsetzen, prüfen oder beantworten soll.
-  alt: {de: [Staatspersonal, Bundespersonal, öffentliche Beschaffung, Submission, Verwaltungsreform], fr: [administration publique, personnel de l'Etat, marchés publics], it: [amministrazione pubblica, personale dello Stato, appalti pubblici]}
+  alt: {de: [Staatspersonal, Personalpolitik, Bundespersonal, öffentliche Beschaffung, Submission, Verwaltungsreform], fr: [administration publique, personnel de l'Etat, marchés publics], it: [amministrazione pubblica, personale dello Stato, appalti pubblici]}
 aps:1.2.3:
   en: "Concordance"
   it: "Concordanza"
@@ -371,7 +371,7 @@ aps:4.1.6:
   en: "Children and young people"
   it: "Bambini e giovani"
   de: Kinder und Jugendliche — Kinderschutz, Jugendförderung, Kinderrechte, Jugendarbeit, Schutz vor Gefahren für Kinder.
-  alt: {de: [Kinderschutz, Jugendarbeit, Kinderrechte, Jugendförderung], fr: [protection de l'enfance, jeunesse, droits de l'enfant], it: [protezione dell'infanzia, giovani]}
+  alt: {de: [Jugendpolitik, Kinderschutz, Jugendarbeit, Kinderrechte, Jugendförderung], fr: [protection de l'enfance, jeunesse, droits de l'enfant], it: [protezione dell'infanzia, giovani]}
 aps:4.1.7:
   en: "Ageing and older people"
   it: "Questioni legate all'età"

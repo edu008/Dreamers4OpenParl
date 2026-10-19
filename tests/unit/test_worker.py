@@ -507,3 +507,9 @@ def test_candidates_for_unknown_names(single):
     }
     assert [t.tag_id for t in _candidates(classifier, "markt")] == ["aps:2.4.1"]  # Teil des Namens
     assert _candidates(classifier, "gibtesnicht") == []
+
+
+def test_chapter_and_topic_written_together_resolve(single):
+    _, classifier = single
+    chapter = next(ch for ch in classifier.chapters if ch.tag_id == "aps:2.4")
+    assert classifier.keys[f"{chapter.prompt_id}-arbeitsmarkt"] == "aps:2.4.1"
