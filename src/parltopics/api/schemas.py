@@ -171,17 +171,6 @@ class AffairTopics(AffairHead):
     )
     language: str | None = Field(examples=["de"])
     summary_de: str | None = Field(description="Kurzzusammenfassung in einem Satz")
-    external_id: str | None = Field(
-        default=None, description="ID beim Parlament", examples=["E 3265"]
-    )
-    title_long: str | None = Field(default=None, description="langer Titel, erste Sprache")
-    type_name: str | None = Field(
-        default=None, description="Typ, wie ihn das Parlament nennt", examples=["Election"]
-    )
-    state: str | None = Field(
-        default=None, description="Stand des Geschäfts (harmonisiert, deutsch)"
-    )
-    end_date: date | None = Field(default=None, description="Abschluss, falls bekannt")
     labels: list[LabelOut] = Field(description="Aktive Labels zuerst, danach der Verlauf")
 
 

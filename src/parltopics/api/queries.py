@@ -24,14 +24,7 @@ LABEL_COLUMNS = """
        t.status AS tag_status"""
 
 AFFAIR = f"""
-SELECT {AFFAIR_HEAD}, a.url_external, i.text, i.language, s.summary AS summary_de,
-       a.external_id,
-       coalesce(a.raw->>'title_long_de', a.raw->>'title_long_fr', a.raw->>'title_long_it',
-                a.raw->>'title_long_rm') AS title_long,
-       coalesce(a.raw->>'type_name_de', a.raw->>'type_name_fr', a.raw->>'type_name_it',
-                a.raw->>'type_name_rm') AS type_name,
-       coalesce(a.raw->>'state_name_harmonized_de', a.raw->>'state_name_de') AS state,
-       left(a.raw->>'end_date', 10)::date AS end_date
+SELECT {AFFAIR_HEAD}, a.url_external, i.text, i.language, s.summary AS summary_de
 FROM affairs a
 LEFT JOIN bodies b ON b.body_key = a.body_key
 LEFT JOIN affair_inputs i ON i.affair_id = a.id

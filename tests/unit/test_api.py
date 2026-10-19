@@ -64,8 +64,7 @@ def test_swagger_ui_is_served_from_the_package(built):
 
 
 def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
-    schema = client_for(tmp_path).get("/v1/openapi.json").json()
-    paths = schema["paths"]
+    paths = client_for(tmp_path).get("/v1/openapi.json").json()["paths"]
     assert {
         "/healthz",
         "/v1/pages",
@@ -114,8 +113,6 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
     assert names <= {p["name"] for p in parameters}
     (q,) = [p for p in parameters if p["name"] == "q"]
     assert not q.get("required", False)  # ohne q: die neuesten Geschäfte
-    facts = {"external_id", "title_long", "type_name", "state", "end_date"}
-    assert facts <= set(schema["components"]["schemas"]["AffairTopics"]["properties"])
 
 
 def test_database_endpoints_answer_503_without_database(tmp_path):
