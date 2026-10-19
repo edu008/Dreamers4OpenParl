@@ -35,8 +35,7 @@ export function Layout() {
   const { pathname } = useLocation()
   const { isAdmin } = useReview()
   usePageTitle(STATIC_TITLES[pathname])
-  const queue = useReviewQueue()
-  const openReviews = queue.open.length
+  const openReviews = useReviewQueue().summary?.open ?? 0
   // Ein Raster für Kopf, Inhalt und Fuss: alle beginnen an derselben linken Kante.
   const frame = `mx-auto w-full px-4 sm:px-8 ${pathname === "/admin/review" ? "max-w-6xl" : "max-w-5xl"}`
 

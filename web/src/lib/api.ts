@@ -112,6 +112,27 @@ export interface TopicAffairs {
   items: TopicAffair[]
 }
 
+/** GET /v1/pages/{id}/affairs/summary: jede Verteilung ohne ihren eigenen Filter. */
+export interface AffairsSummary {
+  /** Zeilen wie unter /affairs: eine je Geschäft und Thema. */
+  rows: number
+  affairs: number
+  bodies: number
+  /** Zeilen mit gefundenem Beleg. */
+  verified: number
+  first_date: string | null
+  last_date: string | null
+  by_level: { level: string | null; count: number }[]
+  by_body: {
+    body_key: string
+    name: string | null
+    level: string | null
+    count: number
+  }[]
+  by_year: { year: number | null; count: number }[]
+  by_type: { type: string | null; type_de: string | null; count: number }[]
+}
+
 export interface LabelOut {
   id: number
   tag_id: string
@@ -249,6 +270,17 @@ export interface ReviewQueue {
   limit: number
   offset: number
   items: ReviewItem[]
+}
+
+/** GET /v1/reviews/summary: Zähler der Warteschlange, die je-Werte zählen offene Labels. */
+export interface ReviewSummary {
+  threshold: number
+  open: number
+  done: number
+  by_reason: Record<ReviewReason, number>
+  by_area: { page_id: string; title: string; count: number }[]
+  by_body: { body_key: string; name: string | null; count: number }[]
+  by_topic: { tag_id: string; name_de: string; count: number }[]
 }
 
 export type ReviewAction = "confirm" | "reject" | "change" | "add" | "undo"

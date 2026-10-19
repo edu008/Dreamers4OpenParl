@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link } from "react-router"
 
 import { Confidence } from "@/components/confidence"
@@ -9,39 +9,84 @@ import { Button } from "@/components/ui/button"
 import { compareValues, useSort, type SortDir } from "@/hooks/use-sort"
 import { useReview } from "@/hooks/use-review"
 import { useReviewQueue } from "@/hooks/use-review-queue"
+import type { ReviewReason, ReviewSummary } from "@/lib/api"
 import { reasonText } from "@/lib/label-state"
-import type { ReviewCandidate } from "@/lib/review-queue"
+import { loadQueue, type ReviewCandidate } from "@/lib/review-queue"
 
 const ALL = "alle"
 const PAGE_SIZE = 25
 
 type ReasonFilter = "alle" | "beleg" | "konfidenz"
 
-const REASON_OPTIONS: { value: ReasonFilter; label: string }[] = [
-  { value: "alle", label: "Alle" },
-  { value: "beleg", label: "Beleg nicht im Text" },
-  { value: "konfidenz", label: "Konfidenz tief" },
+// Jeder Grund ist ein Filter der API: GET /v1/reviews/queue?reason=…, mehrfach möglich.
+const REASON_OPTIONS: {
+  value: ReasonFilter
+  label: string
+  codes: ReviewReason[]
+}[] = [
+  { value: "alle", label: "Alle", codes: [] },
+  {
+    value: "beleg",
+    label: "Beleg nicht im Text",
+    codes: ["no_evidence", "evidence_unverified"],
+  },
+  { value: "konfidenz", label: "Konfidenz tief", codes: ["low_confidence"] },
 ]
 
-function matchesReason(row: ReviewCandidate, filter: ReasonFilter): boolean {
-  if (filter === "alle") return true
-  return filter === "beleg"
-    ? row.reasons.some(
-        (reason) => reason === "no_evidence" || reason === "evidence_unverified"
-      )
-    : row.reasons.includes("low_confidence")
+interface Option {
+  value: string
+  label: string
+  count: number
 }
 
-function countBy(
-  rows: ReviewCandidate[],
-  pick: (row: ReviewCandidate) => string | null
-) {
-  const counts = new Map<string, number>()
+/** Parlamente mit gleichem Namen (Kanton und Stadt Zürich) tragen ihren Schlüssel dazu. */
+function bodyOptions(rows: ReviewSummary["by_body"]): Option[] {
+  const names = new Map<string, number>()
   for (const row of rows) {
-    const key = pick(row)
-    if (key) counts.set(key, (counts.get(key) ?? 0) + 1)
+    const name = row.name ?? row.body_key
+    names.set(name, (names.get(name) ?? 0) + 1)
   }
-  return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], "de"))
+  return rows.map((row) => {
+    const name = row.name ?? row.body_key
+    return {
+      value: row.body_key,
+      label: (names.get(name) ?? 0) > 1 ? `${name} · ${row.body_key}` : name,
+      count: row.count,
+    }
+  })
+}
+
+interface Lists {
+  query: string
+  open: ReviewCandidate[]
+  done: ReviewCandidate[]
+  error: string | undefined
+}
+
+/** Offene und erledigte Labels zu den Filtern in `query`, auf dem Server gefiltert. */
+function useLists(query: string, version: number): Lists | null {
+  const [lists, setLists] = useState<Lists | null>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    Promise.all([
+      loadQueue("open", query, controller.signal),
+      loadQueue("done", query, controller.signal),
+    ]).then(
+      ([open, done]) => setLists({ query, open, done, error: undefined }),
+      (error: unknown) => {
+        if (!controller.signal.aborted) {
+          setLists({
+            query,
+            open: [],
+            done: [],
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
+    )
+    return () => controller.abort()
+  }, [query, version])
+  return lists
 }
 
 type OpenKey = "affair" | "label" | "confidence"
@@ -217,7 +262,7 @@ function FilterSelect({
   value: string
   onChange: (value: string) => void
   allLabel: string
-  options: [string, number][]
+  options: Option[]
 }) {
   return (
     <select
@@ -227,9 +272,9 @@ function FilterSelect({
       className="h-8 w-44 truncate rounded-md border border-input bg-background px-2 text-xs text-foreground"
     >
       <option value={ALL}>{allLabel}</option>
-      {options.map(([name, count]) => (
-        <option key={name} value={name}>
-          {name} ({count})
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label} ({option.count})
         </option>
       ))}
     </select>
@@ -370,28 +415,39 @@ function DoneTable({ rows }: { rows: ReviewCandidate[] }) {
 }
 
 // Arbeitsliste: Labels mit Prüfbedarf, standardmässig die unsichersten zuerst. Entschiedene
-// stehen getrennt, eingeklappt, damit die Liste oben nur zeigt, was noch zu tun ist.
+// stehen getrennt, eingeklappt, damit die Liste oben nur zeigt, was noch zu tun ist. Gefiltert
+// wird auf dem Server; die Zahlen in den Filtern liefert GET /v1/reviews/summary.
 export function ReviewPage() {
   const [reason, setReason] = useState<ReasonFilter>("alle")
   const [area, setArea] = useState(ALL)
   const [body, setBody] = useState(ALL)
   const [topic, setTopic] = useState(ALL)
   const live = useReviewQueue()
-  const matches = (row: ReviewCandidate) =>
-    matchesReason(row, reason) &&
-    (area === ALL || row.areaName === area) &&
-    (body === ALL || row.body === body) &&
-    (topic === ALL || row.labelName === topic)
-  const open = live.open.filter(matches)
-  const done = live.done.filter(matches)
-  const openAll = live.open
-  const total = live.open.length + live.done.length
-  const areas = countBy(openAll, (row) => row.areaName)
-  const bodies = countBy(openAll, (row) => row.body)
-  const topics = countBy(
-    openAll.filter((row) => area === ALL || row.areaName === area),
-    (row) => row.labelName
-  )
+  const params = new URLSearchParams()
+  const codes = REASON_OPTIONS.find((option) => option.value === reason)?.codes
+  for (const code of codes ?? []) params.append("reason", code)
+  const page = topic !== ALL ? topic : area
+  if (page !== ALL) params.set("page_id", page)
+  if (body !== ALL) params.set("body_key", body)
+  const query = params.toString()
+  const lists = useLists(query, live.version)
+  // Ein neuer Filter lädt; bis dahin bleibt die alte Liste blass stehen.
+  const busy = lists !== null && lists.query !== query
+  const error = lists?.error ?? live.error
+  const open = lists?.open ?? []
+  const done = lists?.done ?? []
+  const summary = live.summary
+  const total = summary ? summary.open + summary.done : 0
+  const areas = (summary?.by_area ?? []).map((row) => ({
+    value: row.page_id,
+    label: row.title,
+    count: row.count,
+  }))
+  const bodies = bodyOptions(summary?.by_body ?? [])
+  // Themen des Bereichs: APS-IDs beginnen mit ihm (aps:6.1.9 liegt in aps:6), wie in der API.
+  const topics = (summary?.by_topic ?? [])
+    .filter((row) => row.tag_id.startsWith(`${area}.`))
+    .map((row) => ({ value: row.tag_id, label: row.name_de, count: row.count }))
   const filtered =
     reason !== "alle" || area !== ALL || body !== ALL || topic !== ALL
   const reset = () => {
@@ -427,7 +483,7 @@ export function ReviewPage() {
           <h2 id="queue-heading" className="font-heading text-lg font-medium">
             Offen ({open.length})
           </h2>
-          <Progress done={live.done.length} total={total} />
+          <Progress done={summary?.done ?? 0} total={total} />
         </div>
         {total > 0 && (
           <div className="flex flex-wrap items-center gap-2">
@@ -489,20 +545,22 @@ export function ReviewPage() {
             )}
           </div>
         )}
-        {live.loading && (
+        {lists === null && (
           <p className="text-muted-foreground">Labels werden geladen …</p>
         )}
-        {live.error && (
+        {error && (
           <p className="text-sm text-destructive">
-            Labels nicht geladen: {live.error}
+            Labels nicht geladen: {error}
           </p>
         )}
-        {live.loading || live.error ? null : open.length > 0 ? (
-          <OpenTable
-            key={`${reason}|${area}|${body}|${topic}`}
-            rows={open}
-            threshold={live.threshold ?? 0}
-          />
+        {lists === null || error ? null : open.length > 0 ? (
+          <div aria-busy={busy} className={busy ? "opacity-50" : undefined}>
+            <OpenTable
+              key={lists.query}
+              rows={open}
+              threshold={live.threshold ?? 0}
+            />
+          </div>
         ) : (
           <p className="text-muted-foreground">
             {filtered
