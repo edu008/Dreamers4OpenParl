@@ -1,6 +1,8 @@
 import { Link } from "react-router"
 
 import { JobTable, SystemList } from "@/components/job-summary"
+import { ProposalsPanel } from "@/components/proposals-panel"
+import { RunsPanel } from "@/components/runs-panel"
 import { Button } from "@/components/ui/button"
 
 // Admin: Überblick über das System. Verwaltung (Tag-Vorschläge, Themen) folgt, sobald das Backend
@@ -38,11 +40,21 @@ export function AdminPage() {
       </section>
 
       <section
-        aria-labelledby="proposals-heading"
+        aria-labelledby="runs-heading"
+        className="flex flex-col gap-3 pt-2"
+      >
+        <h2 id="runs-heading" className="font-heading text-lg font-medium">
+          Durchsatz und Hochrechnung
+        </h2>
+        <RunsPanel />
+      </section>
+
+      <section
+        aria-labelledby="adhoc-heading"
         className="flex flex-col gap-2 pt-2"
       >
-        <h2 id="proposals-heading" className="font-heading text-lg font-medium">
-          Tag-Vorschläge und Themen
+        <h2 id="adhoc-heading" className="font-heading text-lg font-medium">
+          Ad-hoc-Themen
         </h2>
         <p className="max-w-[68ch] text-muted-foreground">
           Ein Ad-hoc-Thema ist ein frei definiertes Thema neben dem festen
@@ -58,6 +70,16 @@ export function AdminPage() {
             Ad-hoc-Thema anlegen
           </Button>
         </div>
+      </section>
+
+      <section
+        aria-labelledby="proposals-heading"
+        className="flex flex-col gap-3 pt-2"
+      >
+        <h2 id="proposals-heading" className="font-heading text-lg font-medium">
+          Tag-Vorschläge
+        </h2>
+        <ProposalsPanel />
       </section>
     </>
   )
