@@ -1,8 +1,4 @@
-"""Kommandozeile `parltopics` (PRD 10.4).
-
-Kommandos, die noch nicht umgesetzt sind, zeigen ihre geplante Schnittstelle, nennen ihren
-Meilenstein und enden mit Exit-Code 3.
-"""
+"""Kommandozeile `parltopics` (PRD 10.4)."""
 
 import asyncio
 import contextlib
@@ -15,7 +11,6 @@ import typer
 from parltopics import __version__
 from parltopics.config import Settings, get_settings
 
-NOT_IMPLEMENTED_EXIT = 3
 DATE = ["%Y-%m-%d"]
 
 app = typer.Typer(
@@ -31,15 +26,6 @@ app.add_typer(registry_app, name="registry")
 app.add_typer(llm_app, name="llm")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(proposals_app, name="proposals")
-
-
-def _planned(milestone: str, reference: str) -> None:
-    typer.secho(
-        f"Noch nicht umgesetzt: Meilenstein {milestone}, PRD {reference}.",
-        fg=typer.colors.YELLOW,
-        err=True,
-    )
-    raise typer.Exit(code=NOT_IMPLEMENTED_EXIT)
 
 
 @app.command()
