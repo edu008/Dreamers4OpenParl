@@ -244,8 +244,9 @@ def test_search_fills_up_with_the_topic_in_other_languages():
 def test_first_messages_list_every_tool_and_the_question():
     settings = Settings(_env_file=None, prompts_dir=ROOT / "prompts")
     messages, version = first_messages(settings, "Was macht der Bund?")
-    assert version.startswith("agent_system_v1+")
+    assert version.startswith("agent_system_v2+")
     system = messages[0]["content"]
+    assert "Bleibe politisch neutral" in system and "keine Empfehlungen" in system  # PRD 7.9
     for name in ("search_affairs", "count_affairs", "navigate_tree", "propose_adhoc_topic"):
         assert f"- {name}:" in system
     shape = '{"group_by": "body_key" | "level" | "year", "tags": ["…"], "body_keys": ["…"]'

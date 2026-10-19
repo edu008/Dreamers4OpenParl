@@ -80,7 +80,7 @@ def fake_completion(messages: list[dict]) -> str:
     """Antwort auf eine Anfrage: JSON nach PRD Anhang B oder "OK"."""
     system = next((m["content"] for m in messages if m["role"] == "system"), "")
     user = next((m["content"] for m in messages if m["role"] == "user"), "")
-    if "nur lesende Werkzeuge" in system:  # agent_system_v1, vor «Suchbegriffe» unten
+    if "nur lesende Werkzeuge" in system:  # agent_system_v*, vor «Suchbegriffe» unten
         return agent_step(messages)
     if "Zusammenfassung einer" in system:  # summarize_*_v1, vor navigate_answer_v1 unten
         return page_summary(system, user)
