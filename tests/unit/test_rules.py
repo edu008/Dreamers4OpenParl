@@ -36,3 +36,7 @@ def test_routine_titles(text, rule, tag_id):
 )
 def test_other_titles_go_to_the_model(text):
     assert match_rule(text) is None
+
+
+def test_a_list_of_naturalisations_is_routine():
+    assert match_rule("Liste der Einbürgerungen\n2026-12").tag_id == "aps:7.1.5"

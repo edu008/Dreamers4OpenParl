@@ -3,7 +3,7 @@
 # Jede inhaltliche Änderung erhöht registry_version. Neue Tags nur über Vorschläge und Review.
 # Tag-Seiten im ParlWiki werden aus der Datenbank erzeugt und sind keine zweite Registry.
 # Schreibt ein Werkzeug die Datei neu, gehen diese Kommentare verloren (ADR 0001).
-registry_version: 2026-10-19.3
+registry_version: 2026-10-19.6
 schemes:
   aps:
     label: Année Politique Suisse
@@ -227,6 +227,7 @@ tags:
   alt_labels:
     de:
     - Staatspersonal
+    - Personalpolitik
     - Bundespersonal
     - öffentliche Beschaffung
     - Submission
@@ -779,7 +780,8 @@ tags:
   definition:
     de: Finanzierung von Parteien, Wahl- und Abstimmungskampagnen, Offenlegung von Spenden. Nicht für
       Kosten, Kredite, Subventionen oder die Finanzierung staatlicher Aufgaben (dafür das Sachthema oder
-      Budget).
+      budget), nicht für Transparenz, Löhne oder Entschädigungen von Behörden, Verwaltungsräten oder staatlichen
+      Unternehmen (wirtschaftsfreiheit-staatsunternehmen).
     fr: 'Objets relatifs au thème APS « Financement de la politique » (chemin : Démocratie directe et
       élections > Démocratie directe > Financement de la politique).'
   broader:
@@ -790,7 +792,6 @@ tags:
     - Transparenzinitiative
     fr:
     - financement des partis
-    - transparence
     it:
     - finanziamento dei partiti
 - tag_id: aps:2.2
@@ -1376,6 +1377,7 @@ tags:
   - aps:4.1
   alt_labels:
     de:
+    - Jugendpolitik
     - Kinderschutz
     - Jugendarbeit
     - Kinderrechte
@@ -4325,7 +4327,7 @@ tags:
 - tag_id: aps:8.1.7
   scheme: aps
   status: active
-  slug: wirtschaftsordnung
+  slug: wirtschaftsfreiheit-staatsunternehmen
   pref_label:
     de: Wirtschaftsordnung
     fr: Ordre économique
@@ -4333,7 +4335,9 @@ tags:
     en: Economic order
   definition:
     de: Wirtschaftsordnung, Wirtschaftsfreiheit, staatliche Unternehmen und Beteiligungen, Gewerbe- und
-      Ladenöffnung, Bürokratieabbau. Nicht für allgemeine Kosten- oder Preisfragen eines anderen Sachthemas.
+      Ladenöffnung, Bürokratieabbau. Nicht für Budgets, Finanzpläne, Kosten, Beiträge oder Kredite einer
+      Behörde (budget, finanzhaushalt-kantone-gemeinden) und nicht für die Lage einer einzelnen Branche
+      (deren Sachthema, etwa agrarpolitik oder tourismus).
     fr: 'Objets relatifs au thème APS « Ordre économique » (chemin : Economie et finances > Politique
       économique > Ordre économique).'
   broader:

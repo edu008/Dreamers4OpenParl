@@ -406,7 +406,7 @@ async def test_a_chapter_name_is_asked_again_within_that_chapter(single):
     def answer(body):
         data = json.loads(fake_completion(body["messages"]))
         if "tags" in data:
-            again = "ist ein Kapitel" in body["messages"][-1]["content"]
+            again = "ist kein Thema" in body["messages"][-1]["content"]
             tag = "arbeitsmarkt" if again else chapter.prompt_id
             data["tags"] = [{"evidence": TEXT[:40], "tag_id": tag, "fit": "kern"}]
         return json.dumps(data)
@@ -495,3 +495,21 @@ async def test_routine_affair_is_labelled_by_rule_without_a_model_call(single):
     assert [(lb.tag_id, lb.confidence, lb.evidence_verified) for lb in only.labels] == [
         ("aps:1.2.4", 0.95, True)
     ]
+
+
+def test_candidates_for_unknown_names(single):
+    from parltopics.classify.worker import _candidates
+
+    _, classifier = single
+    chapter = next(ch for ch in classifier.chapters if ch.tag_id == "aps:2.4")
+    assert {t.tag_id for t in _candidates(classifier, chapter.prompt_id)} == {
+        t.tag_id for t in classifier.topics["aps:2.4"]
+    }
+    assert [t.tag_id for t in _candidates(classifier, "markt")] == ["aps:2.4.1"]  # Teil des Namens
+    assert _candidates(classifier, "gibtesnicht") == []
+
+
+def test_chapter_and_topic_written_together_resolve(single):
+    _, classifier = single
+    chapter = next(ch for ch in classifier.chapters if ch.tag_id == "aps:2.4")
+    assert classifier.keys[f"{chapter.prompt_id}-arbeitsmarkt"] == "aps:2.4.1"
