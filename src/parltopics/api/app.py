@@ -1032,7 +1032,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def pages(lang: LangQuery = "de") -> PageTree:
         """Seitenbaum aus der Registry: Wurzel, Bereiche, Kapitel, Tag- und Querschnittsseiten.
 
-        Status, Kennzahlen und Zusammenfassungen kommen mit wiki_pages in Meilenstein M3 dazu.
+        Status, Kennzahl und Zusammenfassung einer Seite liefert GET /v1/pages/{page_id}.
         """
         registry, tree = load()
         return PageTree(
@@ -1048,11 +1048,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         responses={404: {"description": "Seite unbekannt"}, **no_registry},
     )
     def page_detail(page_id: str, lang: LangQuery = "de") -> PageDetail:
-        """Eine Seite mit Vorfahren, Unterseiten und Querschnittsverweisen, ohne den ganzen Baum."""
+        """Eine Seite mit Vorfahren, Unterseiten und Querschnittsverweisen, ohne den ganzen Baum.
+        summary kommt aus dem Seitenlauf (parltopics pages): Status, Zahl der Geschäfte,
+        Kurzzusammenfassung und belegte Aussagen; ohne Lauf oder ohne Datenbank null."""
         registry, tree = load()
         page = tree.get(page_id)
         if page is None:
             raise HTTPException(404, f"Seite {page_id} gibt es nicht")
+        summary = None
+        try:
+            with pool.connection(timeout=1) as conn:
+                summary = queries.wiki_page(conn, page_id)
+        except (PoolClosed, PoolTimeout, psycopg.Error):
+            pass  # ohne Datenbank oder Seitenlauf: die Seite kommt aus der Registry
         linked = (
             [tree[other] for other in page.linked_from if other in tree]
             if page.kind == "querschnitt"
@@ -1071,6 +1079,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             related=[page_out(tree[other], lang) for other in tag.related if other in tree]
             if tag
             else [],
+            summary=summary,
         )
 
     def affair_filters(

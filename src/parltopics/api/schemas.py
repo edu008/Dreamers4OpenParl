@@ -29,6 +29,27 @@ class PageTree(BaseModel):
     pages: list[PageOut] = Field(description="Wurzel zuerst, dann APS nach Code, dann Ad-hoc")
 
 
+class PageStatement(BaseModel):
+    text: str
+    affair_ids: list[int] = Field(description="Geschäfte, auf die sich die Aussage stützt")
+    page_ids: list[str] = Field(description="Unterseiten, auf die sich die Aussage stützt")
+
+
+class PageSummary(BaseModel):
+    """Zusammenfassung und Kennzahl einer Seite aus wiki_pages. Jede Aussage ist belegt."""
+
+    page_status: Literal["open", "pending", "done", "failed"]
+    n_affairs: int = Field(description="Geschäfte mit aktivem Label auf der Seite und darunter")
+    summary_short: str | None = Field(description="ein Satz für die Navigation")
+    summary_long: str | None = Field(description="Absatz aus den Aussagen")
+    statements: list[PageStatement]
+    built_at: datetime | None
+    window_start: date | None = Field(description="Zeitfenster der Zusammenfassung")
+    window_end: date | None
+    model_version: str | None
+    prompt_version: str | None
+
+
 class PageDetail(BaseModel):
     """Eine Seite mit Vorfahren (von der Wurzel abwärts), Unterseiten und Querschnittsverweisen."""
 
@@ -47,6 +68,10 @@ class PageDetail(BaseModel):
         examples=[["E-Government", "Digitale Transformation"]],
     )
     related: list[PageOut] = Field(description="verwandte Themen aus der Registry (related)")
+    summary: PageSummary | None = Field(
+        None,
+        description="Stand aus dem Seitenlauf (F23–F25); null ohne Lauf oder ohne Datenbank",
+    )
 
 
 class JobCounts(BaseModel):

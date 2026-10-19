@@ -459,8 +459,45 @@ def export(
 
 @app.command()
 def pages() -> None:
-    """Seitenlauf: offene Seiten von den Tag-Seiten bis Heart zusammenfassen (F23–F25)."""
-    _planned("M3", "F23–F25")
+    """Seitenlauf: offene Seiten von den Tag-Seiten bis Heart zusammenfassen (F23–F25).
+
+    Alle Seiten mit 70B (ARCHITEKTUR 5.1); Kennzahlen für alle Seiten bei jedem Lauf. Bei gleichem
+    Input keine neue Zusammenfassung.
+    """
+    from collections import Counter
+
+    from parltopics.classify.queue import acquire_run_lock
+    from parltopics.db import connect
+    from parltopics.registry import load_registry
+    from parltopics.registry.sync import synced_version
+    from parltopics.wiki.run import run
+    from parltopics.wiki.tree import build_tree
+
+    settings = get_settings()
+    registry = load_registry(settings.registry_path)
+    tree = build_tree(registry)
+    with connect(settings.database_url, autocommit=True) as conn:
+        if synced_version(conn) != registry.registry_version:
+            typer.secho(
+                "Registry nicht synchronisiert: zuerst `parltopics registry sync`.",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        if not acquire_run_lock(conn, "pages"):
+            typer.secho("Ein Seitenlauf läuft bereits.", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1)
+        page_run = asyncio.run(run(settings, conn, registry, tree))
+    counts = Counter(page_run.outcomes.values())
+    typer.echo(
+        f"Seitenlauf {page_run.run_key}: {len(page_run.outcomes)} von {len(tree)} Seiten gebaut,"
+        f" {counts['changed']} geändert, {counts['unchanged']} unverändert,"
+        f" {counts['failed']} fehlgeschlagen"
+    )
+    for page_id, outcome in sorted(page_run.outcomes.items()):
+        if outcome == "failed":
+            error = page_run.result.states[page_id].last_error
+            typer.secho(f"  {page_id}: {error}", fg=typer.colors.RED, err=True)
 
 
 @app.command()

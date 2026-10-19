@@ -162,7 +162,7 @@ Download (separat, online)      → Import-Bündel (NDJSON.gz, CSV, XLSX)
 7 Review         in der Web-App bestätigen / verwerfen / ersetzen / ergänzen; Korrekturen → Gold-Set
         ▼
 8 Seiten         Seitenbaum aus der Registry; offene Seiten von unten nach oben zusammenfassen:
-                 Tag-Seiten (8B) → Kapitel → Bereiche → Heart (70B); Seitenstatus mit Weitergabe nach oben
+                 Tag-Seiten → Kapitel → Bereiche → Heart (alle 70B); Seitenstatus mit Weitergabe nach oben
         ▼
 9 Ausgabe        Sidecar-API, Exportdatei im OpenParlData-Stil, ParlWiki (Web-App + Markdown),
                  Navigationssuche, Agent-Suche
@@ -340,7 +340,7 @@ Kapitel- und Bereichsseiten sind gleich aufgebaut; ihre Aussagen stützen sich v
 2. **Zusammenfassungen von unten nach oben.** Eine Tag-Seite entsteht aus den Kurzzusammenfassungen ihrer Geschäfte (`summary_de`, 7.3) und ihren Kennzahlen. Fehlt einem Geschäft die Kurzzusammenfassung, steht sein Titel an ihrer Stelle. Eine Kapitelseite entsteht aus den Zusammenfassungen ihrer Tag-Seiten plus wenigen Stichproben, nicht aus allen Geschäften. Ein Bereich entsteht aus seinen Kapiteln, Heart aus den Bereichen und Querschnittsthemen. So bleibt jeder Prompt klein:
    - höchstens `PAGE_MAX_AFFAIRS` Geschäfte je Tag-Seite (Start 80, die neuesten), `PAGE_SAMPLES` Stichproben je Eltern-Seite (Start 12) und `PAGE_PROMPT_MAX_TOKENS` je Prompt (Start 24'000, vorsichtig über die Zeichenzahl geschätzt);
    - unter `PAGE_MIN_AFFAIRS` Geschäften (Start 3) schreibt das Modell keine Zusammenfassung, die Seite zeigt nur Kennzahlen und Liste;
-   - Tag- und Querschnittsseiten mit 8B, Kapitel, Bereiche und Heart mit 70B (wenige Seiten, mehr Verdichtung);
+   - alle Seiten mit 70B; 8B hielt im Test mit echten Daten die JSON-Form nicht ein und erfand Geschäfts-IDs (ARCHITEKTUR 5.1);
    - die Zusammenfassungen sind in Phase 1 deutsch.
 3. **Seitenstatus mit Weitergabe nach oben.** Seiten haben dieselben Status wie Jobs: `open` → `pending` → `done`, dazu `failed` (7.7). Neue Seiten beginnen als `open`. Eine `failed`-Seite gibt nichts nach oben weiter und wird erst wieder gebaut, wenn neue Änderungen eintreffen oder ein Mensch sie öffnet; ein Fehler stoppt den Lauf für die übrigen Seiten nicht. Neue, geänderte und aus dem Zeitfenster gefallene Geschäfte unter einem Tag zählen als Änderungen seiner Seite. Eine Seite wird `open`, wenn ihre Änderungen eine Schwelle erreichen: Tag-Seite ab `PAGE_TAG_CHANGES` Geschäften (Start 5), Eltern-Seite ab `PAGE_PARENT_CHANGES` geänderten Unterseiten (Start 1), sonst spätestens nach `PAGE_MAX_AGE_DAYS` Tagen (Start 7). Unterhalb der Schwelle bleibt die Seite `done`, und die Änderungen werden weiter gezählt. Ändert sich eine Zusammenfassung inhaltlich (`summary_hash`), zählt das als Änderung der Eltern-Seite, und so weiter bis Heart. Ein Lauf baut die offenen Seiten Hierarchiestufe für Hierarchiestufe von unten nach oben; eine Änderung erreicht Heart deshalb im selben Lauf. Fällt ein zitiertes Label weg (Review), wird die Seite unabhängig von der Schwelle `open`. Kennzahlen und Linklisten entstehen bei jedem Lauf neu, nur die Zusammenfassungen hängen an den Schwellen.
 4. **Belege.** Das Modell liefert Aussagen mit `affair_ids` und `page_ids` (Anhang B). Der Code prüft jede Aussage: Verweise nur auf mitgelieferte Geschäfte und Unterseiten, Zahlen nur aus den mitgelieferten Kennzahlen; IDs, Seitencodes und das Zeitfenster zählen nicht als Zahlen. Unbelegte Aussagen werden einmal neu angefordert und dann verworfen. Enthält die Kurzzusammenfassung eine Zahl ohne Kennzahl, wird die Seite einmal neu angefordert. Bleibt keine belegte Aussage, wird die Seite `failed`. Ohne Beleg keine Aussage.
@@ -426,7 +426,7 @@ Jede Anforderung hat eine prüfbare Abnahme.
 | `llm` | Python, httpx, `openai`-SDK | Gemeinsamer Client: Allowlist, Retry, adaptive Drosselung |
 | `api` | FastAPI | Sidecar-API; liefert den Build der Web-App aus |
 | `web` | TypeScript, React, Vite, Tailwind CSS, shadcn/ui; Node nur zur Build-Zeit | Web-App (SPA) mit Seitenbaum, Review und Graph |
-| `wiki` | Python, Apertus 8B und 70B | Seitenbaum, Zusammenfassungen von unten nach oben, Seitenstatus, Markdown-Export |
+| `wiki` | Python, Apertus 70B | Seitenbaum, Zusammenfassungen von unten nach oben, Seitenstatus, Markdown-Export |
 | `export` | Python | NDJSON.gz, CSV |
 | `search` | PostgreSQL FTS + pg_trgm; Python mit Apertus für die Navigation | Volltext, Filter, Kandidaten, Navigationssuche durch den Seitenbaum |
 | `evaluation` | Python | Gold-Set, Metriken, Bericht |

@@ -52,8 +52,8 @@
     "09-wiki-hierarchie": {
       "type": "tree",
       "quality": "showcase",
-      "source_sha256": "996fe04a50abbe25058d99a013acc5d2a331f272180cba58f5a06e14a613bf92",
-      "html_sha256": "1817cf9b9478fac3da13cfdc5fa07eb59eeb086c3b84c3fb7e6fae4ea5e3be4d"
+      "source_sha256": "0ca5d9e8bdc02b8176ee903c632bc1e70d4cc0a83e893ad094ff1715efc2cffd",
+      "html_sha256": "eccb7d7accbe5e5f636d9ea2b0a2ac0b1c3c432cc929fd0c97377ab32dbecf3b"
     },
     "10-navigationssuche": {
       "type": "workflow",

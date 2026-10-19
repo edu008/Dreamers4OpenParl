@@ -20,6 +20,7 @@ ANY_TAG = re.compile(r"^(aps:[\d.]+|adhoc:[a-z0-9.\-]+) \|", re.MULTILINE)
 CHILDREN = re.compile(r"Unterseiten.*?<<<\n(.*?)>>>", re.DOTALL)
 AFFAIRS = re.compile(r"Geschäfte \(ID.*?<<<\n(.*?)>>>", re.DOTALL)
 FIRST_ID = re.compile(r"^(\d+) \|", re.MULTILINE)
+SAMPLES = re.compile(r"Stichproben \(ID.*?<<<\n(.*?)>>>", re.DOTALL)
 FOUND_ID = re.compile(r'"affair_id": (\d+)')
 RELEVANCE = (0.9, 0.5)  # Navigationssuche: erste Unterseite, dann die zweite, sonst nichts
 TOOL_RESULT = "Ergebnis von"
@@ -57,12 +58,29 @@ def agent_step(messages: list[dict]) -> str:
     return json.dumps({"answer": answer, "cited_ids": [chosen]}, ensure_ascii=False)
 
 
+def page_summary(system: str, user: str) -> str:
+    """Seitenlauf: eine Aussage mit der ersten Unterseite, sonst dem ersten Geschäft."""
+    statement = {"text": "Die Seite behandelt das Thema (Mock).", "affair_ids": [], "page_ids": []}
+    kids = CHILDREN.search(user) if "übergeordneten Seite" in system else None
+    child = ANY_TAG.search(kids.group(1)) if kids else None
+    if child:
+        statement["page_ids"] = [child.group(1)]
+    else:
+        block = (SAMPLES if "übergeordneten Seite" in system else AFFAIRS).search(user)
+        first = FIRST_ID.search(block.group(1)) if block else None
+        statement["affair_ids"] = [int(first.group(1))] if first else []
+    output = {"summary_short": "Zusammenfassung der Seite (Mock).", "statements": [statement]}
+    return json.dumps(output, ensure_ascii=False)
+
+
 def fake_completion(messages: list[dict]) -> str:
     """Antwort auf eine Anfrage: JSON nach PRD Anhang B oder "OK"."""
     system = next((m["content"] for m in messages if m["role"] == "system"), "")
     user = next((m["content"] for m in messages if m["role"] == "user"), "")
     if "nur lesende Werkzeuge" in system:  # agent_system_v1, vor «Suchbegriffe» unten
         return agent_step(messages)
+    if "Zusammenfassung einer" in system:  # summarize_*_v1, vor navigate_answer_v1 unten
+        return page_summary(system, user)
     if "Vorschläge für neue Themen" in system:  # proposal_check_v1: erstes ähnliches Tag
         block = SIMILAR.search(user)
         first = ANY_TAG.search(block.group(1)) if block else None

@@ -754,3 +754,15 @@ def stream_topic_affairs(conn: psycopg.Connection, tag_ids: list[str], **filters
     """Alle Zeilen wie topic_affairs, ohne Grenze, Zeile für Zeile vom Server (CSV-Export)."""
     params = {**_filter_params(tag_ids, **filters), "limit": None, "offset": 0}  # LIMIT NULL
     yield from conn.cursor(row_factory=dict_row).stream(TOPIC_AFFAIRS, params)
+
+
+WIKI_PAGE = """
+SELECT status AS page_status, n_affairs, summary_short, summary_long, statements, built_at,
+       window_start, window_end, model_version, prompt_version
+FROM wiki_pages WHERE page_id = %s
+"""
+
+
+def wiki_page(conn: psycopg.Connection, page_id: str) -> dict | None:
+    """Stand einer Seite aus dem Seitenlauf; None, solange kein Lauf sie angelegt hat."""
+    return conn.cursor(row_factory=dict_row).execute(WIKI_PAGE, (page_id,)).fetchone()

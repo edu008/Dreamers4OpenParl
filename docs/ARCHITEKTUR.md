@@ -277,8 +277,10 @@ PRD 7.9, ADR 0008. Der Seitenlauf baut die Seiten des ParlWiki aus den Labels, d
 | Heart | `heart` | `HEART.md` | – | Bereiche und Querschnittsthemen | 70B |
 | Bereich | `aps:6` | `bereiche/aps-6-<slug>.md` | Heart | Kapitel plus Stichproben | 70B |
 | Kapitel | `aps:6.1` | `kapitel/aps-6.1-<slug>.md` | Bereich | Tag-Seiten plus Stichproben; Querschnitt nur verlinkt | 70B |
-| Tag-Seite | `aps:6.1.9` | `tags/aps-6.1.9-<slug>.md` | Kapitel | Kurzzusammenfassungen der Geschäfte und Kennzahlen | 8B |
-| Querschnitt | `adhoc:<name>` | `querschnitt/adhoc-<name>.md` | Heart; verlinkt aus allen `broader` | wie Tag-Seite | 8B |
+| Tag-Seite | `aps:6.1.9` | `tags/aps-6.1.9-<slug>.md` | Kapitel | Kurzzusammenfassungen der Geschäfte und Kennzahlen | 70B |
+| Querschnitt | `adhoc:<name>` | `querschnitt/adhoc-<name>.md` | Heart; verlinkt aus allen `broader` | wie Tag-Seite | 70B |
+
+Geplant waren Tag- und Querschnittsseiten mit 8B. Im Test mit echten Daten (Oktober 2026) hielt 8B die JSON-Form nicht ein und erfand Geschäfts-IDs; mit 70B gelangen dieselben Seiten in 8 bis 13 s mit gültigen Belegen. Kurzzusammenfassungen über 200 Zeichen kürzt `tidy()` in `wiki/run.py` an einer Wortgrenze.
 
 `build_tree(registry)` in `wiki/tree.py` erzeugt den Baum aus den aktiven Tags. Ist die Eltern-Seite eines aktiven Tags nicht aktiv, bricht der Aufbau mit einer Fehlermeldung ab. Über 1'000 Geschäften kommt die Geschäftsliste in Jahresdateien (`tags/aps-6.1.9-<slug>/2025.md`); die Seite selbst behält ihren Namen.
 
