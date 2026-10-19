@@ -1,4 +1,11 @@
-from parltopics.ingest import affair_row, body_row, doc_row, parse_line, text_row
+from parltopics.ingest import (
+    affair_row,
+    body_row,
+    contributor_row,
+    doc_row,
+    parse_line,
+    text_row,
+)
 
 
 def test_parse_line_drops_nul():
@@ -77,3 +84,28 @@ def test_doc_row_parent_from_parent_type():
     )
     assert "text" not in row["raw"].obj
     assert doc_row({"id": 6, "parent_type": "session"})["parent_id"] is None
+
+
+def test_contributor_row_keeps_role_and_harmonized_party_without_raw():
+    row = contributor_row(
+        {
+            "id": 7,
+            "affair_id": 2,
+            "type": "person",
+            "role_harmonized": "author",
+            "role_external_id": "correspondent",
+            "fullname": "Anna Muster",
+            "party_de": "Grüne Emmen",
+            "party_harmonized_de": "Die Grünen",
+            "position": 3,
+        }
+    )
+    assert (row["role"], row["role_external_id"], row["name"], row["party"], row["position"]) == (
+        "author",
+        "correspondent",
+        "Anna Muster",
+        "Die Grünen",
+        3,
+    )
+    assert "raw" not in row
+    assert contributor_row({"id": 8, "news_id": 5, "type": "group"})["affair_id"] is None

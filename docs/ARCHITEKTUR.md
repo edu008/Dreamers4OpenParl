@@ -31,7 +31,7 @@ flowchart LR
 | Komponente | Modul | Läuft als | Liest | Schreibt |
 |---|---|---|---|---|
 | Download | `parltopics.download` | CLI auf einem Rechner mit Internet | `files.openparldata.ch` | Import-Bündel |
-| Ingest, Input | `parltopics.ingest`, `parltopics.inputs` | CLI auf dem Server | Import-Bündel | `affairs`, `affair_texts`, `affair_docs`, `affair_inputs`, `search_documents` |
+| Ingest, Input | `parltopics.ingest`, `parltopics.inputs` | CLI auf dem Server | Import-Bündel | `affairs`, `affair_texts`, `affair_docs`, `affair_contributors`, `affair_inputs`, `search_documents` |
 | Registry | `parltopics.registry` | CLI und Bibliothek | `registry/tags.yaml` | `tags`, `registry_syncs`; die Datei nur bei Review-Aktionen |
 | Worker | `parltopics.classify` | Dienst `worker` oder CLI `classify` | `classification_jobs`, `affair_inputs`, `tags` | `affair_tags`, `affair_summaries`, `tag_proposal_raw`, Job-Status, `job_events`, Zähler in `classification_runs` |
 | Agent | `parltopics.agent` | im Prozess der API | über lesende Werkzeuge | `agent_runs` |
