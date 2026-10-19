@@ -321,3 +321,14 @@ export interface SearchResult {
   duration_ms: number
   items: SearchHit[]
 }
+
+/** Antwort des Agenten (POST /v1/agent/search); Belege stehen als [ID] im Text. Hier nur die
+ * Felder, die die öffentliche Seite zeigt (ohne Werkzeugaufrufe und Themen-Entwurf). */
+export interface AgentResult {
+  query: string
+  answer: string | null
+  cited_affair_ids: number[]
+  hits: (AffairHead & { topics: HitTopic[] })[]
+  status: "ok" | "no_results" | "limit_reached"
+  duration_ms: number
+}

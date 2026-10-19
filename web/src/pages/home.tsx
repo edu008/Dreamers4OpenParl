@@ -2,6 +2,7 @@ import { XIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { Link, useLocation, useNavigate } from "react-router"
 
+import { AgentAnswer, useAgent } from "@/components/agent-answer"
 import { SearchForm } from "@/components/search-form"
 import { Segmented } from "@/components/segmented"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -135,7 +136,7 @@ function Hit({ hit, params }: { hit: SearchHit; params: URLSearchParams }) {
         <p className="tabular text-sm text-muted-foreground">
           {meta.filter(Boolean).join(" · ")}
         </p>
-        <h2 className="text-lg leading-snug font-bold text-balance group-hover:text-primary sm:text-xl">
+        <h2 className="text-base leading-snug font-bold text-balance group-hover:text-primary sm:text-lg">
           {/* Die ganze Zeile ist der Link (::after deckt sie ab); die Themen liegen darüber. */}
           <Link
             to={{ search: `?${popup}` }}
@@ -304,10 +305,13 @@ function Results({
   params,
   query,
   page,
+  onAsk,
 }: {
   params: URLSearchParams
   query: string | null
   page: number
+  /** Ohne Treffer: denselben Text als Frage an den Agenten geben. */
+  onAsk?: (question: string) => void
 }) {
   const api = new URLSearchParams()
   for (const [key, name] of Object.entries(API_PARAM)) {
@@ -345,10 +349,18 @@ function Results({
           : `${number.format(total)} Geschäfte, neueste zuerst`}
       </p>
       {total === 0 ? (
-        <p className="max-w-[60ch] text-lg">
-          Keine Geschäfte gefunden. Versuche ein anderes Stichwort oder weniger
-          Filter.
-        </p>
+        <div className="flex flex-col items-start gap-4">
+          <p className="max-w-[60ch] text-lg">
+            Keine Geschäfte gefunden. Versuche ein anderes Stichwort oder
+            weniger Filter.
+          </p>
+          {/* Ein ganzer Satz findet als Stichwortsuche selten etwas; als Frage schon. */}
+          {query && query.length >= 3 && onAsk && (
+            <Button variant="outline" onClick={() => onAsk(query)}>
+              Als Frage stellen
+            </Button>
+          )}
+        </div>
       ) : (
         <ol className="border-y-2 border-foreground">
           {items.map((hit) => (
@@ -445,6 +457,7 @@ export function HomePage() {
   const page = Math.max(1, Number.parseInt(params.get("seite") ?? "1", 10) || 1)
   const active = FILTERS.filter((key) => valid(params, key)).length
   const [open, setOpen] = useState(active > 0)
+  const agent = useAgent()
   usePageTitle(query ? `Suche: ${query}` : "Geschäfte")
   const affairId = params.get("geschaeft")?.trim()
   const navigate = useNavigate()
@@ -474,7 +487,12 @@ export function HomePage() {
           Alle Geschäfte aus den Parlamenten von Bund, Kantonen und Gemeinden,
           nach Themen geordnet.
         </p>
-        <SearchForm key={typed} initial={typed} />
+        <SearchForm
+          key={typed}
+          initial={typed}
+          onAsk={agent.ask}
+          asking={agent.asking}
+        />
         {typed.length === 1 && (
           <p className="text-sm text-muted-foreground">
             Gib mindestens zwei Zeichen ein. Unten stehen die neuesten
@@ -482,6 +500,8 @@ export function HomePage() {
           </p>
         )}
       </section>
+
+      {agent.asked && <AgentAnswer asked={agent.asked} onClose={agent.close} />}
 
       <section aria-label="Geschäfte" className="flex flex-col gap-5">
         <div className="flex flex-wrap items-center gap-3">
@@ -507,7 +527,7 @@ export function HomePage() {
             onChange={(key, value) => setParams(withParam(params, key, value))}
           />
         )}
-        <Results params={params} query={query} page={page} />
+        <Results params={params} query={query} page={page} onAsk={agent.ask} />
         {affairId && <AffairPopup affairId={affairId} onClose={closeAffair} />}
       </section>
     </>
