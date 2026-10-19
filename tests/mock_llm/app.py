@@ -13,7 +13,10 @@ from fastapi import FastAPI, Request
 
 AFFAIR = re.compile(r"Geschäft (\d+):")
 CHAPTER = re.compile(r"^(aps:\d+\.\d+) \|", re.MULTILINE)
-TOPIC = re.compile(r"^(aps:\d+\.\d+\.\d+|adhoc:[a-z0-9.\-]+) \|", re.MULTILINE)
+# Themenzeile: Zahlencode (Stufe 2), Ad-hoc-ID oder Kurzname (classify_single_v2)
+TOPIC = re.compile(
+    r"^(aps:\d+\.\d+\.\d+|adhoc:[a-z0-9.\-]+|[a-z0-9]+(?:-[a-z0-9]+)*) \|", re.MULTILINE
+)
 TEXT = re.compile(r"<<<\n(.*?)\n>>>", re.DOTALL)
 SIMILAR = re.compile(r"Ähnlichste bestehende Themen.*?<<<\n(.*?)>>>", re.DOTALL)
 ANY_TAG = re.compile(r"^(aps:[\d.]+|adhoc:[a-z0-9.\-]+) \|", re.MULTILINE)

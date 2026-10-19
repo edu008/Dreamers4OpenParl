@@ -7,8 +7,10 @@ from pathlib import Path
 
 import httpx
 import pytest
+import yaml
 
 from parltopics.classify.queue import Job, adhoc_task
+from parltopics.classify.schemas import short_key
 from parltopics.classify.worker import (
     OutputFailure,
     classify_affair,
@@ -17,7 +19,7 @@ from parltopics.classify.worker import (
     reloaded,
 )
 from parltopics.llm import LLMClient
-from parltopics.registry import tag_hash
+from parltopics.registry import RegistryError, tag_hash
 from parltopics.registry.edit import add_adhoc_tag
 from tests.mock_llm.app import completion, fake_completion
 
@@ -329,11 +331,11 @@ async def test_single_stage_asks_70b_once_with_all_topics(single):
             data["tags"] = [
                 {"tag_id": t, "confidence": c, "evidence": text}
                 for t, c in [
-                    ("aps:6.1.9", 0.6),
-                    ("aps:2.4.1", 0.9),
+                    ("digitalisierung", 0.6),
+                    ("Arbeitsmarkt", 0.9),  # Name statt Kurzname gilt auch
                     ("adhoc:digitalisierung-breit", 0.8),
-                    ("aps:6.1.9", 0.5),
-                    ("aps:2.4.1", 0.4),
+                    ("digitalisierung", 0.5),
+                    ("aps:2.4.1", 0.95),  # Zahlencode stand nicht im Prompt: verworfen
                 ]
             ]
         return json.dumps(data)
@@ -351,7 +353,9 @@ async def test_single_stage_asks_70b_once_with_all_topics(single):
     assert (reasons, escalations) == ([], [])
     assert [body["model"] for body in requests] == ["test-70b"]
     system = requests[0]["messages"][0]["content"]
-    assert "aps:2.4.1 |" in system and "aps:6.1.9 |" in system  # Themen aus mehreren Kapiteln
+    # Themen aus mehreren Kapiteln, mit Kurznamen statt Zahlencodes
+    assert "\narbeitsmarkt | Arbeitsmarkt" in system and "\ndigitalisierung |" in system
+    assert "aps:2.4.1" not in system and "aps:6.1.9" not in system
     assert "adhoc:digitalisierung-breit |" in system
     (only,) = result.passes
     assert only.stage == "70b"
@@ -360,7 +364,53 @@ async def test_single_stage_asks_70b_once_with_all_topics(single):
         "adhoc:digitalisierung-breit",
         "aps:6.1.9",
     ]
-    assert result.prompt_version.startswith("classify_single_v1+")
+    assert result.prompt_version.startswith("classify_single_v2+")
+
+
+async def test_single_stage_asks_again_with_short_names(single):
+    """Die Nachfrage zum Beleg zeigt Kurznamen; mit Zahlencodes antwortete 70B in Zahlencodes."""
+    settings, classifier = single
+    client, requests = mock_llm(settings, paraphrasing(quote_on_retry=True))
+    async with client:
+        result, _ = await classify_affair(
+            classifier, client, job(), threshold=0.6, verify=contains, escalate=nothing
+        )
+    (label,) = result.passes[-1].labels
+    assert (label.tag_id, label.evidence_verified) == ("aps:2.4.1", True)
+    echo, hint = requests[1]["messages"][-2:]
+    assert '"tag_id":"arbeitsmarkt"' in echo["content"]
+    assert "arbeitsmarkt" in hint["content"] and "aps:" not in hint["content"]
+
+
+def test_unique_names_and_synonyms_resolve_too(single, settings, tmp_path):
+    _, classifier = single
+    assert classifier.keys["arbeitsmarkt"] == "aps:2.4.1"
+    assert classifier.keys["digitale-transformation"] == "aps:6.1.9"  # Synonym
+    data = yaml.safe_load(FIXTURE.read_text(encoding="utf-8"))
+    topic = next(t for t in data["tags"] if t["tag_id"] == "aps:2.4.1")
+    topic["alt_labels"] = {"de": ["Digitale Transformation"]}
+    path = tmp_path / "tags.yaml"
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    s = settings.model_copy(update={"registry_path": path, "classify_mode": "single_70b"})
+    assert "digitale-transformation" not in load_classifier(s).keys  # zwei Themen: mehrdeutig
+
+
+def test_repository_registry_has_unique_short_names(settings):
+    """Jedes angebotene Thema hat einen eigenen Kurznamen, sonst bricht der Worker beim Start ab."""
+    classifier = load_classifier(settings.model_copy(update={"classify_mode": "single_70b"}))
+    offered = [t for tags in classifier.topics.values() for t in tags] + classifier.adhoc
+    assert len(offered) > 100
+    assert {classifier.keys[short_key(t.prompt_id)] for t in offered} == {t.tag_id for t in offered}
+
+
+def test_doubled_short_names_stop_the_worker(settings, tmp_path):
+    data = yaml.safe_load(FIXTURE.read_text(encoding="utf-8"))
+    next(t for t in data["tags"] if t["tag_id"] == "aps:2.4.1")["slug"] = "digitalisierung"
+    path = tmp_path / "tags.yaml"
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    s = settings.model_copy(update={"registry_path": path, "classify_mode": "single_70b"})
+    with pytest.raises(RegistryError, match="nicht eindeutig: digitalisierung"):
+        load_classifier(s)
 
 
 async def test_single_stage_fails_after_two_invalid_answers(single):
