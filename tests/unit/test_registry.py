@@ -33,6 +33,20 @@ def test_repository_registry_is_valid(repo_root):
     assert set(registry.schemes) == {"aps", "adhoc"}
 
 
+def test_every_active_tag_has_a_name_in_four_languages(repo_root):
+    """Eine tag_id verknüpft DE, FR, IT und EN; die Suche findet das Tag in jeder Sprache."""
+    from parltopics.registry.sync import label_rows, tag_row
+
+    registry = load_registry(repo_root / "registry" / "tags.yaml")
+    for item in registry.active():
+        names = item.pref_label
+        assert all((names.de, names.fr, names.it, names.en)), item.tag_id
+    krank = registry.get("aps:5.2.4")
+    langs = {lang for _, kind, lang, _ in label_rows(krank) if kind == "pref"}
+    assert langs == {"de", "fr", "it", "en"}
+    assert "Health insurance" in tag_row(krank, registry.registry_version)["match_text"]
+
+
 def test_example_registry_levels_and_narrower(data):
     registry = build(data)
     assert registry.get("aps:6").aps_level == "bereich"

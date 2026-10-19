@@ -45,7 +45,7 @@ class SyncResult:
 def tag_row(tag: Tag, registry_version: str) -> dict:
     """Spalten von tags (Zuordnung im Kopf von 0003_wiki_skos.sql)."""
     pref, definition = tag.pref_label, tag.definition
-    names = [name for name in (pref.de, pref.fr, pref.it, pref.rm) if name]
+    names = [name for name in (pref.de, pref.fr, pref.it, pref.rm, pref.en) if name]
     return {
         "tag_id": tag.tag_id,
         "scheme": tag.scheme,

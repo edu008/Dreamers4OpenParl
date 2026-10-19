@@ -14,6 +14,7 @@ def test_migrations_apply_once(conn, repo_root):
         "0002_one_active_label",
         "0003_wiki_skos",
         "0004_review_undo",
+        "0005_english_labels",
     ]
     assert migrate(conn, repo_root / "migrations") == []
     tables = {
