@@ -51,7 +51,7 @@ def test_registry_validate_reports_errors(tmp_path):
 
 
 def test_planned_commands_name_their_milestone():
-    result = runner.invoke(app, ["pages"])
+    result = runner.invoke(app, ["wiki"])
     assert result.exit_code == NOT_IMPLEMENTED_EXIT
 
 
