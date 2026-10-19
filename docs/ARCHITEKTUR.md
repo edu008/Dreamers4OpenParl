@@ -244,7 +244,7 @@ Argumente und Beschreibungen sind als Pydantic-Modelle in [`src/parltopics/agent
 3. Er gibt mit `propose_adhoc_topic` einen Entwurf zurück: Name, Beschreibung, Stichwörter, geschätzte Kandidaten.
 4. Die Web-App zeigt den Entwurf mit einem Bestätigen-Knopf. Erst die Bestätigung durch einen angemeldeten Menschen ruft `POST /v1/adhoc` auf. Das legt das Tag mit Status `proposed` in `tags.yaml` an und öffnet `classify:adhoc:<tag>`-Jobs für Kandidaten und Stichprobe.
 5. Die Worker prüfen die Kandidaten, die Treffer sind sofort als vorläufig sichtbar, und ein Reviewer aktiviert das Thema, wenn es sich bewährt.
-6. Sonst zieht ein Mensch es zurück (`POST /v1/adhoc/{tag_id}/retire`, F10): Status `retired`, alle Jobs des Tags auf `failed` mit Grund `retired`, seine aktiven Labels auf `superseded`. Wer es mit demselben Namen neu anlegt, öffnet diese Jobs wieder.
+6. Sonst zieht ein Mensch es zurück (`POST /v1/adhoc/{tag_id}/retire`, F10): Status `retired`, alle Jobs des Tags auf `failed` mit Grund `retired`, seine Labels ohne menschlichen Entscheid auf `superseded`. Wer es mit demselben Namen neu anlegt, öffnet diese Jobs wieder.
 
 Diagramm: [06-adhoc-thema](architecture/06-adhoc-thema.html).
 

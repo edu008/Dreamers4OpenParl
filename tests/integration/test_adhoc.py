@@ -14,6 +14,7 @@ from parltopics.classify.queue import adhoc_task
 from parltopics.db import migrate
 from parltopics.inputs import SEARCH as INDEX
 from parltopics.registry import file_hash, load_registry
+from parltopics.registry.edit import set_status
 from parltopics.registry.sync import sync_registry
 
 pytestmark = pytest.mark.integration
@@ -133,6 +134,18 @@ def test_retire_closes_the_jobs_and_supersedes_the_labels_and_create_reopens_the
     assert conn.execute("SELECT status FROM affair_tags").fetchall() == [("superseded",)]
 
 
+def test_a_retire_that_failed_after_writing_the_file_can_be_repeated(conn, settings):
+    create(conn, settings, **TOPIC, keywords=KEYWORDS, by="Mia")
+    set_status(settings.registry_path, "adhoc:velowege", "retired", by="Leo")  # nur die Datei
+    with TestClient(create_app(settings)) as client:
+        retired = client.post("/v1/adhoc/adhoc:velowege/retire", json={"user_name": "Leo"})
+    assert (retired.status_code, retired.json()["jobs"]) == (200, 3)
+    tag = load_registry(settings.registry_path).get("adhoc:velowege")
+    assert [(change.by, change.status) for change in tag.changes] == [("Leo", "retired")]
+    status = "SELECT status FROM tags WHERE tag_id = 'adhoc:velowege'"
+    assert conn.execute(status).fetchone() == ("retired",)
+
+
 def test_adhoc_endpoints_preview_create_activate_and_retire(conn, settings):
     body = {"keywords": {"de": ["Velo"], "fr": ["vélo"]}}
     topic = {
@@ -165,8 +178,9 @@ def test_adhoc_endpoints_preview_create_activate_and_retire(conn, settings):
         assert client.get("/v1/pages/adhoc:velowege").status_code == 404
 
         activate_url = "/v1/adhoc/adhoc:velowege/activate"
-        assert client.post(activate_url).status_code == 422  # ohne Name
-        assert client.post(activate_url, json=leo).json()["status"] == "active"
+        assert client.post(activate_url).json()["status"] == "active"  # Body freiwillig
+        change = load_registry(settings.registry_path).get("adhoc:velowege").changes[-1]
+        assert (change.by, change.status) == ("api", "active")
         assert client.post(activate_url, json=leo).status_code == 409
         assert client.post("/v1/adhoc/aps:6.1.9/activate", json=leo).status_code == 404
         assert client.get("/v1/pages/adhoc:velowege").status_code == 200
@@ -174,7 +188,7 @@ def test_adhoc_endpoints_preview_create_activate_and_retire(conn, settings):
         assert found["tag_status"] == "active"
         label(conn, 102)
         review = {"affair_id": 102, "tag_id": "adhoc:velowege", "user_name": "Leo"}
-        assert client.post("/v1/reviews", json={**review, "action": "reject"}).status_code == 200
+        assert client.post("/v1/reviews", json={**review, "action": "confirm"}).status_code == 200
 
         retire_url = "/v1/adhoc/adhoc:velowege/retire"
         retired = client.post(retire_url, json=leo).json()
@@ -185,8 +199,14 @@ def test_adhoc_endpoints_preview_create_activate_and_retire(conn, settings):
         assert client.get("/v1/pages/adhoc:velowege").status_code == 404
         (found,) = client.get("/v1/affairs/101/topics").json()["labels"]
         assert (found["status"], found["tag_status"]) == ("superseded", "retired")
+        (kept,) = client.get("/v1/affairs/102/topics").json()["labels"]  # Mensch hat Vorrang
+        assert (kept["status"], kept["review_status"]) == ("active", "confirmed")
+        gold = [(row["affair_id"], row["tag_id"]) for row in client.get("/v1/eval/gold").json()]
+        assert gold == [(102, "adhoc:velowege")]
+        hits = {hit["affair_id"]: hit for hit in client.get("/v1/search").json()["items"]}
+        assert hits[102]["topics"] == []  # zurückgezogen: nicht in der öffentlichen Suche
         undo = client.post("/v1/reviews", json={**review, "action": "undo"})
-        assert undo.status_code == 409  # das verworfene Label kommt nicht zurück
+        assert undo.status_code == 409  # der Entscheid bleibt, solange das Thema zurückgezogen ist
 
         back = client.post("/v1/adhoc", json=topic)  # Rückweg: dasselbe Thema neu anlegen
         assert (back.status_code, back.json()["jobs"]) == (200, 3)
@@ -208,3 +228,5 @@ def test_cli_creates_and_activates_an_adhoc_topic(conn, settings, tmp_path, monk
     assert "adhoc:velowege angelegt" in result.output
     result = runner.invoke(app, ["registry", "activate", "adhoc:velowege"])
     assert (result.exit_code, "adhoc:velowege ist aktiv" in result.output) == (0, True)
+    result = runner.invoke(app, ["registry", "activate", "adhoc:velowege"])
+    assert (result.exit_code, "nur aus proposed" in result.output) == (1, True)

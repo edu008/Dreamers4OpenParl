@@ -10,6 +10,7 @@ nur den Entscheid fest. undo nimmt den Entscheid zurück (F10): Der Vorschlag is
 mit accepted angelegtes Tag wird zurückgezogen.
 """
 
+import contextlib
 import logging
 from collections import Counter
 from dataclasses import dataclass
@@ -28,7 +29,7 @@ from parltopics.config import Settings
 from parltopics.llm import JSONExtractionError, LLMClient, Prompt, extract_json, load_prompt
 from parltopics.registry import Registry, Tag, file_hash, load_registry, tag_hash
 from parltopics.registry.aps_import import aps_slug
-from parltopics.registry.edit import add_adhoc_tag
+from parltopics.registry.edit import WrongStatus, add_adhoc_tag
 from parltopics.registry.sync import sync_registry
 
 log = logging.getLogger("parltopics.proposals")
@@ -240,9 +241,11 @@ UPDATE tag_proposals SET status = 'open', decision = NULL, decided_by = %(by)s, 
 WHERE id = %(id)s AND status = 'done'
 """
 AFFAIRS = "SELECT affair_id FROM tag_proposal_affairs WHERE proposal_id = %s ORDER BY affair_id"
-# Das Tag aus accepted: die Aufgabe des Laufs, den der Entscheid geöffnet hat (extra proposal_id).
+# Das Tag aus accepted: die Aufgabe des Laufs, den der Entscheid geöffnet hat (extra proposal_id),
+# und ob es noch dieses ist. Wer es seither neu angelegt hat, öffnete einen neueren Lauf.
 ACCEPTED_TASK = """
-SELECT task FROM classification_runs WHERE params->>'proposal_id' = %s ORDER BY id DESC LIMIT 1
+SELECT r.task, r.id = (SELECT max(id) FROM classification_runs WHERE task = r.task)
+FROM classification_runs r WHERE r.params->>'proposal_id' = %s ORDER BY r.id DESC LIMIT 1
 """
 
 
@@ -318,16 +321,17 @@ def decide(
 def _undo(
     conn: psycopg.Connection, settings: Settings, proposal_id: int, row: dict, by: str
 ) -> Decision:
-    """Zurück auf offen; Decision.tag_id ist das zurückgezogene Tag aus accepted."""
+    """Zurück auf offen; Decision.tag_id ist das zurückgezogene Tag aus accepted, falls es seither
+    niemand neu angelegt hat."""
     if row["status"] != "done":
         raise ProposalOpen(f"Vorschlag {proposal_id} ist nicht entschieden")
     tag_id = None
     if row["decision"] == "accepted":
-        task = conn.execute(ACCEPTED_TASK, (str(proposal_id),)).fetchone()
-        tag_id = task_tag(task[0]) if task else None
-        tags = {tag.tag_id: tag for tag in load_registry(settings.registry_path).tags}
-        if tag_id in tags and tags[tag_id].status != "retired":
-            retire(conn, settings, tag_id, by=by)
+        found = conn.execute(ACCEPTED_TASK, (str(proposal_id),)).fetchone()
+        if found and found[1]:
+            tag_id = task_tag(found[0])
+            with contextlib.suppress(WrongStatus):  # schon zurückgezogen
+                retire(conn, settings, tag_id, by=by)
     if conn.execute(REOPEN, {"by": by, "id": proposal_id}).rowcount == 0:
         raise ProposalOpen(f"Vorschlag {proposal_id} ist nicht entschieden")
     return Decision(tag_id, None)

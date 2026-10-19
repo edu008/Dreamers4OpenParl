@@ -398,9 +398,17 @@ class AdhocCreated(BaseModel):
 
 
 class AdhocStepIn(BaseModel):
-    """Freischalten oder zurückziehen; Name und Zeit stehen im Tag unter changes."""
+    """Zurückziehen; Name und Zeit stehen im Tag unter changes."""
 
     user_name: UserName = Field(description="wer den Schritt macht", examples=["Mia Muster"])
+
+
+class AdhocActivateIn(BaseModel):
+    """Freischalten; der Body ist freiwillig, damit bestehende Aufrufe ohne Namen weiter gehen."""
+
+    user_name: UserName | None = Field(
+        None, description="wer freischaltet; ohne Angabe «api»", examples=["Mia Muster"]
+    )
 
 
 class AdhocActivated(BaseModel):
@@ -414,7 +422,10 @@ class AdhocRetired(BaseModel):
     status: Literal["retired"]
     registry_version: str
     jobs: int = Field(description="geschlossene Jobs (failed, Grund retired), auch erledigte")
-    labels: int = Field(description="aktive Labels des Themas, jetzt superseded")
+    labels: int = Field(
+        description="Labels ohne menschlichen Entscheid, jetzt superseded; bestätigte und von Hand"
+        " gesetzte bleiben aktiv"
+    )
 
 
 class ProposalOut(BaseModel):

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from parltopics.registry import RegistryError, load_registry
-from parltopics.registry.edit import add_adhoc_tag, adhoc_id, set_status
+from parltopics.registry.edit import WrongStatus, add_adhoc_tag, adhoc_id, set_status
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tags_example.yaml"
 TODAY = dt.date(2026, 10, 18)
@@ -67,6 +67,17 @@ def test_a_retired_tag_comes_back_with_new_content_and_keeps_its_history(registr
     ]
     with pytest.raises(RegistryError, match="gibt es schon"):
         add_adhoc_tag(registry_file, name_de="Velowege", definition_de="noch einmal", by="M")
+
+
+def test_a_status_changes_only_from_an_allowed_status(registry_file):
+    add_adhoc_tag(registry_file, name_de="Velowege", definition_de="x", by="Mia")
+    set_status(registry_file, "adhoc:velowege", "retired", by="Leo")
+    before = registry_file.read_bytes()
+    with pytest.raises(WrongStatus, match="retired; active geht nur aus proposed"):
+        set_status(registry_file, "adhoc:velowege", "active", by="Leo")
+    with pytest.raises(WrongStatus):
+        set_status(registry_file, "adhoc:velowege", "retired", by="Leo")  # kein zweiter Eintrag
+    assert registry_file.read_bytes() == before
 
 
 def test_invalid_changes_keep_the_old_file(registry_file):

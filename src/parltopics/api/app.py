@@ -35,6 +35,7 @@ from parltopics.agent import loop as agent_loop
 from parltopics.api import navigate, queries, reviews
 from parltopics.api.schemas import (
     AdhocActivated,
+    AdhocActivateIn,
     AdhocCreated,
     AdhocIn,
     AdhocPreview,
@@ -84,8 +85,8 @@ from parltopics.classify import adhoc, proposals
 from parltopics.classify.queue import summary as job_summary
 from parltopics.config import Settings, get_settings
 from parltopics.llm import JSONExtractionError
-from parltopics.registry import Registry, RegistryError, Tag, load_registry
-from parltopics.registry.edit import TagExists
+from parltopics.registry import Registry, RegistryError, load_registry
+from parltopics.registry.edit import NotAdhoc, TagExists, WrongStatus
 from parltopics.wiki.tree import (
     Page,
     TreeError,
@@ -861,14 +862,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             **no_database,
         },
     )
-    def adhoc_activate(tag_id: str, body: AdhocStepIn, conn: Conn) -> AdhocActivated:
+    def adhoc_activate(
+        tag_id: str, conn: Conn, body: AdhocActivateIn | None = None
+    ) -> AdhocActivated:
         """Setzt ein bewährtes Thema von proposed auf active. Ab dann bietet Stufe 2 von
         classify:aps es allen Geschäften an, und es bekommt eine Querschnittsseite. Name und
-        Zeit stehen im Tag (changes). Rückweg: /v1/adhoc/{tag_id}/retire."""
-        tag = adhoc_tag(tag_id)
-        if tag.status != "proposed":
-            raise HTTPException(409, f"{tag_id} ist {tag.status}, nicht proposed")
-        registry = adhoc.activate(conn, settings, tag_id, by=body.user_name)
+        Zeit stehen im Tag (changes); ohne user_name steht dort «api». Rückweg:
+        /v1/adhoc/{tag_id}/retire."""
+        by = body.user_name if body and body.user_name else "api"
+        try:
+            registry = adhoc.activate(conn, settings, tag_id, by=by)
+        except NotAdhoc as error:
+            raise HTTPException(404, str(error)) from error
+        except WrongStatus as error:
+            raise HTTPException(409, str(error)) from error
         return AdhocActivated(
             tag_id=tag_id, status="active", registry_version=registry.registry_version
         )
@@ -885,12 +892,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     def adhoc_retire(tag_id: str, body: AdhocStepIn, conn: Conn) -> AdhocRetired:
         """Rückweg zu POST /v1/adhoc und zum Freischalten: setzt das Thema auf retired, schliesst
-        alle seine Jobs (failed, Grund retired) und setzt seine aktiven Labels auf superseded.
-        Gelöscht wird nichts; Name und Zeit stehen im Tag (changes). POST /v1/adhoc mit
-        demselben Namen holt es als proposed zurück, die Worker prüfen die Geschäfte dann neu."""
-        if adhoc_tag(tag_id).status == "retired":
-            raise HTTPException(409, f"{tag_id} ist schon zurückgezogen")
-        retired = adhoc.retire(conn, settings, tag_id, by=body.user_name)
+        alle seine Jobs (failed, Grund retired) und setzt seine Labels ohne menschlichen
+        Entscheid auf superseded; bestätigte und von Hand gesetzte bleiben. Gelöscht wird nichts;
+        Name und Zeit stehen im Tag (changes). Schlug ein Aufruf halb fehl, holt ein zweiter den
+        Rest nach. POST /v1/adhoc mit demselben Namen holt das Thema als proposed zurück, die
+        Worker prüfen die Geschäfte dann neu."""
+        try:
+            retired = adhoc.retire(conn, settings, tag_id, by=body.user_name)
+        except NotAdhoc as error:
+            raise HTTPException(404, str(error)) from error
+        except WrongStatus as error:
+            raise HTTPException(409, str(error)) from error
         return AdhocRetired(
             tag_id=tag_id,
             status="retired",
@@ -898,13 +910,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             jobs=retired.jobs,
             labels=retired.labels,
         )
-
-    def adhoc_tag(tag_id: str) -> Tag:
-        registry, _ = load()
-        tag = next((tag for tag in registry.tags if tag.tag_id == tag_id), None)
-        if tag is None or tag.scheme != "adhoc":
-            raise HTTPException(404, f"{tag_id} ist kein Ad-hoc-Thema der Registry")
-        return tag
 
     @api.get(
         "/eval/calibration",

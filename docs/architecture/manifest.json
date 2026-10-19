@@ -34,8 +34,8 @@
     "06-adhoc-thema": {
       "type": "workflow",
       "quality": "showcase",
-      "source_sha256": "21fbb316849fc98c84987a8590b14a116593e8347de6e0b6d32d930030c82ecf",
-      "html_sha256": "66401868d10026a7442eb51b248811de53605782cc3c68611fdf1e7108a6e0ed"
+      "source_sha256": "e07e521ce07a7be715ebca8786b15085e2f691d9108b0fe162c09faab7452843",
+      "html_sha256": "cd9e8e5a29ba1e88526aa378d950ac4fe3cd471f50dba76742be726fdf43ea16"
     },
     "07-datenmodell": {
       "type": "erd",

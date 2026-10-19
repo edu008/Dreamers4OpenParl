@@ -103,7 +103,8 @@ def _add(cursor: psycopg.Cursor, params: dict) -> int:
 
 
 def _undo(cursor: psycopg.Cursor, params: dict) -> int:
-    # Ein zurückgezogenes Thema hat keine aktiven Labels; undo würde ein verworfenes zurückholen.
+    # Auf einem zurückgezogenen Thema bleiben die Entscheide stehen; undo machte ein Label ohne
+    # Entscheid wieder aktiv. Wer es ändern will, legt das Thema neu an.
     if cursor.execute(RETIRED, params).fetchone() is not None:
         raise HTTPException(409, f"Thema {params['tag_id']} ist zurückgezogen")
     row = cursor.execute(REVIEWED, params).fetchone()

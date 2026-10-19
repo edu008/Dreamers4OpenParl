@@ -26,6 +26,24 @@ class TagExists(RegistryError):
     """Das Tag steht schon in der Registry."""
 
 
+class NotAdhoc(RegistryError):
+    """Das Tag fehlt oder ist kein Ad-hoc-Tag."""
+
+
+class WrongStatus(RegistryError):
+    """Der Statuswechsel ist aus dem jetzigen Status nicht erlaubt."""
+
+
+# Erlaubte Wechsel eines Ad-hoc-Tags: neuer Status → bisheriger. proposed setzt nur add_adhoc_tag.
+ALLOWED = {"active": ("proposed",), "retired": ("proposed", "active")}
+
+
+def check_step(tag_id: str, current: str, status: str) -> None:
+    if current not in ALLOWED[status]:
+        allowed = " oder ".join(ALLOWED[status])
+        raise WrongStatus(f"{tag_id} ist {current}; {status} geht nur aus {allowed}")
+
+
 def adhoc_id(name: str) -> str:
     """adhoc:<name> aus dem deutschen Namen, umgeschrieben wie die APS-slugs."""
     return f"adhoc:{aps_slug(name)}"
@@ -83,7 +101,8 @@ def set_status(
     def change(data: dict[str, Any]) -> None:
         tag = next((tag for tag in data["tags"] if tag.get("tag_id") == tag_id), None)
         if tag is None or tag.get("scheme") != "adhoc":
-            raise RegistryError(f"{tag_id} ist kein Ad-hoc-Tag der Registry")
+            raise NotAdhoc(f"{tag_id} ist kein Ad-hoc-Tag der Registry")
+        check_step(tag_id, tag["status"], status)
         _step(tag, by, status)
 
     return _edit(path, change, today)

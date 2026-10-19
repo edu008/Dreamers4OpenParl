@@ -51,7 +51,7 @@
   ],
   "cards": [
     { "dot": "cyan", "title": "Agent schlägt vor", "items": ["generate_keywords erzeugt Stichwörter in DE, FR und IT", "propose_adhoc_topic liefert nur einen Entwurf, es legt nichts an"] },
-    { "dot": "rose", "title": "Mensch entscheidet", "items": ["Erst die Bestätigung im UI ruft POST /v1/adhoc auf", "Aktiv wird das Thema erst nach dem Review", "Danach läuft es in Stufe 2 des täglichen Laufs mit", "Rückweg: retire zieht es zurück, seine Labels werden superseded"] },
+    { "dot": "rose", "title": "Mensch entscheidet", "items": ["Erst die Bestätigung im UI ruft POST /v1/adhoc auf", "Aktiv wird das Thema erst nach dem Review", "Danach läuft es in Stufe 2 des täglichen Laufs mit", "Rückweg: retire zieht es zurück, Labels ohne Review werden superseded"] },
     { "dot": "emerald", "title": "Kandidaten statt Volllauf", "items": ["Jobs nur für Volltext-Treffer plus 2 % Stichprobe", "Die Stichprobe misst den Kandidaten-Recall", "Nicht-Treffer verbessern die Stichwortliste"] }
   ]
 }
