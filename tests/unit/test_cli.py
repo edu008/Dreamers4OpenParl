@@ -4,7 +4,7 @@ import httpx
 from typer.testing import CliRunner
 
 from parltopics import __version__
-from parltopics.cli import NOT_IMPLEMENTED_EXIT, app
+from parltopics.cli import app
 from parltopics.llm import LLMClient
 
 runner = CliRunner()
@@ -48,11 +48,6 @@ def test_registry_validate_reports_errors(tmp_path):
     path = tmp_path / "tags.yaml"
     path.write_text("registry_version: x\nschemes: {}\n", encoding="utf-8")
     assert runner.invoke(app, ["registry", "validate", str(path)]).exit_code == 1
-
-
-def test_planned_commands_name_their_milestone():
-    result = runner.invoke(app, ["wiki"])
-    assert result.exit_code == NOT_IMPLEMENTED_EXIT
 
 
 def test_classify_accepts_only_the_aps_task_in_m1():

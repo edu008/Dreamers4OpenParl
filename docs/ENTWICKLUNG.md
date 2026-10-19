@@ -72,6 +72,8 @@ Ein Ad-hoc-Thema (PRD 7.4) legt `uv run parltopics adhoc "Velowege" --descriptio
 
 Den Seitenlauf (PRD 7.9, ARCHITEKTUR 5) startet `uv run parltopics pages`: Er legt die Seiten des Baums in `wiki_pages` an, rechnet die Kennzahlen aller Seiten neu und fasst die offenen Seiten von den Tag-Seiten bis Heart mit 70B zusammen. Bei gleichem `input_hash` gibt es keinen Aufruf. Die Ausgabe nennt gebaute, geänderte und fehlgeschlagene Seiten, die Zusammenfassung steht danach in `GET /v1/pages/{page_id}` unter `summary`. Schwellen und Grenzen stehen in `.env.example` (`PAGE_*`). Ein zweiter Lauf zur selben Zeit endet mit Exit-Code 1.
 
+Den Markdown-Export des ParlWiki (F14) schreibt `uv run parltopics wiki --out wiki`: `HEART.md`, `bereiche/`, `kapitel/`, `tags/`, `querschnitt/` und `parlamente/`, je mit Frontmatter (`tag_id`, `scheme`, `registry_version`, `n_affairs`, Stand des letzten Seitenlaufs) und relativen Links, geeignet für Obsidian. Eine Datei je Geschäft gibt es nicht; Geschäfte verlinken auf die Web-App (`--web-url`, Standard `http://127.0.0.1:8000`) und auf OpenParlData. Ein einzelnes Geschäft schreibt `--affair <id>` nach `geschaefte/<id>.md`. Der Export liest die Datenbank nur und schreibt nur geänderte Dateien; ein zweiter Lauf ohne neue Daten meldet `0 geändert`.
+
 ### Qualität prüfen: Curia-Vista-Check
 
 Für APS gibt es keine Gold-Labels. Als grobe Kontrolle dienen die Curia-Vista-Sachbereiche, die die Parlamentsdienste jedem Bundesgeschäft zuordnen (Hack-Datensatz, PRD 13). Die Zuordnung der 28 Sachbereiche zu den APS-Kapiteln steht in `registry/aps_descriptions.yaml` (`close_match`, `broad_match`); Themen erben sie von ihrem Kapitel.

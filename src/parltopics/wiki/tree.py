@@ -65,7 +65,7 @@ def page_path(tag: Tag) -> str:
     return f"{FOLDERS[page_kind(tag)]}/{stem}.md"
 
 
-def year_list_path(page: Page, year: int) -> str:
+def year_list_path(page: Page, year: int | str) -> str:
     """Geschäftsliste eines Jahres; die Hub-Datei der Seite bleibt unverändert."""
     return f"{page.path.removesuffix('.md')}/{year}.md"
 

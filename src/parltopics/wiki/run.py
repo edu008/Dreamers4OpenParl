@@ -158,13 +158,18 @@ def allowed_numbers(stats: dict[str, object], window_start: dt.date, window_end:
     return numbers
 
 
+def page_stats(conn: psycopg.Connection, tag_ids: list[str], window_start: dt.date) -> dict:
+    """Kennzahlen einer Seite über alle Jahre, dazu die Geschäfte im Zeitfenster."""
+    stats = queries.page_summary(conn, tag_ids)
+    params = {"tag_ids": tag_ids, "window_start": window_start}
+    stats["in_window"] = conn.execute(IN_WINDOW, params).fetchone()[0]
+    return stats
+
+
 def refresh_stats(conn: psycopg.Connection, tree: dict[str, Page], window_start: dt.date) -> None:
     """Kennzahlen jeder Seite, bei jedem Lauf und ohne Modell (ARCHITEKTUR 5.2)."""
     for page_id in page_ids(tree.values()):
-        tag_ids = subtree_tag_ids(tree, page_id)
-        stats = queries.page_summary(conn, tag_ids)
-        params = {"tag_ids": tag_ids, "window_start": window_start}
-        stats["in_window"] = conn.execute(IN_WINDOW, params).fetchone()[0]
+        stats = page_stats(conn, subtree_tag_ids(tree, page_id), window_start)
         conn.execute(
             "UPDATE wiki_pages SET n_affairs = %s, stats = %s WHERE page_id = %s",
             (
