@@ -7,10 +7,9 @@ import {
   ALL_TOPICS,
   buildView,
   groupColor,
-  loadGraphData,
-  pageTitle,
+  loadGraph,
+  type ApiGraph,
   type GraphNode,
-  type RawData,
 } from "@/lib/graph"
 
 const SHOWN_LINKS = 12
@@ -27,7 +26,10 @@ const VIEWS: { value: View; label: string }[] = [
 // beim Daraufzeigen. Ein Klick auf ein Thema öffnet dessen Seite.
 export function GraphPage() {
   const navigate = useNavigate()
-  const [raw, setRaw] = useState<RawData | null>(null)
+  const [overview, setOverview] = useState<ApiGraph | null>(null)
+  const [loaded, setLoaded] = useState<{ key: string; data: ApiGraph } | null>(
+    null
+  )
   const [error, setError] = useState<string | undefined>()
   const [hovered, setHovered] = useState<string | null>(null)
   const [view, setView] = useState<View>("alle")
@@ -35,8 +37,9 @@ export function GraphPage() {
   const heading = useRef<HTMLHeadingElement>(null)
   const changed = useRef(false)
 
+  // Die Übersicht liefert die Bereiche für Farben, Legende und Überschriften.
   useEffect(() => {
-    loadGraphData().then(setRaw, (reason: unknown) =>
+    loadGraph(null).then(setOverview, (reason: unknown) =>
       setError(reason instanceof Error ? reason.message : String(reason))
     )
   }, [])
@@ -49,14 +52,38 @@ export function GraphPage() {
   }, [view, expanded])
 
   const mode = view === "alle" ? ALL_TOPICS : expanded
-  const graph = useMemo(() => (raw ? buildView(raw, mode) : null), [raw, mode])
+  const modeKey = mode ?? ""
+  useEffect(() => {
+    let current = true
+    loadGraph(mode).then(
+      (data) => {
+        if (current) setLoaded({ key: modeKey, data })
+      },
+      (reason: unknown) => {
+        if (current)
+          setError(reason instanceof Error ? reason.message : String(reason))
+      }
+    )
+    return () => {
+      current = false
+    }
+  }, [mode, modeKey])
+  const graph = useMemo(
+    () =>
+      loaded && loaded.key === modeKey
+        ? buildView(loaded.data, view === "alle")
+        : null,
+    [loaded, modeKey, view]
+  )
   const groups = useMemo(
     () =>
-      (raw?.pages ?? [])
-        .filter((page) => page.kind === "bereich")
-        .map((page) => page.page_id),
-    [raw]
+      (overview?.nodes ?? [])
+        .filter((node) => node.kind === "bereich")
+        .map((node) => node.id),
+    [overview]
   )
+  const titleOf = (id: string) =>
+    overview?.nodes.find((node) => node.id === id)?.label ?? id
   const byId = useMemo(
     () => new Map((graph?.nodes ?? []).map((node) => [node.id, node])),
     [graph]
@@ -121,7 +148,7 @@ export function GraphPage() {
           Noch keine klassifizierten Geschäfte, also nichts zu zeichnen.
         </p>
       )}
-      {raw && graph && graph.nodes.length > 0 && (
+      {overview && graph && graph.nodes.length > 0 && (
         <>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <div
@@ -158,7 +185,7 @@ export function GraphPage() {
                 ? "Alle Themen"
                 : expanded === null
                   ? "Bereiche"
-                  : pageTitle(raw, expanded)}
+                  : titleOf(expanded)}
             </h2>
             {view === "bereiche" && expanded !== null && (
               <>
@@ -319,7 +346,7 @@ export function GraphPage() {
                       className="inline-block size-2.5 rounded-full"
                       style={{ background: groupColor(id, groups) }}
                     />
-                    {pageTitle(raw, id)}
+                    {titleOf(id)}
                   </button>
                 </li>
               ))}

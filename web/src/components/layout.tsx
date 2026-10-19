@@ -11,6 +11,7 @@ const STATIC_TITLES: Record<string, string> = {
   "/admin/review": "Review",
   "/admin/themen": "Themen",
   "/admin/graph": "Graph",
+  "/admin/parlamente": "Parlamente",
   "/hilfe": "So funktioniert's",
 }
 
@@ -21,6 +22,7 @@ const ADMIN_NAV = [
   { to: "/admin/review", label: "Review" },
   { to: "/admin/themen", label: "Themen" },
   { to: "/admin/graph", label: "Graph" },
+  { to: "/admin/parlamente", label: "Parlamente" },
 ]
 
 function isActive(pathname: string, to: string): boolean {
