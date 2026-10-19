@@ -10,9 +10,8 @@ import { useApi } from "@/hooks/use-api"
 import { usePageTitle } from "@/hooks/use-page-title"
 import { useReview } from "@/hooks/use-review"
 import { useReviewQueue } from "@/hooks/use-review-queue"
-import type { AffairTopics, TopicOut } from "@/lib/api"
+import type { AffairTopics, ReviewQueue, TopicOut } from "@/lib/api"
 import { reviewReasons } from "@/lib/label-state"
-import { nextOpen } from "@/lib/review-queue"
 
 const LANGUAGE_NAME: Record<string, string> = {
   de: "Deutsch",
@@ -50,7 +49,14 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
   )
   const review = useReview()
   const queue = useReviewQueue()
-  const next = nextOpen(queue.open, affairId)
+  // Nächstes offenes Label in einem anderen Geschäft; lädt nach jedem Entscheid neu.
+  // shortcut: sucht in den ersten 20 offenen Labels; genügt, solange kein Geschäft 20 offene hat.
+  const head = useApi<ReviewQueue>(
+    `/v1/reviews/queue?limit=20&v=${queue.version}`
+  )
+  const next = (head.data ?? head.last)?.items.find(
+    (item) => String(item.affair_id) !== affairId
+  )
   // Die Trefferliste gibt ihre Suche mit, damit «Geschäfte» zur gleichen Liste zurückführt.
   const fromSearch = (useLocation().state as { search?: string } | null)?.search
   const back = { pathname: "/", search: fromSearch ?? "" }
@@ -177,7 +183,9 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
               size="sm"
               variant="outline"
               nativeButton={false}
-              render={<Link to={`/admin/review/geschaefte/${next.affairId}`} />}
+              render={
+                <Link to={`/admin/review/geschaefte/${next.affair_id}`} />
+              }
             >
               Nächstes offenes Label
             </Button>

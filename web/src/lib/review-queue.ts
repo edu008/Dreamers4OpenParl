@@ -1,4 +1,10 @@
-import type { LabelOut, ReviewItem, ReviewReason } from "@/lib/api"
+import {
+  fetchJson,
+  type LabelOut,
+  type ReviewItem,
+  type ReviewQueue,
+  type ReviewReason,
+} from "@/lib/api"
 
 /** Ein Label aus der Warteschlange der Sidecar-API (offen oder entschieden). */
 export interface ReviewCandidate {
@@ -13,9 +19,6 @@ export interface ReviewCandidate {
   confidence: number
   evidence: string | null
   evidenceVerified: boolean
-  /** Bereich des Themas (Seitenbaum), für den Filter. */
-  areaId: string | null
-  areaName: string | null
   reasons: ReviewReason[]
   /** Entscheid des Labels; nur bei erledigten gesetzt. Name und Zeit stammen vom Backend. */
   decision: LabelOut["review_status"]
@@ -23,10 +26,7 @@ export interface ReviewCandidate {
   decidedAt: string | null
 }
 
-export function toCandidate(
-  item: ReviewItem,
-  area: { id: string; name: string } | null
-): ReviewCandidate {
+export function toCandidate(item: ReviewItem): ReviewCandidate {
   return {
     affairId: String(item.affair_id),
     number: item.number,
@@ -39,8 +39,6 @@ export function toCandidate(
     confidence: item.label.confidence,
     evidence: item.label.evidence,
     evidenceVerified: item.label.evidence_verified,
-    areaId: area?.id ?? null,
-    areaName: area?.name ?? null,
     reasons: item.reasons,
     decision: item.label.review_status,
     decidedBy: item.label.reviewed_by,
@@ -48,10 +46,28 @@ export function toCandidate(
   }
 }
 
-/** Nächstes offenes Label in einem anderen Geschäft als dem gerade geöffneten. */
-export function nextOpen(
-  open: ReviewCandidate[],
-  currentAffairId: string
-): ReviewCandidate | undefined {
-  return open.find((row) => row.affairId !== currentAffairId)
+const PAGE = 500
+// Obergrenze der Seiten je Zustand, damit eine fehlerhafte Antwort nicht endlos weiterlädt.
+const MAX_PAGES = 20
+
+/** Alle Labels eines Zustands, auf dem Server gefiltert (`query`: reason, page_id, body_key). */
+export async function loadQueue(
+  state: "open" | "done",
+  query: string,
+  signal: AbortSignal
+): Promise<ReviewCandidate[]> {
+  const rows: ReviewCandidate[] = []
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const params = new URLSearchParams(query)
+    params.set("state", state)
+    params.set("limit", String(PAGE))
+    params.set("offset", String(page * PAGE))
+    const queue = await fetchJson<ReviewQueue>(
+      `/v1/reviews/queue?${params}`,
+      signal
+    )
+    rows.push(...queue.items.map(toCandidate))
+    if (queue.items.length === 0 || rows.length >= queue.total) break
+  }
+  return rows
 }
