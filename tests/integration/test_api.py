@@ -196,7 +196,30 @@ def test_parliaments_german_types_and_recent_runs(conn, repo_root, api_settings)
         }
 
 
-def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
+def test_full_text_search_in_german_and_french(conn, repo_root, api_settings, monkeypatch):
+    import json
+
+    import httpx
+
+    from parltopics.llm import LLMClient
+    from parltopics.search import topics
+    from tests.mock_llm.app import completion
+
+    asked = []  # 8B nur, wenn die Registry kein Thema erkennt; schlägt hier eines vor
+
+    def suggest(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        asked.append(body["messages"][-1]["content"])
+        known = "Verwaltungsinformatik" in asked[-1]
+        reply = '{"topics": ["digitalisierung"]}' if known else '{"topics": []}'
+        return httpx.Response(200, json=completion(reply, body["model"]))
+
+    mock = httpx.MockTransport(suggest)
+    monkeypatch.setattr(
+        "parltopics.search.topics.LLMClient",
+        lambda settings, transport=None: LLMClient(settings, transport=mock),
+    )
+    topics._suggested.clear()
     migrate(conn, repo_root / "migrations")
     sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
     seed(conn)  # 70435: «Der Bundesrat soll die Verwaltung digitalisieren.», aktiv aps:6.1.9
@@ -231,8 +254,11 @@ def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
         return result["total"], [item["affair_id"] for item in result["items"]]
 
     with TestClient(create_app(api_settings)) as client:
-        result = client.get("/v1/search", params={"q": "digitalisieren"}).json()
-        assert (result["q"], result["total"]) == ("digitalisieren", 2)
+        # wie getippt (expand=false): nur deutsche Texte, Titel vor Text
+        params = {"q": "digitalisieren", "expand": "false"}
+        result = client.get("/v1/search", params=params).json()
+        assert (result["q"], result["total"], result["topics"]) == ("digitalisieren", 2, [])
+        assert (result["expanded_terms"], result["prompt_version"]) == ({}, None)
         assert result["duration_ms"] >= 0
         first, second = result["items"]
         assert (first["affair_id"], second["affair_id"]) == (70435, 80003)  # Titel vor Text
@@ -245,6 +271,28 @@ def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
             True,
         )
         assert second["topics"] == []
+
+        # mit Thema: «digitalisieren» meint Digitalisierung und findet auch «Numérisation»; die
+        # Sprachen wechseln ab, der Treffer nur im Text kommt danach
+        result = client.get("/v1/search", params={"q": "digitalisieren"}).json()
+        ids = [item["affair_id"] for item in result["items"]]
+        assert (result["total"], set(ids[:2]), ids[2]) == (3, {70435, 70437}, 80003)
+        (topic,) = result["topics"]
+        assert topic == {
+            "tag_id": "aps:6.1.9",
+            "name_de": "Digitalisierung",
+            "source": "registry",
+            "typed": "digitalisieren",
+            "label": "Digitalisierung",
+            "typo": True,
+        }
+        assert "Numérisation" in result["expanded_terms"]["fr"]
+        assert (result["model_version"], result["prompt_version"]) == (None, None)
+        # mit Tippfehler zählen nur die Bezeichnungen: «digitalisieren» hat einen anderen Stamm
+        typo = client.get("/v1/search", params={"q": "Digitalisierug"}).json()
+        ids = {item["affair_id"] for item in typo["items"]}
+        assert (ids, typo["topics"][0]["typo"]) == ({70435, 70437}, True)
+        assert asked == []  # erkannt: kein Modellaufruf
 
         french = client.get("/v1/search", params={"q": "numériser"}).json()["items"]
         assert [item["affair_id"] for item in french] == [70437]
@@ -259,12 +307,24 @@ def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
         assert found("digitalisieren", body_key="ZH") == (1, [80003])
         assert found("digitalisieren", level="canton") == (1, [80003])
         assert found("digitalisieren", to="2024-12-31") == (1, [80003])
-        assert found("digitalisieren", limit=1, offset=1) == (2, [80003])
+        assert found("digitalisieren", limit=1, offset=2) == (3, [80003])
+        assert found("digitalisieren", limit=1, offset=5) == (3, [])  # hinter der letzten Seite
         assert found("Raumfahrt") == (0, [])
         assert first["language"] == "de"
         assert found("numériser", language="fr") == (1, [70437])
-        assert found("digitalisieren", language="fr") == (0, [])
+        assert found("digitalisieren", language="fr") == (1, [70437])  # über das Thema
+        assert found("digitalisieren", language="fr", expand="false") == (0, [])
         assert client.get("/v1/search", params={"q": "a"}).status_code == 422
+
+        # ohne erkanntes Thema schlägt 8B eines vor, einmal je Anfrage; Wortfolgen fragen nicht
+        assert len(asked) == 3 and not any("Verwaltung digitalisieren" in a for a in asked)
+        for _ in range(2):
+            llm = client.get("/v1/search", params={"q": "Verwaltungsinformatik"}).json()
+        assert [(t["tag_id"], t["source"], t["typed"]) for t in llm["topics"]] == [
+            ("aps:6.1.9", "llm", None)
+        ]
+        assert llm["prompt_version"].startswith("search_topics_v1+") and llm["model_version"]
+        assert ({item["affair_id"] for item in llm["items"]}, len(asked)) == ({70435, 70437}, 4)
 
         def newest(**params):  # ohne q: alle mit Klassifikationstext, neueste zuerst
             return client.get("/v1/search", params=params).json()

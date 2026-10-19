@@ -10,6 +10,8 @@ OpenAPI-Schema steht unter /v1/openapi.json.
 """
 
 import asyncio
+import dataclasses
+import logging
 import re
 import time
 from collections.abc import AsyncIterator, Iterator
@@ -72,6 +74,7 @@ from parltopics.api.schemas import (
     ReviewQueue,
     ReviewSummary,
     SearchResult,
+    SearchTopic,
     Stats,
     TopicAffairs,
     TopicGraph,
@@ -86,6 +89,7 @@ from parltopics.export import affairs_csv
 from parltopics.llm import JSONExtractionError
 from parltopics.registry import Registry, RegistryError, load_registry
 from parltopics.registry.edit import NotAdhoc, TagExists, WrongStatus
+from parltopics.search import topics as search_topics
 from parltopics.wiki.tree import (
     Page,
     TreeError,
@@ -165,6 +169,7 @@ LangQuery = Annotated[Lang, Query(description="Sprache der Titel, sonst Deutsch"
 # shortcut: höchstens zwei Suchen mit Modell (Navigation und Agent) gleichzeitig je API-Prozess;
 # mit mehreren Prozessen oder vielen Nutzern ein Limit je Nutzer und Minute (PRD F10, Rate-Limit).
 LLM_SEARCH_PARALLEL = 2
+logger = logging.getLogger(__name__)
 
 
 def page_out(page: Page, lang: Lang) -> PageOut:
@@ -881,8 +886,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         Registry-Version und dem Text (input_hash), auf den sich der Entscheid bezieht."""
         return [GoldLabel(**row) for row in queries.gold(conn)]
 
+    async def understood(q: str) -> search_topics.Plan:
+        """Die Themen der Anfrage: aus der Registry, sonst von 8B. Ohne Registry oder Modell
+        sucht die Suche wie getippt, statt zu scheitern."""
+        try:
+            registry, tree = cache.get()
+        except (RegistryError, TreeError):
+            return search_topics.as_typed(q)
+        vocab = search_topics.vocabulary(registry, tree)
+        plan = search_topics.understand(vocab, q)
+        if plan.found or search_topics.AS_TYPED.search(q) or not search_topics.words(q):
+            return plan
+        try:
+            return await search_topics.suggest(settings, vocab, q)
+        except (openai.APIError, TimeoutError, JSONExtractionError) as error:
+            logger.warning("Keine Themen von 8B für die Suche: %s", type(error).__name__)
+            return plan
+
     @api.get("/search", tags=["Suche"], summary="Volltextsuche", responses=no_database)
-    def search(
+    async def search(
         conn: Conn,
         q: Annotated[
             str | None,
@@ -893,6 +915,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 " or für oder; ohne q die neuesten Geschäfte",
             ),
         ] = None,
+        expand: Annotated[
+            bool,
+            Query(description="false: wie getippt suchen, ohne erkannte Themen"),
+        ] = True,
         topic: Annotated[str | None, Query(description="nur mit diesem aktiven Thema")] = None,
         body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
         level: Annotated[
@@ -908,14 +934,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         offset: Annotated[int, Query(ge=0)] = 0,
     ) -> SearchResult:
         """Volltextsuche über die Klassifikationstexte (Titel und Texte), ohne Sprachangabe: Die
-        Begriffe werden deutsch, französisch und italienisch auf ihren Stamm zurückgeführt. Rang
-        nach ts_rank_cd, Treffer im Titel zählen mehr. Je Treffer ein Ausschnitt mit markierten
-        Begriffen und die aktiven Themen. Ohne q: alle Geschäfte mit Klassifikationstext,
-        neueste zuerst, ohne Rang und Ausschnitt; die Filter gelten gleich."""
+        Begriffe werden deutsch, französisch und italienisch auf ihren Stamm zurückgeführt.
+
+        Erkennt die Suche in der Anfrage ein Thema der Registry (Bezeichnung, Synonym, auch mit
+        Tippfehler), sucht sie auch mit seinen Bezeichnungen in DE, FR und IT und nimmt die
+        Geschäfte mit seinem Label dazu; erkennt sie keines, schlägt 8B höchstens zwei vor. Die
+        Themen und die zusätzlich gesuchten Bezeichnungen stehen in topics und expanded_terms;
+        expand=false sucht nur wie getippt. Rang nach ts_rank, Treffer im Titel zählen mehr; mit
+        Thema und ohne Sprachfilter wechseln die Sprachen ab. Je Treffer ein Ausschnitt mit
+        markierten Begriffen und die aktiven Themen. Ohne q: alle Geschäfte mit
+        Klassifikationstext, neueste zuerst, ohne Rang und Ausschnitt; die Filter gelten gleich."""
         start = time.perf_counter()
-        total, items = queries.search(
+        plan = None
+        if q is not None:
+            plan = await understood(q) if expand else search_topics.as_typed(q)
+        total, items = await asyncio.to_thread(
+            queries.search,
             conn,
-            q=q,
+            plan=plan,
             topic=topic,
             body_key=body_key,
             level=level,
@@ -927,7 +963,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         duration_ms = round((time.perf_counter() - start) * 1000)
         return SearchResult(
-            q=q, total=total, limit=limit, offset=offset, duration_ms=duration_ms, items=items
+            q=q,
+            total=total,
+            limit=limit,
+            offset=offset,
+            duration_ms=duration_ms,
+            items=items,
+            topics=[SearchTopic(**dataclasses.asdict(found)) for found in plan.found]
+            if plan
+            else [],
+            expanded_terms=plan.terms() if plan else {},
+            model_version=plan.model_version if plan else None,
+            prompt_version=plan.prompt_version if plan else None,
         )
 
     @api.post(

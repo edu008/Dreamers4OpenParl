@@ -171,7 +171,7 @@ Der Worker ruft keine Werkzeuge über das Modell auf. Seine Werkzeuge sind Pytho
 | `classify/queue.py` | Jobs öffnen, übernehmen, Heartbeat, Aufräumen, Lauf-Lock, Ergebnis mit Besitzprüfung schreiben |
 | `classify/worker.py` | Ablauf 3.2 mit asyncio |
 | `classify/proposals.py` (M1) | Rohvorschläge gruppieren und mit 70B prüfen |
-| `search/` | Volltext und Trigramm für Ad-hoc-Kandidaten; Navigationssuche in `search/navigate.py` (Abschnitt 6) |
+| `search/` | Volltext und Trigramm für Ad-hoc-Kandidaten; Themen einer Suchanfrage in `search/topics.py`, Navigationssuche in `search/navigate.py` (Abschnitt 6) |
 
 ### 3.7 Wann ein Job wieder aufgeht
 
@@ -402,6 +402,17 @@ Volltextsuche mit filter → 70B wählt aus den Treffern → Antwort mit Suchweg
 
 Code: `src/parltopics/search/navigate.py`, Tests in `tests/unit/test_navigate.py`. Diagramm: [10-navigationssuche](architecture/10-navigationssuche.html).
 
+### Volltextsuche mit Themen (F15)
+
+`GET /v1/search` ist die Suche im Suchfeld: Die Liste der Treffer ist die Antwort, ohne Zusammenfassung. Der Volltext eines Geschäfts ist in seiner Sprache indexiert. Damit «Digitalisierung» auch französische und italienische Geschäfte findet, erkennt die Suche Themen in der Anfrage (`parltopics.search.topics`):
+
+1. Registry: die Bezeichnungen der aktiven Tags in DE, FR und IT (bevorzugt, alternativ, versteckt), als ganze Wörter, ohne Akzente und Grossschreibung, auch zusammengeschrieben («egovernment» für «E-Government»). Tippfehler zählen ab sechs Buchstaben (Ähnlichkeit ab 0,85, gleicher Anfangsbuchstabe), «Bauen» ist so nicht «Bauern». Bevorzugte Bezeichnungen gehen vor alternativen und versteckten. Das braucht 0 bis 2 ms ohne Datenbank; das Verzeichnis entsteht einmal je geladene Registry.
+2. Erkennt die Registry nichts, schlägt 8B höchstens zwei Themen vor (`search_topics_v1`, Schlüssel = Slug). Unbekannte Schlüssel fallen weg; ein falsch abgeschriebener zählt, wenn er als Ganzes eine Bezeichnung trifft. Der Vorschlag bleibt je Anfrage im Speicher, damit alle Seiten derselben Suche dieselben Themen haben. Ohne Modell sucht die Suche wie getippt.
+
+Die Datenbank bekommt einen Aufruf (`queries.TERMS_SEARCH`). Jeder Teil zwischen «or» trifft wie getippt oder über seine Themen: je Thema eine seiner Bezeichnungen, jede in der Konfiguration ihrer Sprache, und dazu die übrigen Wörter ohne Stoppwörter. Ist ein Teil genau ein Thema, gehören auch die Geschäfte mit seinem Label und denen seiner Unterthemen dazu. Den Rang (`ts_rank`) geben die getippten Wörter und die bevorzugten Bezeichnungen, wenn die Anfrage das Thema beim Namen nennt; ein Synonym wie «Velo» (Verkehrspolitik) zählt nur selbst, sonst stünde die ganze Verkehrspolitik vor den Velo-Geschäften. Mit Thema und ohne Sprachfilter wechseln sich die Sprachen ab (das beste deutsche, französische, italienische Geschäft, dann die zweiten), aber nur unter Treffern ab einem Viertel des besten Rangs. `expand=false` sucht nur wie getippt. `topics`, `expanded_terms`, `model_version` und `prompt_version` zeigen, wie die Suche die Anfrage verstanden hat.
+
+Gemessen am 19.10.2026 auf der geteilten Datenbank: «Digitalisierung» fand vorher 2'613 Geschäfte, davon 50 französische und 2 italienische, jetzt 8'325 mit 1'127 französischen und 359 italienischen, in 0,5 s statt 0,1 s; «Digitalisirung» vorher keines. Mit einem Vorschlag von 8B dauert die erste Suche etwa 1 s.
+
 ## 7. Versionen und Hashes
 
 | Wert | Was | Wo gespeichert | Wofür |
@@ -444,7 +455,7 @@ Docker Compose mit den Diensten `db` (pgvector/pgvector:pg16), `api` (uvicorn) u
 | `parltopics.download`, `.ingest`, `.inputs` | Daten holen und aufbereiten | F1–F3 |
 | `parltopics.classify` | Ausgabe-Schemas, Queue, Worker, Vorschläge | 7.3, 7.7, F5–F7, F18, F19 |
 | `parltopics.agent` | Werkzeuge, Schleife | 7.8, F21 |
-| `parltopics.search` | Volltext, Kandidaten, Navigationssuche | 7.4, 7.6, 7.10, F26 |
+| `parltopics.search` | Volltext, Themen der Suche, Kandidaten, Navigationssuche | 7.4, 7.6, 7.10, F15, F26 |
 | `parltopics.api` | Sidecar-API, liefert die Web-App aus | 7.5, F10 |
 | `parltopics.wiki` | Seitenbaum, Zusammenfassungen, Seitenstatus, Markdown-Export | 7.9, F14, F23–F25 |
 | `web/` | Web-App (React, Vite, TypeScript, shadcn/ui) | 7.5, F13, F20 |

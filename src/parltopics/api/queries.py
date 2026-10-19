@@ -8,7 +8,9 @@ from datetime import date
 import psycopg
 from psycopg.rows import dict_row
 
+from parltopics.classify.adhoc import websearch
 from parltopics.classify.worker import SAMPLE_EVERY
+from parltopics.search.topics import Plan
 from parltopics.wiki.tree import sort_key
 
 # Kopf eines Geschäfts (schemas.AffairHead), mit bodies b
@@ -38,12 +40,16 @@ WHERE l.affair_id = %s
 ORDER BY l.status = 'active' DESC, l.confidence DESC, l.id DESC
 """
 # Volltext (F15) ohne Sprachangabe: die Anfrage in allen Konfigurationen, verbunden mit ODER.
-TSQUERY = """(websearch_to_tsquery('german', %(q)s) || websearch_to_tsquery('french', %(q)s)
-           || websearch_to_tsquery('italian', %(q)s) || websearch_to_tsquery('simple', %(q)s))"""
-SEARCH_FILTER = f"""
-FROM search_documents d JOIN affairs a ON a.id = d.affair_id
-LEFT JOIN bodies b ON b.body_key = a.body_key
-WHERE (%(q)s::text IS NULL OR d.document @@ {TSQUERY})
+ANY_LANGUAGE = """(websearch_to_tsquery('german', {0}) || websearch_to_tsquery('french', {0})
+           || websearch_to_tsquery('italian', {0}) || websearch_to_tsquery('simple', {0}))"""
+TSQUERY = ANY_LANGUAGE.format("%(q)s")
+CONFIGS = {"de": "german", "fr": "french", "it": "italian"}
+# Wörter neben einem Thema ohne Stoppwörter der drei Sprachen: «der» ist französisch keines und
+# müsste sonst in jedem Geschäft stehen.
+CONTENT_WORDS = """(SELECT coalesce(string_agg(w, ' '), '') FROM unnest({0}::text[]) w
+    WHERE ts_lexize('german_stem', w) <> '{{}}' AND ts_lexize('french_stem', w) <> '{{}}'
+      AND ts_lexize('italian_stem', w) <> '{{}}')"""
+FILTERS = """
   AND (%(body_key)s::text IS NULL OR a.body_key = %(body_key)s::text)
   AND (%(level)s::text IS NULL OR b.level = %(level)s::text)
   AND (%(date_from)s::date IS NULL OR a.begin_date >= %(date_from)s::date)
@@ -53,9 +59,15 @@ WHERE (%(q)s::text IS NULL OR d.document @@ {TSQUERY})
       SELECT 1 FROM affair_tags l
       WHERE l.affair_id = a.id AND l.tag_id = %(topic)s::text AND l.status = 'active'))
 """
+DOCUMENTS = """
+FROM search_documents d JOIN affairs a ON a.id = d.affair_id
+LEFT JOIN bodies b ON b.body_key = a.body_key"""
 # Treffer markieren STX und ETX; search() maskiert den Rest und macht daraus <mark>.
 MARK = ("\x02", "\x03")
 HEADLINE = f"MaxFragments=2, MaxWords=25, MinWords=10, StartSel={MARK[0]}, StopSel={MARK[1]}"
+HEADLINE_SQL = """ts_headline((CASE page.language WHEN 'de' THEN 'german' WHEN 'fr' THEN 'french'
+                                       WHEN 'it' THEN 'italian' ELSE 'simple' END)::regconfig,
+                   i.text, q.tsq, %(headline)s)"""
 
 
 def hit_topics(affair: str) -> str:
@@ -69,21 +81,60 @@ def hit_topics(affair: str) -> str:
         WHERE l.affair_id = {affair} AND l.status = 'active' AND t.status <> 'retired')"""
 
 
-SEARCH = f"""
+# Ohne Suchbegriffe: alle Geschäfte mit Klassifikationstext, neueste zuerst; Themen nur der Seite.
+NEWEST = f"""
 WITH page AS (
-    SELECT {AFFAIR_HEAD}, d.language, ts_rank_cd(d.document, {TSQUERY}) AS rank
-    {SEARCH_FILTER}
-    ORDER BY rank DESC, a.begin_date DESC NULLS LAST, a.id DESC
+    SELECT {AFFAIR_HEAD}, d.language {DOCUMENTS}
+    WHERE true {FILTERS}
+    ORDER BY a.begin_date DESC NULLS LAST, a.id DESC
     LIMIT %(limit)s OFFSET %(offset)s
 )
-SELECT page.*,
-       ts_headline((CASE page.language WHEN 'de' THEN 'german' WHEN 'fr' THEN 'french'
-                                       WHEN 'it' THEN 'italian' ELSE 'simple' END)::regconfig,
-                   i.text, {TSQUERY}, %(headline)s) AS headline,
+SELECT page.*, NULL::real AS rank, NULL::text AS headline,
        {hit_topics("page.affair_id")} AS topics
-FROM page JOIN affair_inputs i ON i.affair_id = page.affair_id
-ORDER BY page.rank DESC, page.begin_date DESC NULLS LAST, page.affair_id DESC
+FROM page
+ORDER BY page.begin_date DESC NULLS LAST, page.affair_id DESC
 """
+NEWEST_COUNT = f"SELECT count(*) AS n {DOCUMENTS} WHERE true {FILTERS}"
+# Mit Suchbegriffen: ein Aufruf für Treffer, Rang, Zahl und Seite. Die Anfrage wird einmal in
+# tsquery übersetzt (q), nicht je Zeile. Treffer sind der Volltext von {match} und die Geschäfte
+# mit dem Label eines erkannten Themas. Den Rang geben die getippten Wörter und die bevorzugten
+# Bezeichnungen ({rank}): Synonyme bringen Treffer, aber keinen Rang (sonst führte bei
+# «Digitalisierung» die KI). Mit Thema und ohne Sprachfilter wechseln sich die Sprachen ab: das
+# beste deutsche, französische, italienische Geschäft, dann die zweiten. Das gilt nur für Treffer
+# ab einem Viertel des besten Rangs; schwächere kamen bei «Lobbyismus» sonst ohne Bezug nach vorn.
+STRONG = 0.25
+TERMS_HITS = """
+WITH q AS MATERIALIZED (SELECT {match} AS tsq, {rank} AS rq),
+hits AS (
+    SELECT d.affair_id FROM q, search_documents d WHERE d.document @@ q.tsq
+    UNION
+    SELECT l.affair_id FROM affair_tags l
+    WHERE l.tag_id = ANY(%(labelled)s::text[]) AND l.status = 'active'
+)"""
+TERMS_FROM = f"""
+FROM q, hits h JOIN search_documents d ON d.affair_id = h.affair_id
+JOIN affairs a ON a.id = h.affair_id LEFT JOIN bodies b ON b.body_key = a.body_key
+WHERE true {FILTERS}"""
+TERMS_ORDER = (
+    f"{{t}}rank < {{t}}best * {STRONG}, CASE WHEN %(mix)s THEN {{t}}nth END, {{t}}rank DESC,"
+    " {t}begin_date DESC NULLS LAST, {t}affair_id DESC"
+)
+TERMS_SEARCH = f"""{TERMS_HITS},
+scored AS (SELECT {AFFAIR_HEAD}, d.language, ts_rank(d.document, q.rq) AS rank {TERMS_FROM}),
+ranked AS (
+    SELECT *, count(*) OVER () AS total, max(rank) OVER () AS best, row_number() OVER (
+        PARTITION BY language ORDER BY rank DESC, begin_date DESC NULLS LAST, affair_id DESC
+    ) AS nth
+    FROM scored
+),
+page AS (
+    SELECT * FROM ranked ORDER BY {TERMS_ORDER.format(t="")} LIMIT %(limit)s OFFSET %(offset)s
+)
+SELECT page.*, {HEADLINE_SQL} AS headline, {hit_topics("page.affair_id")} AS topics
+FROM page CROSS JOIN q JOIN affair_inputs i ON i.affair_id = page.affair_id
+ORDER BY {TERMS_ORDER.format(t="page.")}
+"""
+TERMS_COUNT = f"{TERMS_HITS}\nSELECT count(*) AS n {TERMS_FROM}"
 # Evaluation aus den Entscheiden der Menschen. Nur Labels des Modells zählen; die Stichprobe
 # (jedes 50. Geschäft) ist unabhängig von der Konfidenz ausgewählt, die übrige Warteschlange nicht.
 BANDS = 5
@@ -413,10 +464,44 @@ def review_summary(
     return summary
 
 
+def terms_sql(plan: Plan) -> tuple[str, str, dict[str, object]]:
+    """Die Anfrage als tsquery für die Treffer und für den Rang, mit Parametern. Jeder Teil
+    zwischen «or» trifft, wie getippt, oder über seine Themen: je Thema eine seiner Bezeichnungen
+    (in ihrer Sprache) und dazu die übrigen Wörter."""
+    params: dict[str, object] = {}
+
+    def param(value: object) -> str:
+        name = f"t{len(params)}"
+        params[name] = value
+        return f"%({name})s"
+
+    def terms(lang: str | None, texts: list[str]) -> str:
+        value = param(websearch(texts))
+        if lang is None:  # versteckte Bezeichnung: Sprache offen
+            return ANY_LANGUAGE.format(value)
+        return f"websearch_to_tsquery('{CONFIGS[lang]}', {value})"
+
+    match = []
+    for branch in plan.branches:
+        either = [ANY_LANGUAGE.format(param(branch.text))] if branch.text is not None else []
+        if branch.groups:
+            topics = [
+                "(" + " || ".join(terms(lang, texts) for lang, texts in group.terms.items()) + ")"
+                for group in branch.groups
+            ]
+            if branch.rest:
+                topics.append(ANY_LANGUAGE.format(CONTENT_WORDS.format(param(list(branch.rest)))))
+            either.append("(" + " && ".join(topics) + ")")
+        match.append("(" + " || ".join(either) + ")")
+    names = [terms(lang, [name]) for group in plan.groups for lang, name in group.names.items()]
+    rank = [ANY_LANGUAGE.format(param(plan.query)), *names]
+    return "(" + " || ".join(match) + ")", "(" + " || ".join(rank) + ")", params
+
+
 def search(
     conn: psycopg.Connection,
     *,
-    q: str | None,
+    plan: Plan | None,
     topic: str | None,
     body_key: str | None,
     level: str | None,
@@ -426,8 +511,9 @@ def search(
     limit: int,
     offset: int,
 ) -> tuple[int, list[dict]]:
-    """Volltextsuche: (Treffer insgesamt, eine Seite mit Ausschnitt als sicherem HTML). Ohne q
-    alle Geschäfte mit Klassifikationstext, neueste zuerst, ohne Rang und Ausschnitt.
+    """Volltextsuche: (Treffer insgesamt, eine Seite mit Ausschnitt als sicherem HTML). Ohne
+    Anfrage (plan None) alle Geschäfte mit Klassifikationstext, neueste zuerst, ohne Rang und
+    Ausschnitt; mit Anfrage siehe TERMS_SEARCH.
 
     shortcut: rechnet den Rang für alle Treffer; bei sehr häufigen Wörtern über 326k Geschäfte
     wird das langsam, dann Treffer vor dem Rang begrenzen.
@@ -435,7 +521,6 @@ def search(
     wird das zu langsam, Index affairs(begin_date DESC, id DESC) per Migration (vorher fragen).
     """
     params = {
-        "q": q,
         "topic": topic,
         "body_key": body_key,
         "level": level,
@@ -447,11 +532,21 @@ def search(
         "headline": HEADLINE,
     }
     cursor = conn.cursor(row_factory=dict_row)
-    total = cursor.execute(f"SELECT count(*) AS n {SEARCH_FILTER}", params).fetchone()["n"]
-    rows = cursor.execute(SEARCH, params).fetchall()
+    if plan is None:
+        total = cursor.execute(NEWEST_COUNT, params).fetchone()["n"]
+        return total, cursor.execute(NEWEST, params).fetchall()
+    match, rank, terms = terms_sql(plan)
+    mix = bool(plan.groups) and language is None
+    params |= {**terms, "labelled": list(plan.labelled), "mix": mix}
+    rows = cursor.execute(TERMS_SEARCH.format(match=match, rank=rank), params).fetchall()
+    if rows:
+        total = rows[0]["total"]
+    elif offset:  # hinter der letzten Seite: die Zahl trotzdem nennen
+        total = cursor.execute(TERMS_COUNT.format(match=match, rank=rank), params).fetchone()["n"]
+    else:
+        total = 0
     for row in rows:
-        if row["headline"] is None:  # ohne q gibt es keinen Ausschnitt
-            continue
+        del row["total"], row["best"], row["nth"]
         # Der Text ist frei von Tags, kann aber Zeichen wie < enthalten: erst maskieren.
         escaped = html.escape(row["headline"])
         row["headline"] = escaped.replace(MARK[0], "<mark>").replace(MARK[1], "</mark>")

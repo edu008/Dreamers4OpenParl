@@ -110,7 +110,7 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
     parameters = paths["/v1/pages/{page_id}/affairs"]["get"]["parameters"]
     assert {"page_id", "level", "type", "from", "to"} <= {p["name"] for p in parameters}
     parameters = paths["/v1/search"]["get"]["parameters"]
-    names = {"q", "topic", "body_key", "level", "from", "to", "limit", "offset"}
+    names = {"q", "expand", "topic", "body_key", "level", "from", "to", "limit", "offset"}
     assert names <= {p["name"] for p in parameters}
     (q,) = [p for p in parameters if p["name"] == "q"]
     assert not q.get("required", False)  # ohne q: die neuesten Geschäfte

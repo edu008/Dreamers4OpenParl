@@ -27,6 +27,7 @@ Eine geänderte Fassung bekommt eine neue Datei mit höherer Version, die alte b
 | `summarize_parent_v1.md` | Kapitel-, Bereichs- oder Heart-Seite aus den Zusammenfassungen der Kinder plus Stichproben | 70B |
 | `navigate_v1.md` | Navigationssuche: alle Kinder eines Knotens vergleichen, im ersten Schritt Filter ablesen | 8B |
 | `navigate_answer_v1.md` | Navigationssuche: Geschäfte am Blatt wählen und belegt antworten | 70B |
+| `search_topics_v1.md` | Suchfeld: höchstens zwei Themen zu einer Anfrage, wenn die Registry keines erkennt (Schlüssel = Slug) | 8B |
 
 Die v1-Dateien sind Entwürfe, bis sie im ersten Lauf (M1) benutzt werden; bis dahin werden sie direkt angepasst. Danach gilt: jede Änderung bekommt eine neue Datei.
 

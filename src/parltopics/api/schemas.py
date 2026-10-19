@@ -280,7 +280,9 @@ class ReviewQueue(BaseModel):
 class SearchHit(AffairHead):
     language: str | None = Field(description="Sprache des Klassifikationstexts", examples=["de"])
     rank: float | None = Field(
-        description="ts_rank_cd; ein Treffer im Titel zählt mehr als im Text; null ohne q"
+        description="ts_rank über die getippten Wörter und die bevorzugten Bezeichnungen der"
+        " erkannten Themen; ein Treffer im Titel zählt mehr als im Text; 0: nur über ein Synonym"
+        " oder das Label eines Themas gefunden; null ohne q"
     )
     headline: str | None = Field(
         description="Ausschnitte aus dem Klassifikationstext als HTML: alles maskiert,"
@@ -290,13 +292,51 @@ class SearchHit(AffairHead):
     topics: list[HitTopic] = Field(description="aktive Themen, höchste Konfidenz zuerst")
 
 
+class SearchTopic(BaseModel):
+    """Ein Thema, das die Suche in der Anfrage erkannt hat: Seine Bezeichnungen in DE, FR und IT
+    und die Geschäfte mit seinem Label gehören zu den Treffern."""
+
+    tag_id: str = Field(examples=["aps:6.1.9"])
+    name_de: str = Field(examples=["Digitalisierung"])
+    source: Literal["registry", "llm"] = Field(
+        description="registry: über eine Bezeichnung der Registry erkannt; llm: von 8B"
+        " vorgeschlagen, weil die Registry nichts erkannte"
+    )
+    typed: str | None = Field(
+        description="die Wörter der Anfrage, die das Thema trafen; null bei llm",
+        examples=["Digitalisirung"],
+    )
+    label: str | None = Field(
+        description="die Bezeichnung, die sie trafen; null bei llm", examples=["Digitalisierung"]
+    )
+    typo: bool = Field(description="true: als Tippfehler erkannt, typed weicht von label ab")
+
+
 class SearchResult(BaseModel):
     q: str | None = Field(description="Suchbegriffe; null listet die neuesten Geschäfte")
     total: int = Field(description="Treffer insgesamt, unabhängig von limit und offset")
     limit: int
     offset: int
     duration_ms: int = Field(description="Dauer der Abfragen in der API")
-    items: list[SearchHit] = Field(description="nach Rang, dann neueste zuerst; ohne q neueste")
+    items: list[SearchHit] = Field(
+        description="nach Rang, dann neueste zuerst; mit erkanntem Thema und ohne Sprachfilter"
+        " abwechselnd je Sprache, Treffer mit Rang 0 zuletzt; ohne q die neuesten"
+    )
+    topics: list[SearchTopic] = Field(
+        default_factory=list, description="erkannte Themen; leer: wie getippt gesucht"
+    )
+    expanded_terms: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="zusätzlich gesuchte Bezeichnungen der Themen je Sprache (de, fr, it), ohne"
+        " versteckte Schreibweisen; leer ohne Thema",
+        examples=[{"de": ["Digitalisierung"], "fr": ["Numérisation"], "it": ["Digitalizzazione"]}],
+    )
+    model_version: str | None = Field(
+        None, description="Modell, das Themen vorschlug; nur wenn die Registry nichts erkannte"
+    )
+    prompt_version: str | None = Field(
+        None, description="Prompt dazu, z. B. search_topics_v1+…; sonst null"
+    )
 
 
 class CalibrationBand(BaseModel):
