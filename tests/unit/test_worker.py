@@ -367,9 +367,9 @@ async def test_single_stage_asks_70b_once_with_all_topics(single):
     assert result.prompt_version.startswith("classify_single_v3+")
 
 
-async def test_single_stage_forces_short_names_by_schema(single):
-    """v3: JSON-Schema mit den Kurznamen als enum; ein Kapitelname ist erlaubt und wird verworfen,
-    die Passung kern oder neben wird zur Konfidenz."""
+async def test_single_stage_forces_the_format_not_the_names(single):
+    """v3: JSON-Schema mit Beleg vor dem Thema, tag_id frei (ein enum über alle Namen erzwang
+    falsche Themen); ein Kapitelname wird verworfen, kern oder neben wird zur Konfidenz."""
     settings, classifier = single
     chapter = classifier.chapters[0].prompt_id
 
@@ -395,8 +395,32 @@ async def test_single_stage_forces_short_names_by_schema(single):
     assert fmt["strict"] is True
     item = fmt["schema"]["properties"]["tags"]["items"]
     assert list(item["properties"]) == ["evidence", "tag_id", "fit"]  # Beleg zuerst
-    assert {"arbeitsmarkt", chapter} <= set(item["properties"]["tag_id"]["enum"])
+    assert item["properties"]["tag_id"] == {"type": "string"}
     assert fmt["schema"]["properties"]["affair_id"]["enum"] == [7]
+
+
+async def test_a_chapter_name_is_asked_again_within_that_chapter(single):
+    settings, classifier = single
+    chapter = next(ch for ch in classifier.chapters if ch.tag_id == "aps:2.4")
+
+    def answer(body):
+        data = json.loads(fake_completion(body["messages"]))
+        if "tags" in data:
+            again = "ist ein Kapitel" in body["messages"][-1]["content"]
+            tag = "arbeitsmarkt" if again else chapter.prompt_id
+            data["tags"] = [{"evidence": TEXT[:40], "tag_id": tag, "fit": "kern"}]
+        return json.dumps(data)
+
+    client, requests = mock_llm(settings, answer)
+    async with client:
+        result, _ = await classify_affair(
+            classifier, client, job(), threshold=0.6, verify=verified, escalate=nothing
+        )
+    assert [label.tag_id for label in result.passes[-1].labels] == ["aps:2.4.1"]
+    enum = requests[1]["response_format"]["json_schema"]["schema"]["properties"]["tags"]
+    assert set(enum["items"]["properties"]["tag_id"]["enum"]) == {
+        t.prompt_id for t in classifier.topics["aps:2.4"]
+    }
 
 
 async def test_single_stage_asks_again_with_short_names(single):

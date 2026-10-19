@@ -275,6 +275,8 @@ aps:2.1.8:
   de: Abstimmungs- und Wahlkampagnen, Behördeninformation vor Abstimmungen.
   alt: {de: [Abstimmungskampf, Wahlkampf], fr: [campagne de votation, campagne électorale], it: [campagna elettorale]}
 aps:2.1.9:
+  # «politikfinanzierung» las 70B als Finanzierung staatlicher Massnahmen (227 von 1000, Lauf 16–18)
+  slug: parteien-kampagnenfinanzierung
   en: "Political finance"
   it: "Finanziamento della politica"
   de: Finanzierung von Parteien, Wahl- und Abstimmungskampagnen, Offenlegung von Spenden. Nicht für Kosten, Kredite, Subventionen oder die Finanzierung staatlicher Aufgaben (dafür das Sachthema oder Budget).

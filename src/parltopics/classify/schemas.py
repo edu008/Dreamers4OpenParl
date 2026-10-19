@@ -213,12 +213,15 @@ def parse_single(
     return cleaned, dropped
 
 
-def single_format(affair_id: int, topics: list[str], institutions: list[str]) -> dict:
-    """response_format für classify_single_v3: Kurznamen als enum, damit 70B keine erfindet.
+def single_format(
+    affair_id: int, topics: list[str], institutions: list[str], *, min_tags: int = 0
+) -> dict:
+    """response_format für classify_single_v3: das JSON-Format erzwingen, Beleg vor dem Thema.
 
-    Der Beleg steht vor dem Thema. topics enthält auch die Kapitelnamen: Schreibt das Modell
-    «umweltschutz», soll die Grammatik es nicht in ein falsches Thema mit diesem Anfang zwingen;
-    parse_single verwirft den Kapitelnamen danach.
+    Leere Listen lassen tag_id frei; parse_single verwirft unbekannte Namen. Ein enum über alle
+    Kurznamen brachte keinen Gewinn (Lauf 13–15 mit, 16–18 ohne: gleiche Treffer), zwingt aber
+    einen erfundenen Namen in ein gültiges Thema mit gleichem Anfang, statt ihn zu verwerfen.
+    Mit enum nur für kleine Listen, etwa die Themen eines Kapitels bei der Nachfrage.
     """
 
     def assignment(ids: list[str]) -> dict:
@@ -228,7 +231,9 @@ def single_format(affair_id: int, topics: list[str], institutions: list[str]) ->
             "required": ["evidence", "tag_id", "fit"],
             "properties": {
                 "evidence": {"type": "string"},
-                "tag_id": {"type": "string", "enum": list(dict.fromkeys(ids))},
+                "tag_id": {"type": "string", "enum": list(dict.fromkeys(ids))}
+                if ids
+                else {"type": "string"},
                 "fit": {"type": "string", "enum": list(FIT)},
             },
         }
@@ -255,7 +260,12 @@ def single_format(affair_id: int, topics: list[str], institutions: list[str]) ->
             "affair_id": {"type": "integer", "enum": [affair_id]},
             "language": {"type": "string", "enum": ["de", "fr", "it", "rm", "other"]},
             "summary_de": text,
-            "tags": {"type": "array", "items": assignment(topics), "maxItems": MAX_TAGS},
+            "tags": {
+                "type": "array",
+                "items": assignment(topics),
+                "minItems": min_tags,
+                "maxItems": MAX_TAGS,
+            },
             "institution_tags": {
                 "type": "array",
                 "items": assignment(institutions),

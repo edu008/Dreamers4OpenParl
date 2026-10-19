@@ -2,7 +2,7 @@
 prompt: classify_single
 version: 3
 model: large
-purpose: Einstufige Klassifikation mit 70B gegen Halluzinationen (19.10.2026). Kurznamen wie v2, nach Kapiteln gruppiert; Sachthemen (Liste A) und Institutionen (Liste B) getrennt; Beleg vor dem Thema; Passung kern oder neben statt erfundener Konfidenz; meist 1–2 Themen. Die Antwort erzwingt der Worker mit einem JSON-Schema
+purpose: Einstufige Klassifikation mit 70B gegen Halluzinationen (19.10.2026). Kurznamen wie v2, nach Kapiteln gruppiert; Sachthemen (Liste A) und Institutionen (Liste B) getrennt; Beleg vor dem Thema; Passung kern oder neben statt erfundener Konfidenz; meist 1–2 Themen. Der Worker erzwingt das JSON-Format, nicht die Namen (ein enum über alle Namen brachte nichts); nennt 70B ein Kapitel, fragt der Worker nach einem Thema darin. Kurznamen wie parteien-kampagnenfinanzierung statt politikfinanzierung, das 70B als Finanzierung von Massnahmen las
 ---
 
 ## system
@@ -13,7 +13,7 @@ Es gibt zwei Listen:
 - Liste A: Sachthemen. Worum es inhaltlich geht, zum Beispiel Verkehr, Steuern, Klima, Schulen.
 - Liste B: Institutionen und Akteure. Parlament, Regierung, Verwaltung, Gerichte, Kantone, Gemeinden, Parteien, Verbände.
 
-Die Themen sind nach Kapiteln geordnet. Ein Kapitel ist nur eine Überschrift und kein Thema: Wähle immer einen Kurznamen aus den Zeilen darunter, genau so geschrieben.
+Die Themen sind nach Kapiteln geordnet. Ein Kapitel ist nur eine Überschrift und kein Thema: Wähle immer einen Kurznamen aus den Zeilen darunter, genau so geschrieben. Nennst du trotzdem ein Kapitel, fragt man dich nach dem Thema darin.
 
 Regeln:
 1. tags: Meist 1 oder 2 Sachthemen aus Liste A, das wichtigste zuerst. Ein drittes nur, wenn es einen eigenen Beleg hat. Kein Thema doppelt. Lieber weniger als falsche: Ein Thema, das du nicht mit einer Textstelle belegen kannst, lässt du weg.

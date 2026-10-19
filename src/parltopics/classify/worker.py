@@ -278,13 +278,14 @@ async def _pass(
     fmt = None
     if single:
         variables |= {"chapters": groups, "institutions": list(institutions.values())}
-        fmt = single_format(
-            job.affair_id,
-            [tag.prompt_id for tag in offered.values()] + [ch.prompt_id for ch in c.chapters],
-            [tag.prompt_id for tag in institutions.values()],
-        )
+        fmt = single_format(job.affair_id, [], [])  # tag_id frei, siehe single_format
     messages = prompt.messages(variables, user)
     stage2, model = await _ask(client, messages, large, parse2, fmt)
+    picked = [ch for ch in c.chapters if f"?{ch.prompt_id}" in dropped] if single else []
+    if picked:
+        stage2 = await _chapter_retry(
+            client, messages, large, parse2, stage2, picked, c, offered | institutions, job
+        )
     verified = await verify(job.text, [tag.evidence for tag in stage2.tags])
     if not all(verified):
         shown = (
@@ -301,6 +302,54 @@ async def _pass(
         for tag, ok in zip(stage2.tags, verified, strict=True)
     ]
     return Pass(stage, model, labels), stage2
+
+
+async def _chapter_retry(
+    client: LLMClient,
+    messages: list[dict[str, Any]],
+    large: bool,
+    parse: Callable[[dict], Stage2Output],
+    stage2: Stage2Output,
+    picked: list[Tag],
+    c: Classifier,
+    offered: dict[str, Tag],
+    job: Job,
+) -> Stage2Output:
+    """Einmal nachfragen, wenn 70B ein Kapitel statt eines Themas nennt (v3, 19.10.2026).
+
+    Das Schema lässt dann nur die Themen dieser Kapitel und die schon gewählten zu, damit die
+    Grammatik «umweltschutz» nicht in ein Thema mit gleichem Anfang aus anderem Bereich zwingt.
+    Ist die neue Antwort ungültig, bleibt die erste.
+    """
+    tags = [t for ch in picked for t in c.topics.get(ch.tag_id, [])]
+    shown = [
+        t.model_copy(update={"tag_id": offered[t.tag_id].prompt_id})
+        for t in stage2.tags
+        if t.tag_id in offered
+    ]
+    allowed = [*(t.tag_id for t in shown), *(t.prompt_id for t in tags)]
+    institutions = [t.prompt_id for t in c.topics.get(INSTITUTIONS, [])]
+    names = ", ".join(f"«{ch.prompt_id}»" for ch in picked)
+    hint = (
+        f"{names} ist ein Kapitel, kein Thema. Wähle stattdessen das passende Thema aus diesen"
+        f" Kurznamen: {', '.join(t.prompt_id for t in tags)}."
+        " Antworte nur mit dem vollständigen JSON-Objekt nach dem Schema."
+    )
+    retry = [
+        *messages,
+        {
+            "role": "assistant",
+            "content": stage2.model_copy(update={"tags": shown}).model_dump_json(),
+        },
+        {"role": "user", "content": hint},
+    ]
+    # Das Kapitel nannte das Modell selbst: mindestens ein Thema daraus, sonst leerte es die Liste
+    fmt = single_format(job.affair_id, allowed, institutions, min_tags=1)
+    reply = await client.chat(retry, large=large, response_format=fmt)
+    try:
+        return parse(extract_json(reply.content))
+    except INVALID:
+        return stage2
 
 
 async def _requote(
