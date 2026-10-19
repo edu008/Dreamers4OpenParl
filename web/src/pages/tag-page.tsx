@@ -104,7 +104,7 @@ export function TagPage() {
         </h1>
       </div>
       {page.kind === "querschnitt" && <AdhocStatus tagId={page.page_id} />}
-      <PageSummary key={page.page_id} pageId={page.page_id} />
+      <PageSummary key={page.page_id} pageId={page.page_id} pages={pages} />
       <TopicAffairs page={page} />
       {(page.kind === "tag" || page.kind === "querschnitt") && (
         <RelatedTopics tagId={page.page_id} />

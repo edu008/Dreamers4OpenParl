@@ -1,6 +1,7 @@
 import { Link } from "react-router"
 
 import { useApi } from "@/hooks/use-api"
+import type { WikiPage } from "@/lib/api"
 
 /** Ausschnitt aus GET /v1/pages/{id} (PageDetail): der Stand aus dem Seitenlauf (F23–F25). */
 interface PageSummaryOut {
@@ -26,7 +27,14 @@ function formatDate(iso: string | null): string {
 // Zusammenfassung einer Themen-, Kapitel- oder Bereichsseite aus dem Seitenlauf
 // (`parltopics pages`). Jede Aussage nennt ihre Geschäfte und Unterseiten. Ohne Lauf oder ohne
 // Text bleibt der Abschnitt weg; der Stand steht dann nur im Seitenbaum.
-export function PageSummary({ pageId }: { pageId: string }) {
+export function PageSummary({
+  pageId,
+  pages,
+}: {
+  pageId: string
+  /** Seitenbaum, damit verlinkte Seiten mit Titel statt ID erscheinen. */
+  pages: WikiPage[]
+}) {
   const detail = useApi<PageSummaryOut>(
     `/v1/pages/${encodeURIComponent(pageId)}`
   )
@@ -67,7 +75,7 @@ export function PageSummary({ pageId }: { pageId: string }) {
                     to={`/admin/themen/${id}`}
                     className="underline underline-offset-2 hover:text-primary"
                   >
-                    {id}
+                    {pages.find((page) => page.page_id === id)?.title ?? id}
                   </Link>
                 ))}
               </span>
