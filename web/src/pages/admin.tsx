@@ -1,4 +1,7 @@
+import { Link } from "react-router"
+
 import { JobTable, SystemList } from "@/components/job-summary"
+import { Button } from "@/components/ui/button"
 
 // Admin: Überblick über das System. Verwaltung (Tag-Vorschläge, Themen) folgt, sobald das Backend
 // die nötigen Endpunkte hat. Im MVP gibt es keine Zugangskontrolle: /admin ist offen.
@@ -42,9 +45,19 @@ export function AdminPage() {
           Tag-Vorschläge und Themen
         </h2>
         <p className="max-w-[68ch] text-muted-foreground">
-          Neue Themen annehmen, zusammenlegen oder ablehnen und Ad-hoc-Themen
-          anlegen folgt. Dafür braucht das Backend noch die Endpunkte.
+          Ein Ad-hoc-Thema ist ein frei definiertes Thema neben dem festen
+          Schema, zum Beispiel «Covid-19». Es entsteht ohne Neutraining aus
+          Name, Beschreibung und Stichwörtern.
         </p>
+        <div>
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={<Link to="/admin/thema-neu" />}
+          >
+            Ad-hoc-Thema anlegen
+          </Button>
+        </div>
       </section>
     </>
   )

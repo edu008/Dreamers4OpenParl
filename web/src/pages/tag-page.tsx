@@ -1,6 +1,7 @@
 import { Fragment } from "react"
 import { Link, useParams } from "react-router"
 
+import { AdhocStatus } from "@/components/adhoc-status"
 import { PageRow } from "@/components/page-tree"
 import { RelatedTopics } from "@/components/related-topics"
 import { TopicAffairs } from "@/components/topic-affairs"
@@ -101,6 +102,7 @@ export function TagPage() {
           {page.title}
         </h1>
       </div>
+      {page.kind === "querschnitt" && <AdhocStatus tagId={page.page_id} />}
       <TopicAffairs page={page} />
       {(page.kind === "tag" || page.kind === "querschnitt") && (
         <RelatedTopics tagId={page.page_id} />

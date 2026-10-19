@@ -10,6 +10,7 @@ const STATIC_TITLES: Record<string, string> = {
   "/admin": "Admin",
   "/admin/review": "Review",
   "/admin/themen": "Themen",
+  "/admin/thema-neu": "Ad-hoc-Thema anlegen",
   "/admin/graph": "Graph",
   "/admin/parlamente": "Parlamente",
   "/hilfe": "So funktioniert's",
