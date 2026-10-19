@@ -1,5 +1,6 @@
 import { Link } from "react-router"
 
+import { CalibrationPanel } from "@/components/calibration-panel"
 import { JobTable, SystemList } from "@/components/job-summary"
 import { ProposalsPanel } from "@/components/proposals-panel"
 import { RunsPanel } from "@/components/runs-panel"
@@ -47,6 +48,16 @@ export function AdminPage() {
           Durchsatz und Hochrechnung
         </h2>
         <RunsPanel />
+      </section>
+
+      <section
+        aria-labelledby="quality-heading"
+        className="flex flex-col gap-3 pt-2"
+      >
+        <h2 id="quality-heading" className="font-heading text-lg font-medium">
+          Qualität
+        </h2>
+        <CalibrationPanel />
       </section>
 
       <section
