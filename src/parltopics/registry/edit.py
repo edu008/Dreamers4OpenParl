@@ -1,9 +1,9 @@
-"""Ad-hoc-Tags in der Registry anlegen und freischalten (PRD 7.4, F7, F8).
+"""Ad-hoc-Tags in der Registry anlegen, freischalten und zurückziehen (PRD 7.4, F7, F8, F10).
 
 Wie `registry import-aps` schreibt das die ganze Datei kanonisch neu (write_registry) und erhöht
 registry_version. Die neue Fassung muss sich laden lassen, sonst bleibt die alte: Sie entsteht
 daneben und ersetzt die Datei erst nach der Prüfung. Danach gehört sie mit sync_registry in die
-Datenbank.
+Datenbank. Jeder Statuswechsel nach dem Anlegen steht mit Name und Zeit unter changes.
 """
 
 import datetime as dt
@@ -26,6 +26,24 @@ class TagExists(RegistryError):
     """Das Tag steht schon in der Registry."""
 
 
+class NotAdhoc(RegistryError):
+    """Das Tag fehlt oder ist kein Ad-hoc-Tag."""
+
+
+class WrongStatus(RegistryError):
+    """Der Statuswechsel ist aus dem jetzigen Status nicht erlaubt."""
+
+
+# Erlaubte Wechsel eines Ad-hoc-Tags: neuer Status → bisheriger. proposed setzt nur add_adhoc_tag.
+ALLOWED = {"active": ("proposed",), "retired": ("proposed", "active")}
+
+
+def check_step(tag_id: str, current: str, status: str) -> None:
+    if current not in ALLOWED[status]:
+        allowed = " oder ".join(ALLOWED[status])
+        raise WrongStatus(f"{tag_id} ist {current}; {status} geht nur aus {allowed}")
+
+
 def adhoc_id(name: str) -> str:
     """adhoc:<name> aus dem deutschen Namen, umgeschrieben wie die APS-slugs."""
     return f"adhoc:{aps_slug(name)}"
@@ -41,7 +59,10 @@ def add_adhoc_tag(
     proposal: dict[str, Any] | None = None,
     today: dt.date | None = None,
 ) -> tuple[str, Registry]:
-    """Legt ein Ad-hoc-Tag mit Status proposed an; gibt die Tag-ID und die neue Registry zurück."""
+    """Legt ein Ad-hoc-Tag mit Status proposed an; gibt die Tag-ID und die neue Registry zurück.
+
+    Ein zurückgezogenes Tag gleicher ID kommt mit dem neuen Inhalt als proposed zurück.
+    """
     tag_id = adhoc_id(name_de)
     entry: dict[str, Any] = {
         "tag_id": tag_id,
@@ -56,23 +77,41 @@ def add_adhoc_tag(
         entry["proposal"] = proposal
 
     def change(data: dict[str, Any]) -> None:
-        if any(tag.get("tag_id") == tag_id for tag in data["tags"]):
+        old = next((tag for tag in data["tags"] if tag.get("tag_id") == tag_id), None)
+        if old is None:
+            data["tags"].append(entry)
+            return
+        if old.get("status") != "retired":
             raise TagExists(f"{tag_id} gibt es schon in der Registry")
-        data["tags"].append(entry)
+        old["pref_label"]["de"] = name_de
+        old["definition"]["de"] = definition_de
+        old["broader"] = entry["broader"]
+        if proposal:
+            old["proposal"] = proposal
+        _step(old, by, "proposed")
 
     return tag_id, _edit(path, change, today)
 
 
-def set_status(path: Path, tag_id: str, status: str, today: dt.date | None = None) -> Registry:
+def set_status(
+    path: Path, tag_id: str, status: str, *, by: str, today: dt.date | None = None
+) -> Registry:
     """Setzt den Status eines Ad-hoc-Tags, etwa proposed → active, wenn es sich bewährt hat."""
 
     def change(data: dict[str, Any]) -> None:
         tag = next((tag for tag in data["tags"] if tag.get("tag_id") == tag_id), None)
         if tag is None or tag.get("scheme") != "adhoc":
-            raise RegistryError(f"{tag_id} ist kein Ad-hoc-Tag der Registry")
-        tag["status"] = status
+            raise NotAdhoc(f"{tag_id} ist kein Ad-hoc-Tag der Registry")
+        check_step(tag_id, tag["status"], status)
+        _step(tag, by, status)
 
     return _edit(path, change, today)
+
+
+def _step(tag: dict[str, Any], by: str, status: str) -> None:
+    tag["status"] = status
+    at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    tag.setdefault("changes", []).append({"at": at, "by": by, "status": status})
 
 
 def _edit(path: Path, change: Callable[[dict[str, Any]], None], today: dt.date | None) -> Registry:

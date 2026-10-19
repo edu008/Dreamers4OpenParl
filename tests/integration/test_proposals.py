@@ -144,3 +144,60 @@ def test_review_accepts_merges_and_rejects(conn, settings):
         assert client.get("/v1/proposals", params={"state": "done"}).json()["total"] == 3
         unknown = client.post(decide.format(999), json={"decision": "rejected", "user_name": "M"})
         assert unknown.status_code == 404
+
+
+def test_undo_reopens_a_decision_and_retires_the_accepted_tag(conn, settings):
+    asyncio.run(group(conn, settings, use_model=False))
+    decide = "/v1/proposals/{}/decision"
+    undo = {"decision": "undo", "user_name": "Leo"}
+    with TestClient(create_app(settings)) as client:
+        egov, velo = client.get("/v1/proposals").json()["items"]
+        assert client.post(decide.format(velo["id"]), json=undo).status_code == 409  # offen
+
+        accept = {"decision": "accepted", "user_name": "Mia"}
+        client.post(decide.format(velo["id"]), json=accept)
+        undone = client.post(decide.format(velo["id"]), json=undo).json()
+        assert undone["tag_id"] == "adhoc:velowege"
+        proposal = undone["proposal"]
+        assert (proposal["status"], proposal["decision"], proposal["decided_by"]) == (
+            "open",
+            None,
+            "Leo",
+        )
+        assert load_registry(settings.registry_path).get("adhoc:velowege").status == "retired"
+        assert client.post(decide.format(velo["id"]), json=undo).status_code == 409
+
+        again = client.post(decide.format(velo["id"]), json={**accept, "user_name": "Ana"})
+        assert (again.json()["tag_id"], again.json()["jobs"]) == ("adhoc:velowege", 1)
+        tag = load_registry(settings.registry_path).get("adhoc:velowege")
+        assert [(change.by, change.status) for change in tag.changes] == [
+            ("Leo", "retired"),
+            ("Ana", "proposed"),
+        ]
+
+        client.post(decide.format(egov["id"]), json={"decision": "rejected", "user_name": "Mia"})
+        undone = client.post(decide.format(egov["id"]), json=undo).json()
+        assert (undone["tag_id"], undone["proposal"]["status"]) == (None, "open")
+        assert [item["id"] for item in client.get("/v1/proposals").json()["items"]] == [egov["id"]]
+
+
+def test_undo_leaves_a_topic_alone_that_someone_created_again(conn, settings):
+    asyncio.run(group(conn, settings, use_model=False))
+    decide = "/v1/proposals/{}/decision"
+    with TestClient(create_app(settings)) as client:
+        _, velo = client.get("/v1/proposals").json()["items"]
+        client.post(decide.format(velo["id"]), json={"decision": "accepted", "user_name": "Mia"})
+        client.post("/v1/adhoc/adhoc:velowege/retire", json={"user_name": "Leo"})
+        topic = {
+            "name_de": "Velowege",
+            "description_de": "Geschäfte zu Velowegen, neu gefasst",
+            "keywords": {"de": ["Velo"]},
+            "user_name": "Ana",
+        }
+        assert client.post("/v1/adhoc", json=topic).status_code == 200
+
+        undo = {"decision": "undo", "user_name": "Leo"}
+        undone = client.post(decide.format(velo["id"]), json=undo).json()
+        assert (undone["tag_id"], undone["proposal"]["status"]) == (None, "open")
+        tag = load_registry(settings.registry_path).get("adhoc:velowege")
+        assert (tag.status, tag.definition.de) == ("proposed", topic["description_de"])

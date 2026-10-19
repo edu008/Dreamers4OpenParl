@@ -2,15 +2,23 @@
 
 import asyncio
 import json
+import shutil
 from pathlib import Path
 
 import httpx
 import pytest
 
-from parltopics.classify.queue import Job
-from parltopics.classify.worker import OutputFailure, classify_affair, fill_slots, load_classifier
+from parltopics.classify.queue import Job, adhoc_task
+from parltopics.classify.worker import (
+    OutputFailure,
+    classify_affair,
+    fill_slots,
+    load_classifier,
+    reloaded,
+)
 from parltopics.llm import LLMClient
 from parltopics.registry import tag_hash
+from parltopics.registry.edit import add_adhoc_tag
 from tests.mock_llm.app import completion, fake_completion
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tags_example.yaml"
@@ -288,6 +296,21 @@ def test_worker_takes_aps_and_proposed_or_active_adhoc_tasks(classifier):
         "classify:adhoc:digitalisierung-breit",
         "classify:adhoc:ki-verwaltung",
     ]
+
+
+def test_a_running_worker_takes_the_registry_version_the_database_has(
+    settings, classifier, tmp_path
+):
+    path = tmp_path / "tags.yaml"
+    shutil.copy(FIXTURE, path)
+    _, registry = add_adhoc_tag(path, name_de="Velowege", definition_de="neu", by="Mia")
+    changed = settings.model_copy(update={"registry_path": path})
+
+    assert reloaded(classifier, changed, classifier.registry_version) is classifier
+    assert reloaded(classifier, changed, "2000-01-01.1") is classifier  # Datei passt noch nicht
+    fresh = reloaded(classifier, changed, registry.registry_version)
+    assert fresh.known["adhoc:velowege"].definition.de == "neu"
+    assert adhoc_task("adhoc:velowege") in fresh.tasks
 
 
 @pytest.fixture

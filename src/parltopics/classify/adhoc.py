@@ -4,7 +4,9 @@
 Kandidaten; dazu kommt die feste Stichprobe von 2 % (jedes 50. Geschäft) ohne Stichworttreffer,
 die schätzt, wie viel die Stichwörter verpassen. Für beide entstehen Jobs classify:adhoc:<name>,
 die der Worker wie Stufe 2 mit nur diesem Thema bearbeitet. Das Tag bleibt proposed, bis ein
-Mensch es freischaltet; danach läuft es in Stufe 2 von classify:aps mit.
+Mensch es freischaltet; danach läuft es in Stufe 2 von classify:aps mit. retire zieht es zurück
+(F10): Jobs zu, Labels ohne menschlichen Entscheid superseded. create mit demselben Namen holt es
+zurück.
 """
 
 from dataclasses import dataclass
@@ -15,12 +17,12 @@ import httpx
 import psycopg
 from pydantic import AfterValidator, BaseModel
 
-from parltopics.classify.queue import OpenResult, adhoc_task, open_jobs
+from parltopics.classify.queue import OpenResult, adhoc_task, close_jobs, open_jobs
 from parltopics.classify.worker import SAMPLE_EVERY, STAGE_PROMPTS
 from parltopics.config import Settings
 from parltopics.llm import LLMClient, extract_json, load_prompt
-from parltopics.registry import Registry, file_hash, tag_hash
-from parltopics.registry.edit import add_adhoc_tag, set_status
+from parltopics.registry import Registry, file_hash, load_registry, tag_hash
+from parltopics.registry.edit import NotAdhoc, add_adhoc_tag, check_step, set_status
 from parltopics.registry.sync import sync_registry
 
 KEYWORDS_PROMPT = "adhoc_keywords_v1"
@@ -149,9 +151,53 @@ def create(
     return Created(tag_id, registry.registry_version, run, len(candidates), len(sample))
 
 
-def activate(conn: psycopg.Connection, settings: Settings, tag_id: str) -> Registry:
+def activate(conn: psycopg.Connection, settings: Settings, tag_id: str, *, by: str) -> Registry:
     """Schaltet ein bewährtes Ad-hoc-Tag frei: ab dann in Stufe 2 von classify:aps."""
-    registry = set_status(settings.registry_path, tag_id, "active")
+    with conn.transaction():
+        return _set_status(conn, settings, tag_id, "active", by)
+
+
+# Menschliche Entscheide haben Vorrang wie in queue.SUPERSEDE: bestätigte und von Hand gesetzte
+# Labels bleiben aktiv und zählen weiter im Gold-Set.
+RETIRE_LABELS = """
+UPDATE affair_tags SET status = 'superseded'
+WHERE tag_id = %s AND status = 'active' AND review_status IS NULL
+"""
+STATUS = "SELECT status FROM tags WHERE tag_id = %s AND scheme = 'adhoc' FOR UPDATE"
+
+
+@dataclass(frozen=True)
+class Retired:
+    registry_version: str
+    jobs: int  # geschlossen, auch erledigte
+    labels: int  # ohne menschlichen Entscheid, von active auf superseded
+
+
+def retire(conn: psycopg.Connection, settings: Settings, tag_id: str, *, by: str) -> Retired:
+    """Zieht ein Ad-hoc-Tag zurück, Rückweg zu create und activate (F10); gelöscht wird nichts."""
+    with conn.transaction():
+        registry = _set_status(conn, settings, tag_id, "retired", by)
+        jobs = close_jobs(conn, adhoc_task(tag_id))
+        labels = conn.execute(RETIRE_LABELS, (tag_id,)).rowcount
+    return Retired(registry.registry_version, jobs, labels)
+
+
+def _set_status(
+    conn: psycopg.Connection, settings: Settings, tag_id: str, status: str, by: str
+) -> Registry:
+    """Statuswechsel in Datei und Datenbank, in der Transaktion des Aufrufers.
+
+    Ob er erlaubt ist, entscheidet die Datenbank; die gesperrte Zeile lässt zwei gleiche Aufrufe
+    nacheinander laufen. Steht der Wechsel schon in der Datei, weil danach die Transaktion
+    scheiterte, holt ein zweiter Aufruf nur den Rest nach.
+    """
+    row = conn.execute(STATUS, (tag_id,)).fetchone()
+    if row is None:
+        raise NotAdhoc(f"{tag_id} ist kein Ad-hoc-Tag der Registry")
+    check_step(tag_id, row[0], status)
+    registry = load_registry(settings.registry_path)
+    if registry.get(tag_id).status != status:
+        registry = set_status(settings.registry_path, tag_id, status, by=by)
     _sync(conn, settings, registry)
     return registry
 

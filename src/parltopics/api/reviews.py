@@ -39,6 +39,7 @@ SET status = %(status)s, review_status = %(review_status)s, reviewed_by = %(revi
 WHERE id = %(id)s
 """
 TAG = "SELECT 1 FROM tags WHERE tag_id = %(tag_id)s AND status = 'active'"
+RETIRED = "SELECT 1 FROM tags WHERE tag_id = %(tag_id)s AND status = 'retired'"
 # Von Hand gesetzt: Konfidenz 1, ohne Beleg, zum Text, den die Person gesehen hat.
 ADD = """
 INSERT INTO affair_tags (affair_id, tag_id, scheme, confidence, task, stage, model_version,
@@ -102,6 +103,10 @@ def _add(cursor: psycopg.Cursor, params: dict) -> int:
 
 
 def _undo(cursor: psycopg.Cursor, params: dict) -> int:
+    # Auf einem zurückgezogenen Thema bleiben die Entscheide stehen; undo machte ein Label ohne
+    # Entscheid wieder aktiv. Wer es ändern will, legt das Thema neu an.
+    if cursor.execute(RETIRED, params).fetchone() is not None:
+        raise HTTPException(409, f"Thema {params['tag_id']} ist zurückgezogen")
     row = cursor.execute(REVIEWED, params).fetchone()
     if row is None:
         raise HTTPException(

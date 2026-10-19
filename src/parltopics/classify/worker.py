@@ -90,7 +90,7 @@ class Classifier:
     @property
     def tasks(self) -> list[str]:
         """Aufgaben, die dieser Worker bearbeiten kann: APS und je vorgeschlagenes oder aktives
-        Ad-hoc-Tag. Ein später angelegtes Tag übernimmt erst ein neu gestarteter Worker."""
+        Ad-hoc-Tag. Ein später angelegtes Tag kommt mit der nächsten Fassung dazu (reloaded)."""
         adhoc = (
             adhoc_task(tag.tag_id)
             for tag in self.known.values()
@@ -127,6 +127,18 @@ def load_classifier(settings: Settings) -> Classifier:
             else None
         ),
     )
+
+
+def reloaded(c: Classifier, settings: Settings, synced: str | None) -> Classifier:
+    """Lädt die Registry neu, sobald die Datenbank eine andere Fassung synchronisiert hat.
+
+    So prüft ein laufender Worker ein neu angelegtes Thema nicht mit der alten Definition und bietet
+    ein zurückgezogenes nicht mehr an. Passt die Datei noch nicht zur Datenbank, bleibt der Stand.
+    """
+    if synced == c.registry_version:
+        return c
+    fresh = load_classifier(settings)
+    return fresh if fresh.registry_version == synced else c
 
 
 def _brief(error: Exception) -> str:
@@ -428,7 +440,12 @@ async def run_worker(
                 )
 
             async def claim_jobs(n: int) -> list[Job]:
+                nonlocal c
                 await db(release_stale, settings.job_timeout_seconds)
+                fresh = reloaded(c, settings, await db(synced_version))
+                if fresh is not c:
+                    log.info("worker %s: registry %s geladen", worker_id, fresh.registry_version)
+                    c = fresh
                 tasks = [task] if task else c.tasks
                 return await db(claim, worker_id, n, tasks=tasks, run_id=run_id)
 
