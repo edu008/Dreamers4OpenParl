@@ -23,7 +23,7 @@ A human can confirm, reject or replace any label in a review queue. Human decisi
 Headline results:
 
 - **Quality:** on federal affairs, single-pass Apertus 70B reaches **84.6 %** agreement with the Curia Vista subject areas assigned by the Parliamentary Services (at least one hit, 473 affairs). The two-stage 8B → 70B pipeline reached 72.7 %, and our target was 75 %.
-- **Throughput:** a measured 15-minute run labelled `‹N_RUN›` affairs at all three parliament levels (`‹RATE›` affairs/min). At that rate, the whole corpus of 326'000 affairs takes about `‹FULL_RUN›` on one shared endpoint.
+- **Throughput:** a measured 15-minute run labelled 2'678 affairs at all three parliament levels, without a single failed job (about 175 affairs per minute). At that rate, the whole corpus of 326'000 affairs takes about 31 hours on one shared endpoint.
 - **Deployment:** the whole system runs air-gapped. Its only network connection at runtime is the Apertus endpoint.
 
 ## 2. Architecture
@@ -82,7 +82,7 @@ The app image is built only from bundled wheels (`pip install --no-index`) and t
 
 ## 3. Use of Apertus
 
-- **Models:** Apertus v1.5 70B (`apertus-v1-5-70b`) for classification, keywords, agent and summaries. Apertus v1.5 8B (`apertus-v1-5-8b`) for the optional two-stage mode.
+- **Models:** Apertus v1.5 70B for classification (served by Keera as `apertus-v1-5-70b-thinking`; stored as `model_version` on every label), keywords, agent and summaries. Apertus v1.5 8B (`apertus-v1-5-8b`) for the optional two-stage mode.
 - **How it is used:** inference (zero-shot classification with structured output) and agents / tool use. No fine-tuning.
 - **Where it runs:** an OpenAI-compatible endpoint (`LLM_BASE_URL`). During the hack this was the Keera gateway, at temperature 0 with up to 12 parallel requests per worker. Any vLLM or TGI server serving the Hugging Face weights works the same way.
 
@@ -126,7 +126,8 @@ All prompts are versioned files in [`prompts/`](prompts/README.md). Their hash i
 | 70B single pass (`classify_single_v1`) | 473 | **84.6 %** |
 | 70B single pass, 500 newest federal affairs | 499 | 87.5 % (top-1 72.3 %) |
 | + title rules and topics/institutions split (`v2`) | 1'000 | top-1 82.3 %, top-2 91.0 % |
-| Current prompt `v3`, all active labels after the 15-minute run | `‹CURIA_N›` | `‹CURIA_HIT›` |
+| Current prompt `v3`, federal affairs of the 15-minute run | 684 | 84.5 % (top-1 81.6 %) |
+| All active labels after the 15-minute run | 1'037 | **86.2 %** (top-1 82.3 %) |
 
 Separating topics from institutions cut labels that name only the actor ("Parliament", "Federal Council"):
 
@@ -140,15 +141,26 @@ Separating topics from institutions cut labels that name only the actor ("Parlia
 
 | | Value |
 | --- | --- |
-| Affairs labelled in 15 min | `‹N_RUN›` (federal `‹N_CHE›`, cantonal `‹N_CANT›`, municipal `‹N_MUN›`) |
-| Failed jobs | `‹N_FAIL›` |
-| Throughput | `‹RATE›` affairs/min |
-| Median model latency per affair | `‹LAT›` s |
-| Extrapolated full run (326'000 affairs) | `‹FULL_RUN›` on one shared endpoint; scales linearly with more workers or endpoints |
+| Affairs labelled in 15 min 21 s | 2'678 (federal 774, cantonal 1'438, municipal 466); 24 of them by title rule |
+| Failed jobs | 0 (65 jobs were in flight when we stopped; they went back to the queue) |
+| Throughput | 175 affairs/min, about 10'500 per hour, with 36 concurrent requests |
+| Median time per affair | 9.8 s (one 70B call plus evidence check) |
+| Extrapolated full run (326'000 affairs) | about 31 hours on the shared hackathon endpoint; more workers or a second endpoint shorten it, and daily updates are only a few hundred affairs |
 
 **Bias check across languages and levels.** For the labels of the run, we compare per group the share of affairs with at least one label, the labels per affair, the share of verified evidence and the share of core-fit labels. `parltopics eval` produces the same breakdown by canton and by the party of the first author.
 
-`‹BIAS_TABLE›`
+| Level | Language | Affairs | ≥ 1 label | Labels/affair | Quote verified | Core fit |
+| --- | --- | --- | --- | --- | --- | --- |
+| Federal | de | 684 | 93.0 % | 1.12 | 98.7 % | 94.1 % |
+| Federal | fr | 81 | 96.3 % | 1.44 | 95.7 % | 88.2 % |
+| Cantonal | de | 1'009 | 93.7 % | 1.25 | 95.9 % | 87.7 % |
+| Cantonal | fr | 291 | 92.4 % | 1.20 | 96.3 % | 86.2 % |
+| Cantonal | it | 138 | 89.1 % | 1.32 | 92.0 % | 80.8 % |
+| Municipal | de | 313 | 94.6 % | 1.33 | 94.8 % | 86.0 % |
+| Municipal | fr | 94 | 95.7 % | 1.17 | 96.7 % | 90.2 % |
+| Municipal | it | 59 | 94.9 % | 1.44 | 93.5 % | 83.0 % |
+
+Groups with at least 10 affairs; federal Italian affairs did not fall into the run. The rates are close across languages and levels. Cantonal Italian affairs (Ticino) are the weakest group on every measure, 4 to 7 points below the German ones. With 138 affairs this is a signal to watch, not yet a proven bias. The remaining affairs without a label are mostly procedural items that fit no APS topic.
 
 **Agent (F21).** Twenty test questions, ten in German and ten in French, cover topic, counts, canton and period, overview, a single affair, a question with no hits, and an ad-hoc topic. In all runs, 20 of 20 answers cite only IDs returned by tools, none exceeds 6 tool calls, and `propose_adhoc_topic` never creates anything. After cross-lingual query expansion, all 3 cross-language questions find cited hits. Before the expansion, none did. By hand review, 13 answers are correct, 5 partly correct and 2 wrong ([tests/eval/agent_results.md](tests/eval/agent_results.md)).
 
@@ -161,7 +173,7 @@ Separating topics from institutions cut labels that name only the actor ("Parlia
 
 ## 6. Limitations
 
-- **Coverage.** Only part of the 326'000 affairs is labelled so far: `‹N_LABELLED›` affairs. The 15-minute run shows the rate, but it is not a full run.
+- **Coverage.** Only part of the 326'000 affairs is labelled so far: 3'642 affairs with 4'843 active labels. The 15-minute run shows the rate, but it is not a full run.
 - **Gold standard.** Curia Vista areas are coarser than APS topics and exist only for federal affairs, so the 84.6 % measures chapter-level agreement, not topic accuracy. The cantonal gold labels (SG, TG, Zug, ZH) use their own schemes, and we have not yet mapped them to APS.
 - **DVS use case.** We have not yet reported recall on the 30 DVS affairs and the 3'433 PolitMonitor affairs. `parltopics eval --gold` computes it, but the digitalisation tag still has to be run over the candidates.
 - **Romansh.** Romansh affairs are classified directly with the same prompt, but they are too few to evaluate separately.
@@ -188,7 +200,7 @@ make offline-test                 # air-gap check
 
 - **Versions:** each label stores its model, `prompt_version` (file name plus hash), `registry_version` and `input_hash`, so any number above can be traced to the run that produced it.
 - **Parallelism:** `PARALLEL_70B=12` per worker.
-- **Commit:** `‹COMMIT›`.
+- **Commit:** the 15-minute run used the code at `2f95882` (runs 36–38 in `classification_runs`).
 
 ## License
 
