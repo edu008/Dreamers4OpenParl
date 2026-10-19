@@ -74,6 +74,14 @@ class ProposalInfo(_Strict):
     related_tag: str | None = None
 
 
+class Change(_Strict):
+    """Ein Statuswechsel nach dem Anlegen, mit Name und Zeit (F10)."""
+
+    at: dt.datetime
+    by: str
+    status: Status
+
+
 def aps_parent(tag_id: str) -> str | None:
     """Eltern-Code im APS-Schema: aps:6.1.9 -> aps:6.1 -> aps:6 -> None."""
     code = tag_id.split(":", 1)[1]
@@ -98,6 +106,7 @@ class Tag(_Strict):
     unreviewed_translations: list[Literal["fr", "it", "rm"]] = Field(default_factory=list)
     created: Created | None = None
     proposal: ProposalInfo | None = None
+    changes: list[Change] = Field(default_factory=list)
 
     @property
     def aps_level(self) -> ApsLevel | None:

@@ -66,13 +66,14 @@ HEADLINE = f"MaxFragments=2, MaxWords=25, MinWords=10, StartSel={MARK[0]}, StopS
 
 
 def hit_topics(affair: str) -> str:
-    """Aktive Themen eines Geschäfts als JSON-Liste mit Beleg (schemas.HitTopic)."""
+    """Aktive Themen eines Geschäfts als JSON-Liste mit Beleg (schemas.HitTopic). Ein
+    zurückgezogenes Thema fehlt, auch wo ein Mensch sein Label bestätigt hat."""
     return f"""(SELECT coalesce(json_agg(json_build_object(
                     'tag_id', l.tag_id, 'name_de', t.name_de, 'confidence', l.confidence,
                     'evidence', l.evidence, 'evidence_verified', l.evidence_verified,
                     'stage', l.stage) ORDER BY l.confidence DESC), '[]')
         FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
-        WHERE l.affair_id = {affair} AND l.status = 'active')"""
+        WHERE l.affair_id = {affair} AND l.status = 'active' AND t.status <> 'retired')"""
 
 
 SEARCH = f"""

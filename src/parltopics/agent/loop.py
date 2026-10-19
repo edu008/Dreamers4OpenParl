@@ -8,6 +8,7 @@ neu und streicht danach die übrigen. Jede Sitzung steht in agent_runs.
 """
 
 import asyncio
+import datetime as dt
 import json
 import re
 import time
@@ -38,8 +39,10 @@ from parltopics.wiki.tree import Page
 PROMPT = "agent_system_v1"
 MAX_STEPS = MAX_TOOL_CALLS + 3  # Modellaufrufe der Schleife: Platz für Fehler und Nachfrage
 RESULT_MAX = 8000  # Zeichen je Werkzeugergebnis im Prompt
-COUNTING = ("count_affairs", "read_page")  # die Quellen für Zahlen (Prompt, Regel 3)
+COUNTING = ("count_affairs", "read_page")  # die Quellen für Zahlen (Prompt, Regel 4)
 CITATION = re.compile(r"\s*\[(\d+)\]")
+# «ID: 70435» schrieb 70B in den Testfragen F21 oft; das zählt als Zitat, bleibt aber im Satz.
+PLAIN_ID = re.compile(r"\bIDs?:?\s*(\d+)")
 ANSWER_JSON = '{"answer": "…", "cited_ids": [IDs]}'
 ANSWER = f"Antworte nur mit {ANSWER_JSON}."
 FORCE = f"Keine Werkzeugaufrufe mehr. Antworte jetzt aus den bisherigen Ergebnissen. {ANSWER}"
@@ -47,6 +50,8 @@ PROTOCOL = (
     f'Antworte mit genau einem JSON-Objekt: {{"action": "…", "args": {{…}}}} oder {ANSWER_JSON}.'
 )
 NO_TOOL = "Du hast noch kein Werkzeug aufgerufen. Rufe zuerst eines auf, antworte mit dem Ergebnis."
+DROPPED = "(Antwort verworfen)"
+KNOWN_MAX = 30  # gelieferte IDs in der Rückfrage zu unbekannten Zitaten
 LOG = """
 INSERT INTO agent_runs (kind, query, tool_calls, answer, cited_affair_ids, model_version,
                         prompt_version, duration_ms, status)
@@ -73,9 +78,9 @@ def parse_reply(text: str) -> Action | Answer:
 
 
 def cited(answer: Answer) -> list[int]:
-    """Zitierte IDs aus cited_ids und den [ID] im Text, in dieser Reihenfolge, ohne Doppel."""
-    found = [int(match) for match in CITATION.findall(answer.answer)]
-    return list(dict.fromkeys([*answer.cited_ids, *found]))
+    """Zitierte IDs aus cited_ids und den IDs im Text, in dieser Reihenfolge, ohne Doppel."""
+    found = [*CITATION.findall(answer.answer), *PLAIN_ID.findall(answer.answer)]
+    return list(dict.fromkeys([*answer.cited_ids, *map(int, found)]))
 
 
 def keep_known(answer: Answer, known: set[int]) -> tuple[str | None, list[int]]:
@@ -163,6 +168,8 @@ async def run(
             parsed, note = None, f"Die Antwort war ungültig ({_brief(error)}). {PROTOCOL}"
         if isinstance(parsed, Answer) and not outcome.tool_calls and not nudged:
             nudged, parsed, note = True, None, f"{NO_TOOL} {PROTOCOL}"  # ohne Werkzeug unbelegt
+        if parsed is None:  # Live-Test F21: 70B erfand Werkzeug-Ergebnisse und suchte ihnen nach
+            messages[-1]["content"] = DROPPED
         if isinstance(parsed, Answer):
             answer = parsed
             break
@@ -179,17 +186,22 @@ async def run(
     if answer is not None:
         unknown = [i for i in cited(answer) if i not in known]
         if unknown:
-            note = f"Diese IDs hat kein Werkzeug geliefert: {unknown}. Zitiere nur gelieferte. "
+            # Mit der Liste korrigiert 70B das Zitat; ohne sie gab es im Live-Test F21 auf.
+            delivered = sorted(known)[:KNOWN_MAX]
+            note = (
+                f"Diese IDs hat kein Werkzeug geliefert: {unknown}. Gelieferte IDs: {delivered}. "
+            )
             answer = as_answer(await step(note + ANSWER)) or answer
         outcome.answer, outcome.cited_ids = keep_known(answer, known)
-    # Belegt ist eine Antwort durch Zitate oder durch Zahlen aus einer gelungenen Zählung.
+    # Belegt ist eine Antwort durch Zitate, Zahlen aus einer gelungenen Zählung oder einen Entwurf.
     counted = any(call["name"] in COUNTING and "error" not in call for call in outcome.tool_calls)
-    backed = outcome.answer is not None and (outcome.cited_ids or counted)
+    backed = outcome.answer is not None and (outcome.cited_ids or counted or outcome.proposal)
     outcome.status = "limit_reached" if forced else "ok" if backed else "no_results"
     return outcome
 
 
-SHAPES = {"string": '"…"', "integer": "0", "number": "0.0", "boolean": "true"}
+# false: das Modell übernimmt die Form, ein Schalter wie all_affairs bleibt so beim Standard.
+SHAPES = {"string": '"…"', "integer": "0", "number": "0.0", "boolean": "false"}
 
 
 def _shape(schema: dict) -> str:
@@ -221,7 +233,9 @@ def first_messages(settings: Settings, query: str) -> tuple[list[dict], str]:
                 ),
             }
         )
-    system = {"max_tool_calls": MAX_TOOL_CALLS, "tools": tools}
+    # Ohne Datum hielt 70B 2024 für das letzte Jahr und setzte bei «seit 2020» year_to 2024.
+    today = dt.date.today().isoformat()
+    system = {"max_tool_calls": MAX_TOOL_CALLS, "tools": tools, "today": today}
     return prompt.messages(system, {"query": query}), prompt.version
 
 

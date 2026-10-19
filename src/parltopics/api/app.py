@@ -33,10 +33,13 @@ from parltopics.agent import loop as agent_loop
 from parltopics.api import navigate, queries, reviews
 from parltopics.api.schemas import (
     AdhocActivated,
+    AdhocActivateIn,
     AdhocCreated,
     AdhocIn,
     AdhocPreview,
+    AdhocRetired,
     AdhocScope,
+    AdhocStepIn,
     AffairRecord,
     AffairsSummary,
     AffairStar,
@@ -82,7 +85,7 @@ from parltopics.config import Settings, get_settings
 from parltopics.export import affairs_csv
 from parltopics.llm import JSONExtractionError
 from parltopics.registry import Registry, RegistryError, load_registry
-from parltopics.registry.edit import TagExists
+from parltopics.registry.edit import NotAdhoc, TagExists, WrongStatus
 from parltopics.wiki.tree import (
     Page,
     TreeError,
@@ -100,8 +103,10 @@ SWAGGER = Path(__file__).parent / "static" / "swagger"  # swagger-ui-dist, Apach
 DESCRIPTION = """Sidecar-API von ParlTopics (PRD F10): Themen zu Geschäften aus OpenParlData,
 klassifiziert mit Apertus, dazu die gespeicherten OpenParlData-Daten (Geschäfte, Texte, Dokumente,
 Parlamente). Geschäfts-IDs sind OpenParlData-IDs. Schreibend sind nur POST /v1/reviews,
-POST /v1/proposals/{proposal_id}/decision, POST /v1/adhoc und POST /v1/adhoc/{tag_id}/activate;
-im Hack-MVP ohne Anmeldung und Rollen, an jedem Entscheid stehen Name und Zeit.
+POST /v1/proposals/{proposal_id}/decision, POST /v1/adhoc, POST /v1/adhoc/{tag_id}/activate und
+POST /v1/adhoc/{tag_id}/retire; im Hack-MVP ohne Anmeldung und Rollen, an jedem Schritt stehen
+Name und Zeit. Jeder schreibende Aufruf hat einen Rückweg: Reviews und Vorschlagsentscheide mit
+undo, ein Ad-hoc-Thema mit retire, retire mit erneutem POST /v1/adhoc; gelöscht wird nichts.
 POST /v1/search/navigate und POST /v1/agent/search fragen Apertus und protokollieren jede Suche.
 
 Ohne Datenbank antworten die Endpunkte unter Geschäfte, Themen, Review und Jobs mit 503;
@@ -120,7 +125,11 @@ TAGS = [
         "description": "Volltext ohne Modell; Navigationssuche und Agent mit Apertus.",
     },
     {"name": "Evaluation", "description": "Kalibrierung und Gold-Set aus den Entscheiden."},
-    {"name": "Ad-hoc", "description": "Neue Themen ohne Training: Stichwörter, Kandidaten, Jobs."},
+    {
+        "name": "Ad-hoc",
+        "description": "Neue Themen ohne Training: Stichwörter, Kandidaten, Jobs, freischalten"
+        " und zurückziehen.",
+    },
     {"name": "Jobs", "description": "Stand der Klassifikation je Aufgabe."},
     {"name": "Seiten", "description": "Seitenbaum des ParlWiki."},
     {"name": "System", "description": "Betrieb."},
@@ -637,7 +646,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         summary="Entscheid zu einem Tag-Vorschlag",
         responses={
             404: {"description": "Vorschlag unbekannt"},
-            409: {"description": "Schon entschieden, oder das Tag gibt es schon"},
+            409: {
+                "description": "Schon entschieden, bei undo noch nicht entschieden, oder das Tag"
+                " gibt es schon"
+            },
             422: {"description": "merged ohne Tag oder ungültiges Tag"},
             **no_database,
         },
@@ -647,7 +659,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> ProposalDecisionOut:
         """accepted legt ein Ad-hoc-Thema mit Status proposed an und öffnet Jobs für die
         betroffenen Geschäfte; ein Mensch schaltet es später frei (/v1/adhoc/{tag_id}/activate).
-        merged und rejected halten den Entscheid mit Name und Zeit fest."""
+        merged und rejected halten den Entscheid mit Name und Zeit fest.
+
+        undo nimmt den Entscheid zurück: Der Vorschlag ist wieder offen, decided_by und
+        decided_at nennen, wer zurückgenommen hat. Hat accepted ein Thema angelegt, wird es
+        zurückgezogen wie mit /v1/adhoc/{tag_id}/retire (tag_id in der Antwort). Ein neuer
+        Entscheid ist danach möglich; accepted holt das Thema zurück."""
         try:
             decided = proposals.decide(
                 conn,
@@ -662,7 +679,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         except proposals.ProposalNotFound as error:
             raise HTTPException(404, str(error)) from error
-        except (proposals.ProposalDecided, TagExists) as error:
+        except (proposals.ProposalDecided, proposals.ProposalOpen, TagExists) as error:
             raise HTTPException(409, str(error)) from error
         except (ValueError, RegistryError) as error:
             raise HTTPException(422, str(error)) from error
@@ -679,7 +696,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         summary="Entscheid zum Label eines Themas",
         responses={
             404: {"description": "Kein passendes Label, Thema unbekannt oder Geschäft ohne Text"},
-            409: {"description": "Für das Thema gibt es schon ein aktives Label"},
+            409: {
+                "description": "Für das Thema gibt es schon ein aktives Label, oder undo auf"
+                " einem zurückgezogenen Thema"
+            },
             503: {"description": "Datenbank nicht erreichbar oder Migration 0004 fehlt (undo)"},
         },
     )
@@ -747,7 +767,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Legt das Thema mit Status proposed in der Registry an und öffnet Jobs
         classify:adhoc:<name> für Kandidaten und Stichprobe. Die Worker prüfen sie mit
         Apertus; die Treffer erscheinen sofort als vorläufig (tag_status proposed). Ohne
-        Anmeldung im Hack-MVP; user_name steht im Tag (created.by) und im Lauf."""
+        Anmeldung im Hack-MVP; user_name steht im Tag (created.by) und im Lauf.
+
+        Rückweg: /v1/adhoc/{tag_id}/retire. Ein zurückgezogenes Thema gleichen Namens kommt
+        hier mit dem neuen Inhalt als proposed zurück, seine geschlossenen Jobs öffnen wieder."""
         try:
             created = adhoc.create(
                 conn,
@@ -779,22 +802,57 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         summary="Ad-hoc-Thema freischalten",
         responses={
             404: {"description": "Kein Ad-hoc-Thema der Registry"},
-            409: {"description": "Schon aktiv"},
+            409: {"description": "Nicht proposed: schon aktiv oder zurückgezogen"},
             **no_database,
         },
     )
-    def adhoc_activate(tag_id: str, conn: Conn) -> AdhocActivated:
+    def adhoc_activate(
+        tag_id: str, conn: Conn, body: AdhocActivateIn | None = None
+    ) -> AdhocActivated:
         """Setzt ein bewährtes Thema von proposed auf active. Ab dann bietet Stufe 2 von
-        classify:aps es allen Geschäften an, und es bekommt eine Querschnittsseite."""
-        registry, _ = load()
-        tag = next((tag for tag in registry.tags if tag.tag_id == tag_id), None)
-        if tag is None or tag.scheme != "adhoc":
-            raise HTTPException(404, f"{tag_id} ist kein Ad-hoc-Thema der Registry")
-        if tag.status == "active":
-            raise HTTPException(409, f"{tag_id} ist schon aktiv")
-        registry = adhoc.activate(conn, settings, tag_id)
+        classify:aps es allen Geschäften an, und es bekommt eine Querschnittsseite. Name und
+        Zeit stehen im Tag (changes); ohne user_name steht dort «api». Rückweg:
+        /v1/adhoc/{tag_id}/retire."""
+        by = body.user_name if body and body.user_name else "api"
+        try:
+            registry = adhoc.activate(conn, settings, tag_id, by=by)
+        except NotAdhoc as error:
+            raise HTTPException(404, str(error)) from error
+        except WrongStatus as error:
+            raise HTTPException(409, str(error)) from error
         return AdhocActivated(
             tag_id=tag_id, status="active", registry_version=registry.registry_version
+        )
+
+    @api.post(
+        "/adhoc/{tag_id}/retire",
+        tags=["Ad-hoc"],
+        summary="Ad-hoc-Thema zurückziehen",
+        responses={
+            404: {"description": "Kein Ad-hoc-Thema der Registry"},
+            409: {"description": "Schon zurückgezogen"},
+            **no_database,
+        },
+    )
+    def adhoc_retire(tag_id: str, body: AdhocStepIn, conn: Conn) -> AdhocRetired:
+        """Rückweg zu POST /v1/adhoc und zum Freischalten: setzt das Thema auf retired, schliesst
+        alle seine Jobs (failed, Grund retired) und setzt seine Labels ohne menschlichen
+        Entscheid auf superseded; bestätigte und von Hand gesetzte bleiben. Gelöscht wird nichts;
+        Name und Zeit stehen im Tag (changes). Schlug ein Aufruf halb fehl, holt ein zweiter den
+        Rest nach. POST /v1/adhoc mit demselben Namen holt das Thema als proposed zurück, die
+        Worker prüfen die Geschäfte dann neu."""
+        try:
+            retired = adhoc.retire(conn, settings, tag_id, by=body.user_name)
+        except NotAdhoc as error:
+            raise HTTPException(404, str(error)) from error
+        except WrongStatus as error:
+            raise HTTPException(409, str(error)) from error
+        return AdhocRetired(
+            tag_id=tag_id,
+            status="retired",
+            registry_version=retired.registry_version,
+            jobs=retired.jobs,
+            labels=retired.labels,
         )
 
     @api.get(

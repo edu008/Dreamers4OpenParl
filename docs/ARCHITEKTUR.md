@@ -232,18 +232,20 @@ Argumente und Beschreibungen sind als Pydantic-Modelle in [`src/parltopics/agent
 
 - Jede Aussage ist mit OpenParlData-IDs belegt, die in dieser Sitzung aus einem Werkzeug kamen. Der Code prüft das vor der Ausgabe.
 - Ohne Treffer: „Keine passenden Geschäfte gefunden“ und die verwendeten Filter.
-- Zahlen stammen aus `count_affairs`, nicht aus dem Modell. Das Ergebnis nennt seine Filter mit Namen, damit eine Zählung aller Geschäfte nicht einem Thema zugeschrieben wird.
-- Auch Tag-IDs in Filtern müssen aus einem Werkzeug stammen (meist `list_tags`); eine erfundene ID geht als Fehler zurück. Kapitel und Bereiche umfassen ihre Themen.
-- Eine Antwort ohne jeden Werkzeugaufruf schickt der Code einmal zurück.
+- Zahlen stammen aus `count_affairs`, nicht aus dem Modell. Das Ergebnis nennt seine Filter mit Namen (Themen, Parlamente, Jahre), damit eine Zählung aller Geschäfte oder eines anderen Parlaments nicht dem gefragten Thema zugeschrieben wird. Ohne Tags zählt `count_affairs` nur mit `all_affairs: true`; sonst geht der Aufruf mit dem Hinweis auf `list_tags` zurück (Testfragen F21).
+- Auch Tag-IDs in Filtern müssen aus einem Werkzeug stammen (meist `list_tags`); eine erfundene ID geht als Fehler zurück. Kapitel und Bereiche umfassen ihre Themen. Ein unbekanntes Parlament (etwa «Tessin» statt `TI`) geht mit passenden Namen als Fehler zurück, statt still null Treffer zu liefern.
+- Eine Antwort ohne jeden Werkzeugaufruf schickt der Code einmal zurück. Ihren Inhalt und den einer unbrauchbaren Antwort streicht er aus dem Gespräch: In den Testfragen erfand 70B dabei Werkzeug-Ergebnisse und suchte danach dem Erfundenen nach.
+- Als Zitat zählen `[70435]`, `cited_ids` und die Form «ID 70435», die 70B oft wählt. Die Rückfrage zu unbekannten IDs nennt die gelieferten, damit das Modell korrigiert statt aufzugeben.
 - Werkzeug-Ergebnisse und Geschäftstexte stehen im Prompt als Daten in eigenen Blöcken. Anweisungen darin werden ignoriert.
 
 ### 4.5 Ad-hoc-Dialog
 
 1. Die Redaktion beschreibt das Thema in der Web-App.
-2. Der Agent ruft `generate_keywords` auf und prüft mit `search_affairs` und `count_affairs`, wie viele Kandidaten entstehen.
+2. Der Agent ruft `generate_keywords` auf und prüft mit `search_affairs` Beispiele; wie viele Kandidaten entstehen, nennt der Entwurf.
 3. Er gibt mit `propose_adhoc_topic` einen Entwurf zurück: Name, Beschreibung, Stichwörter, geschätzte Kandidaten.
 4. Die Web-App zeigt den Entwurf mit einem Bestätigen-Knopf. Erst die Bestätigung durch einen angemeldeten Menschen ruft `POST /v1/adhoc` auf. Das legt das Tag mit Status `proposed` in `tags.yaml` an und öffnet `classify:adhoc:<tag>`-Jobs für Kandidaten und Stichprobe.
 5. Die Worker prüfen die Kandidaten, die Treffer sind sofort als vorläufig sichtbar, und ein Reviewer aktiviert das Thema, wenn es sich bewährt.
+6. Sonst zieht ein Mensch es zurück (`POST /v1/adhoc/{tag_id}/retire`, F10): Status `retired`, alle Jobs des Tags auf `failed` mit Grund `retired`, seine Labels ohne menschlichen Entscheid auf `superseded`. Wer es mit demselben Namen neu anlegt, öffnet diese Jobs wieder.
 
 Diagramm: [06-adhoc-thema](architecture/06-adhoc-thema.html).
 
@@ -260,7 +262,7 @@ Dieselben Pydantic-Modelle validieren beide Formen. Ungültige Argumente gehen m
 
 ### 4.7 Protokoll
 
-Jede Sitzung landet in `agent_runs`: Anfrage, alle Werkzeugaufrufe mit Argumenten und Ergebnisgrösse, Antwort, zitierte IDs, Modell- und Prompt-Version, Dauer, Status (`ok`, `no_results`, `limit_reached`, `error`). `ok` heisst belegt: mit Zitaten oder mit Zahlen aus `count_affairs` oder `read_page`. So lassen sich F21 und die Testfragen aus Abschnitt 13 des PRD auswerten.
+Jede Sitzung landet in `agent_runs`: Anfrage, alle Werkzeugaufrufe mit Argumenten und Ergebnisgrösse, Antwort, zitierte IDs, Modell- und Prompt-Version, Dauer, Status (`ok`, `no_results`, `limit_reached`, `error`). `ok` heisst belegt: mit Zitaten, mit Zahlen aus `count_affairs` oder `read_page` oder mit einem Entwurf aus `propose_adhoc_topic`. So lassen sich F21 und die Testfragen aus Abschnitt 13 des PRD auswerten: `scripts/agent_eval.py` stellt die 20 Fragen aus `tests/eval/agent_questions.yaml` schreibgeschützt, das Ergebnis steht in `tests/eval/agent_results.md`.
 
 Diagramm: [05-agent-suche](architecture/05-agent-suche.html).
 

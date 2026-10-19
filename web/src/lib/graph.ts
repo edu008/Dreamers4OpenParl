@@ -1,16 +1,8 @@
-import {
-  fetchJson,
-  type PageTree,
-  type TopicAffairs,
-  type TopicOut,
-  type WikiPage,
-} from "@/lib/api"
+import { fetchJson } from "@/lib/api"
 
-// Themengraph in zwei Stufen. Übersicht: ein Punkt je Bereich, die Linien zeigen gemeinsame
-// Geschäfte zwischen Bereichen. Ein Klick öffnet einen Bereich und zeigt dessen Themen. So bleibt
-// die Zeichnung lesbar, auch wenn viele Themen Geschäfte tragen. Übergangslösung: Die Verbindungen
-// werden hier aus den Geschäften je Thema berechnet. Mit mehr Daten braucht es einen Endpunkt im
-// Backend (z. B. GET /v1/graph/topics mit Knoten und Kanten).
+// Themengraph in zwei Ansichten. Die Knoten und Kanten liefert die API (GET /v1/graph/topics), die
+// Anordnung rechnet die Web-App. «Bereiche»: ein Punkt je Bereich, ein Klick öffnet dessen
+// Themen. «Alle Themen»: alle Punkte auf einmal, Namen nur bei den grössten Knotenpunkten.
 
 export const WIDTH = 800
 export const HEIGHT = 560
@@ -115,66 +107,44 @@ function separate(
   }
 }
 
-export interface RawData {
-  pages: WikiPage[]
-  topics: TopicOut[]
-  affairs: Map<string, number[]>
+interface ApiNode {
+  id: string
+  label: string
+  kind: string
+  count: number
+  group: string
 }
 
-/** Führt die Aufgaben mit höchstens `size` gleichzeitigen Anfragen aus. */
-async function pool<T, R>(
-  items: T[],
-  size: number,
-  work: (item: T) => Promise<R>
-): Promise<R[]> {
-  const results = new Array<R>(items.length)
-  let next = 0
-  async function run(): Promise<void> {
-    while (next < items.length) {
-      const index = next++
-      results[index] = await work(items[index])
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(size, items.length) }, run))
-  return results
+/** Antwort von GET /v1/graph/topics. */
+export interface ApiGraph {
+  /** Geöffneter Bereich, `all` oder null in der Übersicht. */
+  area: string | null
+  nodes: ApiNode[]
+  edges: GraphEdge[]
+  /** Kanten, die wegen der Höchstzahl fehlen. */
+  hidden: number
 }
 
-async function loadRaw(): Promise<RawData> {
-  const [tree, topics] = await Promise.all([
-    fetchJson<PageTree>("/v1/pages"),
-    fetchJson<TopicOut[]>("/v1/topics"),
-  ])
-  const withAffairs = topics.filter((topic) => topic.n_affairs > 0)
-  const lists = await pool(withAffairs, 8, async (topic) => {
-    const found = await fetchJson<TopicAffairs>(
-      `/v1/topics/${encodeURIComponent(topic.tag_id)}/affairs?limit=500`
+const cache = new Map<string, Promise<ApiGraph>>()
+
+/** Lädt den Graphen eines Bereichs, `ALL_TOPICS` für alle Themen oder null für die Übersicht. */
+export function loadGraph(mode: string | null): Promise<ApiGraph> {
+  const key = mode ?? ""
+  let found = cache.get(key)
+  if (found === undefined) {
+    const params = new URLSearchParams()
+    if (mode === ALL_TOPICS) params.set("area", "all")
+    else if (mode !== null) params.set("area", mode)
+    params.set("limit", mode === ALL_TOPICS ? "400" : mode === null ? "60" : "200")
+    found = fetchJson<ApiGraph>(`/v1/graph/topics?${params}`).catch(
+      (error: unknown) => {
+        cache.delete(key)
+        throw error
+      }
     )
-    return [topic.tag_id, found.items.map((item) => item.affair_id)] as const
-  })
-  return { pages: tree.pages, topics, affairs: new Map(lists) }
-}
-
-let cache: Promise<RawData> | null = null
-
-export function loadGraphData(): Promise<RawData> {
-  if (cache === null) {
-    cache = loadRaw().catch((error: unknown) => {
-      cache = null
-      throw error
-    })
+    cache.set(key, found)
   }
-  return cache
-}
-
-function bereichOf(pages: Map<string, WikiPage>, id: string): WikiPage | null {
-  let current = pages.get(id)
-  const seen = new Set<string>()
-  while (current && !seen.has(current.page_id)) {
-    if (current.kind === "bereich") return current
-    seen.add(current.page_id)
-    current = current.parent_id ? pages.get(current.parent_id) : undefined
-  }
-  return null
+  return found
 }
 
 function radiusOf(count: number, large: boolean, small = false): number {
@@ -184,104 +154,32 @@ function radiusOf(count: number, large: boolean, small = false): number {
     : 5 + Math.min(14, Math.sqrt(count) * 1.6)
 }
 
-/** Paare von Punkten, die dasselbe Geschäft tragen, mit der Zahl der gemeinsamen Geschäfte. */
-function pairsOf(membership: Map<number, Set<string>>): GraphEdge[] {
-  const pairs = new Map<string, GraphEdge>()
-  for (const members of membership.values()) {
-    const ids = [...members].sort()
-    for (let i = 0; i < ids.length; i++) {
-      for (let j = i + 1; j < ids.length; j++) {
-        const key = `${ids[i]}|${ids[j]}`
-        const edge = pairs.get(key) ?? { a: ids[i], b: ids[j], weight: 0 }
-        edge.weight += 1
-        pairs.set(key, edge)
-      }
-    }
-  }
-  return [...pairs.values()]
-}
-
-/** Behält die stärksten Verbindungen, höchstens etwa drei je Punkt (gleich starke bleiben). */
-function strongest(
-  edges: GraphEdge[],
-  nodeCount: number,
-  perNode = 3
-): { kept: GraphEdge[]; hidden: number } {
-  const limit = Math.max(6, Math.round(nodeCount * perNode))
-  if (edges.length <= limit) return { kept: edges, hidden: 0 }
-  const sorted = [...edges].sort((a, b) => b.weight - a.weight)
-  const cutoff = sorted[limit - 1].weight
-  const kept = sorted.filter((edge) => edge.weight >= cutoff)
-  return { kept, hidden: edges.length - kept.length }
-}
-
-/** Titel einer Seite, z. B. für die Überschrift eines geöffneten Bereichs. */
-export function pageTitle(raw: RawData, id: string): string {
-  return raw.pages.find((page) => page.page_id === id)?.title ?? id
-}
-
-/**
- * Zeichnung zum Stand der Ansicht: ohne `expanded` die Bereiche, mit `expanded` die Themen dieses
- * Bereichs. Themen ohne Bereich (Ad-hoc-Themen) erscheinen in der Übersicht als eigene Punkte.
- */
-export function buildView(raw: RawData, expanded: string | null): GraphData {
-  const all = expanded === ALL_TOPICS
-  const perTopic = expanded !== null
-  const pageById = new Map(raw.pages.map((page) => [page.page_id, page]))
-  const topics = raw.topics.filter((topic) => topic.n_affairs > 0)
-  const nodes = new Map<string, GraphNode>()
-  const membership = new Map<number, Set<string>>()
-  const affairsOfNode = new Map<string, Set<number>>()
-
-  for (const topic of topics) {
-    const bereich = bereichOf(pageById, topic.tag_id)
-    if (perTopic && !all && bereich?.page_id !== expanded) continue
-    const unitId = perTopic ? topic.tag_id : (bereich?.page_id ?? topic.tag_id)
-    if (!nodes.has(unitId)) {
-      nodes.set(unitId, {
-        id: unitId,
-        label: perTopic ? topic.name_de : (bereich?.title ?? topic.name_de),
-        kind: !perTopic && bereich ? "bereich" : "thema",
-        count: 0,
-        group: bereich?.page_id ?? "adhoc",
-        r: 0,
-        hub: true,
-        x: 0,
-        y: 0,
-      })
-      affairsOfNode.set(unitId, new Set())
-    }
-    for (const affairId of raw.affairs.get(topic.tag_id) ?? []) {
-      affairsOfNode.get(unitId)!.add(affairId)
-      const set = membership.get(affairId) ?? new Set<string>()
-      set.add(unitId)
-      membership.set(affairId, set)
-    }
-  }
-  for (const node of nodes.values()) {
-    node.count = affairsOfNode.get(node.id)!.size
-    node.r = radiusOf(node.count, !perTopic, all)
-  }
+/** Zeichnung aus der Antwort der API: Punkte, Linien und Anordnung. */
+export function buildView(api: ApiGraph, all: boolean): GraphData {
+  const nodes: GraphNode[] = api.nodes.map((node) => ({
+    id: node.id,
+    label: node.label,
+    kind: node.kind === "bereich" ? "bereich" : "thema",
+    count: node.count,
+    group: node.group,
+    r: radiusOf(node.count, api.area === null, all),
+    hub: true,
+    x: 0,
+    y: 0,
+  }))
   if (all) {
-    const ranked = [...nodes.values()].sort((a, b) => b.count - a.count)
+    const ranked = [...nodes].sort((a, b) => b.count - a.count)
     ranked.forEach((node, index) => {
       node.hub = index < HUBS
     })
   }
-
-  const list = [...nodes.values()]
-  const { kept, hidden } = strongest(
-    pairsOf(membership),
-    list.length,
-    all ? 4 : 3
-  )
   const width = all ? 1000 : WIDTH
   const height = all ? 680 : HEIGHT
-  layout(list, kept, width, height, !all)
+  layout(nodes, api.edges, width, height, !all)
   return {
-    nodes: list,
-    edges: kept,
-    hidden,
+    nodes,
+    edges: api.edges,
+    hidden: api.hidden,
     width,
     height,
     labelsAlways: !all,

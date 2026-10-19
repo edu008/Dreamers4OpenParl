@@ -88,6 +88,7 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/adhoc/preview",
         "/v1/adhoc",
         "/v1/adhoc/{tag_id}/activate",
+        "/v1/adhoc/{tag_id}/retire",
         "/v1/proposals",
         "/v1/proposals/{proposal_id}/decision",
         "/v1/search/navigate",

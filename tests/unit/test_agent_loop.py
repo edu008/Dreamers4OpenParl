@@ -1,12 +1,27 @@
 import asyncio
+import datetime as dt
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
-from parltopics.agent.execute import Tools
-from parltopics.agent.loop import Answer, first_messages, keep_known, parse_reply, run
-from parltopics.agent.tools import MAX_TOOL_CALLS, CountAffairsArgs, ListTagsArgs, ToolError
+from parltopics.agent.execute import BODY_NAMES, Tools
+from parltopics.agent.loop import (
+    DROPPED,
+    Answer,
+    cited,
+    first_messages,
+    keep_known,
+    parse_reply,
+    run,
+)
+from parltopics.agent.tools import (
+    MAX_TOOL_CALLS,
+    CountAffairsArgs,
+    ListTagsArgs,
+    SearchAffairsArgs,
+    ToolError,
+)
 from parltopics.config import Settings
 from parltopics.llm import JSONExtractionError
 from parltopics.registry import load_registry
@@ -34,6 +49,23 @@ async def one_affair(name, args):
     return [{"affair_id": 1}], [1]
 
 
+class FakeDB:
+    """Eine Verbindung: Parlamente für BODY_NAMES, sonst die Gruppen einer Zählung."""
+
+    def __init__(self, bodies: list[tuple], groups: list[dict]):
+        self.bodies, self.groups, self.rows = bodies, groups, []
+
+    def cursor(self, row_factory=None):
+        return self
+
+    def execute(self, sql, params=None):
+        self.rows = self.bodies if sql is BODY_NAMES else self.groups
+        return self
+
+    def fetchall(self):
+        return self.rows
+
+
 def test_replies_are_tool_calls_or_answers():
     action = parse_reply('Gern: {"action": "list_tags", "args": {"query": "Velo"}}')
     assert (action.action, action.args) == ("list_tags", {"query": "Velo"})
@@ -49,6 +81,10 @@ def test_citations_without_a_tool_result_are_removed():
     answer = Answer(answer="Ja [1], auch [99].", cited_ids=[99])
     assert keep_known(answer, {1}) == ("Ja [1], auch.", [1])
     assert keep_known(Answer(answer="[99]"), {1}) == (None, [])
+    # Live-Test: 70B schrieb oft «ID: 61926» statt [61926]; das zählt als Zitat, bleibt im Satz.
+    plain = Answer(answer="Motion (ID: 1, 2017) und Postulat (ID 99), nicht COVID 19.")
+    assert cited(plain) == [1, 99]
+    assert keep_known(plain, {1}) == (plain.answer, [1])
 
 
 def test_loop_retries_bad_output_calls_a_tool_and_checks_citations():
@@ -68,8 +104,10 @@ def test_loop_retries_bad_output_calls_a_tool_and_checks_citations():
         {"query": "Velo"},
         len('[{"affair_id": 1}]'),
     )
+    assert messages[2]["content"] == DROPPED  # Unbrauchbares bleibt nicht im Gespräch
     assert messages[5]["content"].startswith("Ergebnis von search_affairs (Daten")
-    assert "99" in messages[7]["content"]  # die Rückfrage nennt die unbekannte ID
+    assert "[99]" in messages[7]["content"]  # die Rückfrage nennt die unbekannte ID
+    assert "Gelieferte IDs: [1]" in messages[7]["content"]  # und die gelieferten
 
 
 def test_loop_forces_an_answer_after_the_tool_limit_or_the_timeout():
@@ -102,6 +140,17 @@ def test_bad_tool_arguments_go_back_to_the_model():
     assert (counted.status, counted.cited_ids) == ("ok", [])
 
 
+def test_a_draft_backs_an_answer_without_citations():
+    async def draft(name, args):
+        return {"name_de": "KI", "candidates": 12, "examples": []}, []
+
+    args = '{"name": "KI", "description": "KI in Behörden", "keywords": ["KI"]}'
+    propose = f'{{"action": "propose_adhoc_topic", "args": {args}}}'
+    answer = '{"answer": "Entwurf mit 12 Kandidaten."}'
+    outcome = asyncio.run(run(start(), scripted(propose, answer), draft))
+    assert (outcome.status, outcome.proposal["candidates"]) == ("ok", 12)
+
+
 def test_an_answer_without_any_tool_is_sent_back_once():
     unbacked = '{"answer": "Keine passenden Geschäfte gefunden", "cited_ids": []}'
     messages = start()
@@ -109,6 +158,7 @@ def test_an_answer_without_any_tool_is_sent_back_once():
     outcome = asyncio.run(run(messages, ask, one_affair))
     assert (outcome.status, outcome.cited_ids, outcome.steps) == ("ok", [1], 3)
     assert messages[3]["content"].startswith("Du hast noch kein Werkzeug aufgerufen")
+    assert messages[2]["content"] == DROPPED  # erfundene Inhalte bleiben nicht im Gespräch
     stubborn = asyncio.run(run(start(), scripted(unbacked, unbacked), one_affair))
     assert (stubborn.status, stubborn.steps, stubborn.tool_calls) == ("no_results", 2, [])
 
@@ -130,6 +180,22 @@ def test_tags_must_come_from_a_tool_and_include_their_subtopics():
     assert {"aps:6.1", "aps:6.1.9"} <= set(tools._expand(["aps:6.1"]))
 
 
+def test_counts_name_their_scope_and_parliaments_must_exist():
+    db = FakeDB(bodies=[("BS", "Basel-Stadt", "canton")], groups=[{"key": 2026, "count": 3}])
+    tools = Tools(settings=None, conn=db, registry=load_registry(FIXTURE), tree={})
+    by_year = CountAffairsArgs(group_by="year", body_keys=["BS"])
+    with pytest.raises(ToolError, match="all_affairs"):  # Live-Test: Zählung aller als Thema
+        asyncio.run(tools("count_affairs", by_year))
+    every = by_year.model_copy(update={"all_affairs": True})
+    found, _ = asyncio.run(tools("count_affairs", every))
+    assert found["gezählt"]["parlamente"] == ["BS Basel-Stadt (canton)"]
+    assert found["gezählt"]["themen"].startswith("keine: alle Geschäfte")
+    db.bodies = [("TI", "Tessin", "canton")]  # «Tessin» passt nur zum Namen, nicht zum Kürzel
+    search = SearchAffairsArgs(query="Gewässerschutz", body_keys=["Tessin"])
+    with pytest.raises(ToolError, match=r"\['Tessin'\].*TI Tessin \(canton\)"):
+        asyncio.run(tools("search_affairs", search))
+
+
 def test_first_messages_list_every_tool_and_the_question():
     settings = Settings(_env_file=None, prompts_dir=ROOT / "prompts")
     messages, version = first_messages(settings, "Was macht der Bund?")
@@ -139,4 +205,6 @@ def test_first_messages_list_every_tool_and_the_question():
         assert f"- {name}:" in system
     shape = '{"group_by": "body_key" | "level" | "year", "tags": ["…"], "body_keys": ["…"]'
     assert shape in system and "Pflicht: group_by" in system
+    assert '"all_affairs": false}' in system  # das Modell übernimmt die Form: Standard bleibt aus
+    assert f"Heute ist der {dt.date.today().isoformat()}." in system
     assert messages[1] == {"role": "user", "content": "Was macht der Bund?"}

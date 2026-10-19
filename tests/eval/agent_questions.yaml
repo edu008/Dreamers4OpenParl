@@ -1,0 +1,107 @@
+# Testfragen für den Agenten (PRD F21 und Abschnitt 13), zehn auf Deutsch, zehn auf Französisch.
+# Abnahme: Alle Antworten zitieren nur IDs aus Werkzeug-Ergebnissen, keine Antwort ohne Treffer,
+# kein Lauf mit mehr als 6 Werkzeugaufrufen, propose_adhoc_topic legt nichts an.
+# Ausführen: uv run python scripts/agent_eval.py (schreibgeschützt, Ergebnisse in data/eval/).
+# kind: thema, zaehlung, filter, ueberblick, einzeln, leer, adhoc. expect: was richtig wäre.
+- id: 1
+  lang: de
+  kind: thema
+  query: Welche Geschäfte gibt es zur Digitalisierung der Verwaltung?
+  expect: Geschäfte mit Zitaten
+- id: 2
+  lang: fr
+  kind: thema
+  query: Quelles affaires traitent de la politique climatique ?
+  expect: Geschäfte mit Zitaten
+- id: 3
+  lang: de
+  kind: thema
+  query: Gibt es Vorstösse zum Lobbyismus im Parlament?
+  expect: Geschäfte mit Zitaten
+- id: 4
+  lang: fr
+  kind: thema
+  query: Y a-t-il des interventions sur les pénuries de médicaments ?
+  expect: Geschäfte mit Zitaten
+- id: 5
+  lang: de
+  kind: thema
+  query: Was wurde zum Schutz vor Hochwasser und anderen Naturgefahren eingereicht?
+  expect: Geschäfte mit Zitaten
+- id: 6
+  lang: fr
+  kind: thema
+  query: Quelles affaires concernent la cybersécurité ?
+  expect: Geschäfte mit Zitaten
+- id: 7
+  lang: de
+  kind: zaehlung
+  query: Wie viele Geschäfte zur Klimapolitik gibt es je Parlament?
+  expect: count_affairs nach body_key mit dem Tag Klimapolitik
+- id: 8
+  lang: fr
+  kind: zaehlung
+  query: Combien d'affaires sur la numérisation y a-t-il par année ?
+  expect: count_affairs nach year mit dem Tag Digitalisierung
+- id: 9
+  lang: de
+  kind: zaehlung
+  query: Wie verteilen sich die Geschäfte zur Verkehrspolitik auf Bund, Kantone und Gemeinden?
+  expect: count_affairs nach level mit dem Tag Verkehrspolitik
+- id: 10
+  lang: fr
+  kind: zaehlung
+  query: Combien d'affaires sur les impôts chaque parlement a-t-il traitées ?
+  expect: count_affairs nach body_key mit dem Tag Steuern
+- id: 11
+  lang: de
+  kind: zaehlung
+  query: Wie viele Geschäfte hat der Grosse Rat des Kantons Basel-Stadt pro Jahr seit 2020 behandelt?
+  expect: count_affairs nach year für BS ab 2020 ohne Tag; die Antwort nennt alle Geschäfte, kein Thema
+- id: 12
+  lang: de
+  kind: filter
+  query: Welche Geschäfte zur Raumplanung gab es im Kanton Genf seit 2023?
+  expect: Geschäfte aus GE ab 2023 mit Zitaten
+- id: 13
+  lang: fr
+  kind: filter
+  query: Quelles affaires sur la politique des transports le canton de Vaud a-t-il traitées en 2024 ?
+  expect: Geschäfte aus VD von 2024 mit Zitaten
+- id: 14
+  lang: de
+  kind: filter
+  query: Was hat der Kanton Tessin zwischen 2022 und 2024 zum Gewässerschutz behandelt?
+  expect: Geschäfte aus TI von 2022 bis 2024 mit Zitaten
+- id: 15
+  lang: fr
+  kind: filter
+  query: Quelles interventions sur la politique de la santé ont été déposées au Parlement fédéral en 2025 ?
+  expect: Geschäfte aus CHE von 2025 mit Zitaten
+- id: 16
+  lang: fr
+  kind: zaehlung
+  query: Combien d'affaires sur les enfants et les adolescents le canton de Genève a-t-il traitées depuis 2021 ?
+  expect: count_affairs mit dem Tag Kinder und Jugendliche für GE ab 2021
+- id: 17
+  lang: de
+  kind: ueberblick
+  query: Gib mir einen Überblick über das Thema Steuern.
+  expect: read_page oder Geschäfte mit Zitaten; Zahlen nur aus read_page oder count_affairs
+- id: 18
+  lang: fr
+  kind: einzeln
+  query: De quoi parle l'affaire 340680 ?
+  expect: get_affair 340680 und Zitat [340680]
+- id: 19
+  lang: fr
+  kind: leer
+  query: Quelles affaires portent sur les tournois de Quidditch ?
+  expect: keine Treffer mit den verwendeten Filtern, Status no_results, keine Zitate
+- id: 20
+  lang: de
+  kind: adhoc
+  query: >-
+    Lege ein Thema «Künstliche Intelligenz in der Verwaltung» an: Vorstösse zum Einsatz von KI,
+    Algorithmen und automatisierten Entscheiden in Behörden.
+  expect: generate_keywords, dann propose_adhoc_topic; Entwurf in proposal, nichts angelegt

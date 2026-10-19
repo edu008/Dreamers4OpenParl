@@ -422,10 +422,35 @@ class AdhocCreated(BaseModel):
     sample: int
 
 
+class AdhocStepIn(BaseModel):
+    """Zurückziehen; Name und Zeit stehen im Tag unter changes."""
+
+    user_name: UserName = Field(description="wer den Schritt macht", examples=["Mia Muster"])
+
+
+class AdhocActivateIn(BaseModel):
+    """Freischalten; der Body ist freiwillig, damit bestehende Aufrufe ohne Namen weiter gehen."""
+
+    user_name: UserName | None = Field(
+        None, description="wer freischaltet; ohne Angabe «api»", examples=["Mia Muster"]
+    )
+
+
 class AdhocActivated(BaseModel):
     tag_id: str
     status: Literal["active"]
     registry_version: str
+
+
+class AdhocRetired(BaseModel):
+    tag_id: str
+    status: Literal["retired"]
+    registry_version: str
+    jobs: int = Field(description="geschlossene Jobs (failed, Grund retired), auch erledigte")
+    labels: int = Field(
+        description="Labels ohne menschlichen Entscheid, jetzt superseded; bestätigte und von Hand"
+        " gesetzte bleiben aktiv"
+    )
 
 
 class ProposalOut(BaseModel):
@@ -443,7 +468,9 @@ class ProposalOut(BaseModel):
     affairs: list[AffairHead] = Field(description="Auswahl dieser Geschäfte, höchstens fünf")
     status: Literal["open", "pending", "done"]
     decision: Literal["accepted", "merged", "rejected"] | None
-    decided_by: str | None
+    decided_by: str | None = Field(
+        description="wer entschieden hat; bei offenem Vorschlag, wer den Entscheid zurücknahm"
+    )
     decided_at: datetime | None
     created_at: datetime
     model_version: str | None = Field(description="Modell der Empfehlung; pg_trgm ohne Modell")
@@ -457,9 +484,11 @@ class ProposalList(BaseModel):
 
 
 class ProposalDecisionIn(BaseModel):
-    decision: Literal["accepted", "merged", "rejected"] = Field(
+    decision: Literal["accepted", "merged", "rejected", "undo"] = Field(
         description="accepted: als Ad-hoc-Thema (proposed) anlegen und die betroffenen Geschäfte"
-        " prüfen lassen; merged: geht in related_tag_id auf; rejected: verwerfen"
+        " prüfen lassen; merged: geht in related_tag_id auf; rejected: verwerfen; undo: den"
+        " Entscheid zurücknehmen, der Vorschlag ist wieder offen und ein mit accepted angelegtes"
+        " Thema wird zurückgezogen"
     )
     user_name: UserName = Field(examples=["Mia Muster"])
     name_de: str | None = Field(None, min_length=2, max_length=120, description="nur accepted")
@@ -474,7 +503,9 @@ class ProposalDecisionIn(BaseModel):
 
 class ProposalDecisionOut(BaseModel):
     proposal: ProposalOut
-    tag_id: str | None = Field(description="bei accepted das neue Ad-hoc-Tag")
+    tag_id: str | None = Field(
+        description="bei accepted das neue Ad-hoc-Tag, bei undo das zurückgezogene"
+    )
     run_id: int | None
     jobs: int | None = Field(description="bei accepted: Jobs für die betroffenen Geschäfte")
 
@@ -761,7 +792,8 @@ class AgentOut(BaseModel):
         " Bestätigen-Knopf, der POST /v1/adhoc aufruft"
     )
     status: Literal["ok", "no_results", "limit_reached"] = Field(
-        description="ok: belegt mit Zitaten oder Zahlen aus count_affairs oder read_page;"
+        description="ok: belegt mit Zitaten, Zahlen aus count_affairs oder read_page oder einem"
+        " Entwurf aus propose_adhoc_topic;"
         " limit_reached: Antwort nach 6 Werkzeugen oder 60 s erzwungen"
     )
     steps: int = Field(description="Modellaufrufe des Agenten, ohne die in den Werkzeugen")
