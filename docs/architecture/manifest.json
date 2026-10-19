@@ -28,8 +28,8 @@
     "05-agent-suche": {
       "type": "sequence",
       "quality": "showcase",
-      "source_sha256": "fb4c8958265dac25f9614c5d598e498ba8d0178381159f375c5d52c21cb8f931",
-      "html_sha256": "a495e41b7df5a1c9efe9d75691c666e71737e290a4fff4403c63677c453fc2e0"
+      "source_sha256": "7a1c8e43c2b1e61471056d1a46cf8383d67109b2935437b620b625d72f2e0833",
+      "html_sha256": "3b93a1b000f42492f146a6aae04091de7c9f83c90e6c918d9ce9e35044917784"
     },
     "06-adhoc-thema": {
       "type": "workflow",

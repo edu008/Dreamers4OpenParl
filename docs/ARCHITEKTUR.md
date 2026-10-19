@@ -215,7 +215,7 @@ erzwinge Antwort aus bisherigen Ergebnissen         # nach 6 Aufrufen oder 60 s
 
 ### 4.3 Werkzeuge
 
-Argumente und Beschreibungen sind als Pydantic-Modelle in [`src/parltopics/agent/tools.py`](../src/parltopics/agent/tools.py) festgelegt. `tool_definitions()` erzeugt daraus die OpenAI-Tool-Liste.
+Argumente und Beschreibungen sind als Pydantic-Modelle in [`src/parltopics/agent/tools.py`](../src/parltopics/agent/tools.py) festgelegt. `tool_definitions()` erzeugt daraus die Tool-Liste; die Schleife zeigt im Prompt Name, Beschreibung und die Form der Argumente (4.6). Die Werkzeuge selbst stehen in [`src/parltopics/agent/execute.py`](../src/parltopics/agent/execute.py).
 
 | Werkzeug | Argumente | Rückgabe | Grenzen |
 |---|---|---|---|
@@ -232,7 +232,9 @@ Argumente und Beschreibungen sind als Pydantic-Modelle in [`src/parltopics/agent
 
 - Jede Aussage ist mit OpenParlData-IDs belegt, die in dieser Sitzung aus einem Werkzeug kamen. Der Code prüft das vor der Ausgabe.
 - Ohne Treffer: „Keine passenden Geschäfte gefunden“ und die verwendeten Filter.
-- Zahlen stammen aus `count_affairs`, nicht aus dem Modell.
+- Zahlen stammen aus `count_affairs`, nicht aus dem Modell. Das Ergebnis nennt seine Filter mit Namen, damit eine Zählung aller Geschäfte nicht einem Thema zugeschrieben wird.
+- Auch Tag-IDs in Filtern müssen aus einem Werkzeug stammen (meist `list_tags`); eine erfundene ID geht als Fehler zurück. Kapitel und Bereiche umfassen ihre Themen.
+- Eine Antwort ohne jeden Werkzeugaufruf schickt der Code einmal zurück.
 - Werkzeug-Ergebnisse und Geschäftstexte stehen im Prompt als Daten in eigenen Blöcken. Anweisungen darin werden ignoriert.
 
 ### 4.5 Ad-hoc-Dialog
@@ -247,18 +249,18 @@ Diagramm: [06-adhoc-thema](architecture/06-adhoc-thema.html).
 
 ### 4.6 Ohne Tool-Calling
 
-Unterstützt der Endpunkt kein Tool-Calling, beschreibt der Systemprompt die Werkzeuge mit ihren JSON-Schemas, und das Modell antwortet mit genau einem JSON-Objekt:
+Umgesetzt ist dieses Protokoll ([`src/parltopics/agent/loop.py`](../src/parltopics/agent/loop.py)), denn ob Keera Tool-Calling für Apertus anbietet, ist offen (PRD 15, offene Frage 1). Der Systemprompt beschreibt die Werkzeuge mit der Form ihrer Argumente, etwa `{"group_by": "body_key" | "level" | "year", "tags": ["…"]}`; ein JSON-Schema ahmte Apertus 70B im Test nach. Das Modell antwortet mit genau einem JSON-Objekt:
 
 ```json
 {"action": "search_affairs", "args": {"query": "künstliche Intelligenz Verwaltung", "year_from": 2024}}
 {"answer": "Seit 2024 gibt es …", "cited_ids": [70435, 71002]}
 ```
 
-Dieselben Pydantic-Modelle validieren beide Formen. Die Schleife bleibt gleich.
+Dieselben Pydantic-Modelle validieren beide Formen. Ungültige Argumente gehen mit Feld und Grund an das Modell zurück, damit es den Aufruf korrigiert.
 
 ### 4.7 Protokoll
 
-Jede Sitzung landet in `agent_runs`: Anfrage, alle Werkzeugaufrufe mit Argumenten und Ergebnisgrösse, Antwort, zitierte IDs, Modell- und Prompt-Version, Dauer, Status (`ok`, `no_results`, `limit_reached`, `error`). So lassen sich F21 und die Testfragen aus Abschnitt 13 des PRD auswerten.
+Jede Sitzung landet in `agent_runs`: Anfrage, alle Werkzeugaufrufe mit Argumenten und Ergebnisgrösse, Antwort, zitierte IDs, Modell- und Prompt-Version, Dauer, Status (`ok`, `no_results`, `limit_reached`, `error`). `ok` heisst belegt: mit Zitaten oder mit Zahlen aus `count_affairs` oder `read_page`. So lassen sich F21 und die Testfragen aus Abschnitt 13 des PRD auswerten.
 
 Diagramm: [05-agent-suche](architecture/05-agent-suche.html).
 

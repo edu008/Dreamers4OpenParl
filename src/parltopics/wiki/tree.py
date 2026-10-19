@@ -139,6 +139,15 @@ def ancestors(pages: dict[str, Page], page_id: str) -> list[str]:
     return chain
 
 
+def subtree_tag_ids(pages: dict[str, Page], page_id: str) -> list[str]:
+    """Tags dieser Seite und aller Seiten darunter; verlinkte Querschnittsseiten zählen nicht."""
+    return [
+        page.tag_id
+        for page in pages.values()
+        if page.tag_id and (page.page_id == page_id or page_id in ancestors(pages, page.page_id))
+    ]
+
+
 @dataclass(frozen=True)
 class Thresholds:
     """Ab wann eine Zusammenfassung neu entsteht (PRD 7.9, konfigurierbar)."""

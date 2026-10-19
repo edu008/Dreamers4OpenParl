@@ -152,7 +152,43 @@ def test_queue_lists_open_labels_with_reasons_and_decided_ones_as_done(client, c
     page = client.get("/v1/reviews/queue", params={"limit": 1, "offset": 1}).json()
     assert (page["total"], [item["affair_id"] for item in page["items"]]) == (3, [70451])
 
+    def found(**params):
+        items = client.get("/v1/reviews/queue", params=params).json()["items"]
+        return [item["affair_id"] for item in items]
+
+    assert found(reason=["no_evidence", "evidence_unverified"]) == [70435, 70451]  # «Beleg»
+    assert found(reason="sample") == [70450]
+    assert found(page_id="aps:6") == [70450]
+    assert found(page_id="aps:2.4") == [70435]  # Kapitel: alle Themen darunter
+    assert found(page_id="adhoc:digitalisierung-breit") == [70451]
+    assert found(page_id="heart") == [70435, 70451, 70450]
+    assert client.get("/v1/reviews/queue", params={"page_id": "aps:9"}).status_code == 404
+    assert client.get("/v1/reviews/queue", params={"reason": "x"}).status_code == 422
+
+    summary = client.get("/v1/reviews/summary").json()
+    assert (summary["threshold"], summary["open"], summary["done"]) == (0.6, 3, 0)
+    assert summary["by_reason"] == {
+        "low_confidence": 1,
+        "no_evidence": 1,
+        "evidence_unverified": 1,
+        "sample": 1,
+    }
+    areas = [(row["page_id"], row["count"]) for row in summary["by_area"]]
+    assert (areas, summary["by_area"][0]["title"]) == ([("aps:2", 1), ("aps:6", 1)], "Wirtschaft")
+    assert summary["by_body"] == [
+        {"body_key": "CHE", "name": "Schweiz", "count": 2},
+        {"body_key": "ZH", "name": "Zürich", "count": 1},
+    ]
+    topics = [(row["tag_id"], row["count"]) for row in summary["by_topic"]]
+    assert topics == [("aps:2.4.1", 1), ("aps:6.1.9", 1), ("adhoc:digitalisierung-breit", 1)]
+    zurich = client.get("/v1/reviews/summary", params={"body_key": "ZH"}).json()
+    assert (zurich["open"], zurich["by_reason"]["no_evidence"], zurich["by_area"]) == (1, 1, [])
+    area = client.get("/v1/reviews/summary", params={"page_id": "aps:6"}).json()
+    assert [(row["tag_id"], row["count"]) for row in area["by_topic"]] == [("aps:6.1.9", 1)]
+
     review(client, "confirm", tag_id="aps:2.4.1")
+    after = client.get("/v1/reviews/summary").json()
+    assert (after["open"], after["done"]) == (2, 1)
     # an 70435 gibt es kein aktives adhoc-Label: nichts ändert sich
     assert review(client, "reject", tag_id="adhoc:digitalisierung-breit").status_code == 404
     assert client.get("/v1/reviews/queue").json()["total"] == 2

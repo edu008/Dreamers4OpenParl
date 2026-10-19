@@ -1,8 +1,9 @@
 """Kommandozeile `parltopics` (PRD 10.4).
 
-Funktionsfähig: version, db migrate, registry validate/sync/import-aps, llm check, download,
-ingest, inputs, classify, worker, jobs summary. Die übrigen Kommandos zeigen ihre geplante
-Schnittstelle und nennen ihren Meilenstein.
+Funktionsfähig: version, db migrate, registry validate/sync/activate/import-aps/apply-descriptions,
+llm check, download, ingest, inputs, classify, worker, proposals group, jobs summary, adhoc. Die
+übrigen Kommandos (export, pages, wiki, eval) zeigen ihre geplante Schnittstelle und nennen ihren
+Meilenstein.
 """
 
 import asyncio

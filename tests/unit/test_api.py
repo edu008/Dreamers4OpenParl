@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from parltopics import __version__
 from parltopics.api.app import create_app
+from parltopics.api.queries import nest_languages
 from parltopics.api.schemas import ReviewIn
 from parltopics.config import Settings
 
@@ -90,7 +91,19 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/proposals",
         "/v1/proposals/{proposal_id}/decision",
         "/v1/search/navigate",
+        "/v1/affairs/{affair_id}",
+        "/v1/affairs/{affair_id}/docs",
+        "/v1/docs/{doc_id}",
+        "/v1/bodies/{body_key}",
+        "/v1/graph/topics/{tag_id}",
+        "/v1/graph/affairs/{affair_id}",
+        "/v1/reviews/summary",
+        "/v1/pages/{page_id}/affairs/summary",
+        "/v1/pages/{page_id}/affairs.csv",
+        "/v1/agent/search",
     } <= set(paths)
+    parameters = paths["/v1/reviews/queue"]["get"]["parameters"]
+    assert {"state", "tag_id", "body_key", "page_id", "reason"} <= {p["name"] for p in parameters}
     parameters = paths["/v1/topics/{tag_id}/affairs"]["get"]["parameters"]
     names = {parameter["name"] for parameter in parameters}
     assert {"tag_id", "body_key", "from", "to", "min_confidence", "limit", "offset"} <= names
@@ -110,7 +123,57 @@ def test_database_endpoints_answer_503_without_database(tmp_path):
     paths = ("/v1/jobs/summary", "/v1/topics", "/v1/affairs/1/topics", "/v1/reviews/queue")
     for path in (*paths, "/v1/bodies", "/v1/stats", "/v1/eval/calibration", "/v1/eval/gold"):
         assert client.get(path).status_code == 503
+    for path in ("/v1/affairs/1", "/v1/affairs/1/docs", "/v1/docs/1", "/v1/bodies/GE"):
+        assert client.get(path).status_code == 503
     assert client.get("/healthz").status_code == 200
+
+
+def test_csv_comes_in_blocks_with_bom_crlf_and_defused_formulas(monkeypatch):
+    from parltopics.api import app as module
+
+    row = {
+        "affair_id": 1,
+        "number": "@x",
+        "title": "a;b",
+        "type_de": None,
+        "type": "Motion",
+        "body_name": None,
+        "body_key": "ZH",
+        "body_level": "canton",
+        "begin_date": None,
+        "name_de": "Digitalisierung",
+        "confidence": 0.5,
+        "evidence_verified": True,
+        "evidence": "=1",
+        "stage": "human",
+    }
+    whole = "".join(module.affairs_csv([row] * 3))
+    monkeypatch.setattr(module, "CSV_BLOCK", 2)
+    chunks = list(module.affairs_csv([row] * 3))
+    assert (len(chunks), "".join(chunks)) == (2, whole)
+    assert whole.startswith("﻿OpenParlData-ID;Nummer;")
+    line = "1;'@x;\"a;b\";Motion;ZH;Kanton;;Digitalisierung;0.50;ja;'=1;Mensch"
+    assert whole.split("\r\n")[1] == line
+
+
+def test_language_fields_are_nested_like_openparldata():
+    record = {
+        "id": 257,
+        "name": "Genf",  # flach und geschachtelt: die geschachtelte Form gilt
+        "name_de": "Genf",
+        "name_fr": "Genève",
+        "state_name_de": None,
+        "state_name_fr": None,
+        "type_harmonized_id": 6,
+        "end_date": None,
+    }
+    assert nest_languages(record) == {
+        "id": 257,
+        "type_harmonized_id": 6,
+        "end_date": None,
+        "name": {"de": "Genf", "fr": "Genève"},
+        "state_name": {},
+    }
 
 
 def test_reviews_need_no_token_only_the_database(tmp_path):
