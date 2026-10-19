@@ -87,7 +87,8 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),
   })
-  if (!response.ok) throw new HttpError(response.status, await detailOf(response))
+  if (!response.ok)
+    throw new HttpError(response.status, await detailOf(response))
   return (await response.json()) as T
 }
 
@@ -118,9 +119,27 @@ export function createAdhoc(input: AdhocInput) {
 }
 
 /** Schaltet ein bewährtes Thema von «proposed» auf «active». */
-export function activateAdhoc(tagId: string) {
+export function activateAdhoc(tagId: string, userName: string) {
   return postJson<AdhocActivated>(
     `/v1/adhoc/${encodeURIComponent(tagId)}/activate`,
-    {}
+    { user_name: userName }
+  )
+}
+
+export interface AdhocRetired {
+  tag_id: string
+  status: "retired"
+  registry_version: string
+  /** geschlossene Jobs, auch erledigte */
+  jobs: number
+  /** Labels ohne menschlichen Entscheid, jetzt superseded; geprüfte bleiben aktiv */
+  labels: number
+}
+
+/** Rückweg zum Anlegen und Freischalten: setzt das Thema auf «retired». Gelöscht wird nichts. */
+export function retireAdhoc(tagId: string, userName: string) {
+  return postJson<AdhocRetired>(
+    `/v1/adhoc/${encodeURIComponent(tagId)}/retire`,
+    { user_name: userName }
   )
 }

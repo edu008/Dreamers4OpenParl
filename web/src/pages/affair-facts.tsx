@@ -5,7 +5,7 @@ import {
   type ElementType,
   type ReactNode,
 } from "react"
-import { Link, useLocation, useParams } from "react-router"
+import { Link, useLocation, useParams, type LinkProps } from "react-router"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,7 @@ import { usePageTitle } from "@/hooks/use-page-title"
 import {
   fetchJson,
   type AffairRecord,
+  type AffairStar,
   type AffairTopics,
   type DocList,
   type Localized,
@@ -193,6 +194,59 @@ function Documents({ record }: { record: AffairRecord }) {
   )
 }
 
+/** Ziel eines Links auf ein anderes Geschäft: auf der Seite /geschaefte/<id>, im Pop-up dasselbe
+ * Pop-up mit dem anderen Geschäft. */
+export type AffairLink = (
+  id: number
+) => Pick<LinkProps, "to" | "replace" | "state">
+
+const PAGE_LINK: AffairLink = (id) => ({ to: `/geschaefte/${id}` })
+
+/** Verwandte Geschäfte über gemeinsame aktive Themen (GET /v1/graph/affairs/{id}). Ein Zusatz:
+ * fehlt er oder schlägt er fehl, bleibt der Abschnitt weg. */
+function Related({ affairId, link }: { affairId: number; link: AffairLink }) {
+  const star = useApi<AffairStar>(`/v1/graph/affairs/${affairId}?limit=5`)
+  const neighbours = star.data?.neighbours ?? []
+  if (neighbours.length === 0) return null
+  const names = new Map(
+    star.data?.center.topics.map((topic) => [topic.tag_id, topic.name_de])
+  )
+  return (
+    <Section title="Verwandte Geschäfte">
+      <ul>
+        {neighbours.map((neighbour) => {
+          const shared = neighbour.shared.map((id) => names.get(id) ?? id)
+          const meta = [
+            neighbour.type_de ?? neighbour.type,
+            neighbour.number && `Nr. ${neighbour.number}`,
+            neighbour.body_name ?? neighbour.body_key,
+            formatDate(neighbour.begin_date),
+          ]
+          return (
+            <li
+              key={neighbour.affair_id}
+              className="flex flex-col gap-1 border-t border-border py-3 first:border-t-0 first:pt-0"
+            >
+              <Link
+                {...link(neighbour.affair_id)}
+                className="text-sm leading-snug font-bold underline-offset-4 hover:text-primary hover:underline"
+              >
+                {neighbour.title ?? `Geschäft ${neighbour.affair_id}`}
+              </Link>
+              <p className="tabular text-sm text-muted-foreground">
+                {meta.filter(Boolean).join(" · ")}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Gemeinsam: {shared.join(", ")}
+              </p>
+            </li>
+          )
+        })}
+      </ul>
+    </Section>
+  )
+}
+
 /** Themen und bereinigter Text (…/topics) und der gespeicherte Datensatz mit Dokumenten. */
 export function useAffair(affairId: string) {
   const path = `/v1/affairs/${encodeURIComponent(affairId)}`
@@ -234,9 +288,11 @@ export function AffairFactsPage() {
 export function AffairFacts({
   found,
   Title = "h1",
+  link = PAGE_LINK,
 }: {
   found: ReturnType<typeof useAffair>
   Title?: ElementType
+  link?: AffairLink
 }) {
   if (found.loading) {
     return (
@@ -386,6 +442,8 @@ export function AffairFacts({
       <Section title="Gebiet">
         <Facts rows={area} />
       </Section>
+
+      <Related key={affair.affair_id} affairId={affair.affair_id} link={link} />
     </div>
   )
 }
