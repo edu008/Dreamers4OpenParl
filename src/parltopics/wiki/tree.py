@@ -1,7 +1,7 @@
 """Seitenbaum des ParlWiki aus der Registry (PRD 7.9, ADR 0008).
 
 Reine Logik ohne Datenbank: Seiten, Eltern und Kinder, Dateinamen, Jahresteilung, Weitergabe
-von Änderungen nach oben und Schwellen. Speicherung und LLM-Aufrufe folgen in Meilenstein M3.
+von Änderungen nach oben und Schwellen. Speicherung und LLM-Aufrufe stehen in wiki/run.py.
 """
 
 from __future__ import annotations

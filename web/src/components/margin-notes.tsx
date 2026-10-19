@@ -1,9 +1,11 @@
+import { useState } from "react"
 import { Link } from "react-router"
 
 import { Confidence } from "@/components/confidence"
+import { TopicPicker } from "@/components/topic-picker"
 import { Button } from "@/components/ui/button"
 import { useReview } from "@/hooks/use-review"
-import type { LabelOut, Stage } from "@/lib/api"
+import type { LabelOut, Stage, TopicOut } from "@/lib/api"
 
 export interface MarginLabel {
   id: number
@@ -50,6 +52,9 @@ export function MarginNotes({
   pendingId,
   error,
   onDecide,
+  topics,
+  onChange,
+  onAdd,
 }: {
   mode: "public" | "review"
   labels: MarginLabel[]
@@ -58,8 +63,18 @@ export function MarginNotes({
   pendingId: number | null
   error: string | undefined
   onDecide: (label: MarginLabel, action: "confirm" | "reject" | "undo") => void
+  /** Alle Themen der Registry, für «Ersetzen» und «Thema ergänzen» (nur in der Prüfansicht). */
+  topics?: TopicOut[]
+  onChange?: (label: MarginLabel, newTagId: string) => void
+  onAdd?: (tagId: string) => void
 }) {
   const review = useReview()
+  const [replacing, setReplacing] = useState<number | null>(null)
+  const [replacement, setReplacement] = useState("")
+  const [addition, setAddition] = useState("")
+  const taken = labels
+    .filter((label) => label.status === "active")
+    .map((label) => label.tagId)
   return (
     <aside
       aria-label="Labels dieses Geschäfts"
@@ -167,14 +182,85 @@ export function MarginNotes({
                       >
                         Verwerfen
                       </Button>
+                      {topics && onChange && (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => {
+                            setReplacing(replacing === label.id ? null : label.id)
+                            setReplacement("")
+                          }}
+                        >
+                          Ersetzen
+                        </Button>
+                      )}
                     </>
                   )}
+                </div>
+              )}
+              {replacing === label.id && topics && onChange && (
+                <div className="mt-2 flex flex-col gap-2 border-t border-border pt-2">
+                  <TopicPicker
+                    topics={topics}
+                    excluded={taken}
+                    value={replacement}
+                    onChange={setReplacement}
+                    label="Durch welches Thema ersetzen?"
+                  />
+                  <div className="flex gap-1.5">
+                    <Button
+                      size="xs"
+                      disabled={busy || replacement === ""}
+                      onClick={() => {
+                        onChange(label, replacement)
+                        setReplacing(null)
+                      }}
+                    >
+                      Ersetzen
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => setReplacing(null)}
+                    >
+                      Abbrechen
+                    </Button>
+                  </div>
                 </div>
               )}
             </li>
           )
         })}
       </ul>
+      {mode === "review" && review.active && topics && onAdd && (
+        <details className="border-t border-border pt-3">
+          <summary className="cursor-pointer font-semibold underline-offset-2 hover:underline">
+            Thema ergänzen
+          </summary>
+          <div className="mt-2 flex flex-col gap-2">
+            <TopicPicker
+              topics={topics}
+              excluded={taken}
+              value={addition}
+              onChange={setAddition}
+              label="Welches Thema fehlt?"
+            />
+            <div>
+              <Button
+                size="xs"
+                disabled={pendingId !== null || addition === ""}
+                onClick={() => {
+                  onAdd(addition)
+                  setAddition("")
+                }}
+              >
+                Thema ergänzen
+              </Button>
+            </div>
+          </div>
+        </details>
+      )}
       {error && (
         <p role="alert" className="text-destructive">
           Entscheid nicht gespeichert: {error}
