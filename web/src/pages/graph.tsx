@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   ALL_TOPICS,
   buildView,
+  forgetGraphs,
   groupColor,
   loadGraph,
   type ApiGraph,
@@ -27,9 +28,11 @@ const VIEWS: { value: View; label: string }[] = [
 export function GraphPage() {
   const navigate = useNavigate()
   const [overview, setOverview] = useState<ApiGraph | null>(null)
-  const [loaded, setLoaded] = useState<{ key: string; data: ApiGraph } | null>(
-    null
-  )
+  const [loaded, setLoaded] = useState<{
+    key: string
+    data: ApiGraph
+    at: Date
+  } | null>(null)
   const [error, setError] = useState<string | undefined>()
   const [hovered, setHovered] = useState<string | null>(null)
   const [view, setView] = useState<View>("alle")
@@ -37,10 +40,14 @@ export function GraphPage() {
   const heading = useRef<HTMLHeadingElement>(null)
   const changed = useRef(false)
 
-  // Die Übersicht liefert die Bereiche für Farben, Legende und Überschriften.
+  // Die Übersicht liefert die Bereiche für Farben, Legende und Überschriften. Beim Öffnen der
+  // Seite frisch laden: Gemerkte Antworten können vom letzten Klassifikationslauf überholt sein.
   useEffect(() => {
-    loadGraph(null).then(setOverview, (reason: unknown) =>
-      setError(reason instanceof Error ? reason.message : String(reason))
+    forgetGraphs()
+    loadGraph(null).then(
+      (result) => setOverview(result.graph),
+      (reason: unknown) =>
+        setError(reason instanceof Error ? reason.message : String(reason))
     )
   }, [])
 
@@ -56,8 +63,9 @@ export function GraphPage() {
   useEffect(() => {
     let current = true
     loadGraph(mode).then(
-      (data) => {
-        if (current) setLoaded({ key: modeKey, data })
+      (result) => {
+        if (current)
+          setLoaded({ key: modeKey, data: result.graph, at: result.at })
       },
       (reason: unknown) => {
         if (current)
@@ -366,6 +374,16 @@ export function GraphPage() {
             <p className="text-xs text-muted-foreground">
               Gezeichnet sind die stärksten Verbindungen, {graph.hidden}{" "}
               schwächere sind ausgeblendet.
+            </p>
+          )}
+          {loaded && (
+            <p className="tabular text-xs text-muted-foreground">
+              Stand{" "}
+              {loaded.at.toLocaleTimeString("de-CH", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              , gezählt aus den aktiven Labels der Datenbank.
             </p>
           )}
 

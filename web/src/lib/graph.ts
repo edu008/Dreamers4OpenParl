@@ -125,25 +125,41 @@ export interface ApiGraph {
   hidden: number
 }
 
-const cache = new Map<string, Promise<ApiGraph>>()
+/** Antwort der API mit der Uhrzeit, zu der sie kam («Stand» unter der Zeichnung). */
+export interface LoadedGraph {
+  graph: ApiGraph
+  at: Date
+}
+
+// Jeder Klassifikationslauf ändert die Labels. Darum lädt die Seite beim Öffnen frisch
+// (forgetGraphs) und merkt sich eine Antwort nur kurz, für den Wechsel zwischen den Ansichten.
+const FRESH_MS = 60_000
+const cache = new Map<string, { at: number; found: Promise<LoadedGraph> }>()
+
+export function forgetGraphs(): void {
+  cache.clear()
+}
 
 /** Lädt den Graphen eines Bereichs, `ALL_TOPICS` für alle Themen oder null für die Übersicht. */
-export function loadGraph(mode: string | null): Promise<ApiGraph> {
+export function loadGraph(mode: string | null): Promise<LoadedGraph> {
   const key = mode ?? ""
-  let found = cache.get(key)
-  if (found === undefined) {
-    const params = new URLSearchParams()
-    if (mode === ALL_TOPICS) params.set("area", "all")
-    else if (mode !== null) params.set("area", mode)
-    params.set("limit", mode === ALL_TOPICS ? "400" : mode === null ? "60" : "200")
-    found = fetchJson<ApiGraph>(`/v1/graph/topics?${params}`).catch(
-      (error: unknown) => {
-        cache.delete(key)
-        throw error
-      }
-    )
-    cache.set(key, found)
-  }
+  const entry = cache.get(key)
+  if (entry && Date.now() - entry.at < FRESH_MS) return entry.found
+  const params = new URLSearchParams()
+  if (mode === ALL_TOPICS) params.set("area", "all")
+  else if (mode !== null) params.set("area", mode)
+  params.set(
+    "limit",
+    mode === ALL_TOPICS ? "400" : mode === null ? "60" : "200"
+  )
+  const found = fetchJson<ApiGraph>(`/v1/graph/topics?${params}`).then(
+    (graph) => ({ graph, at: new Date() }),
+    (error: unknown) => {
+      cache.delete(key)
+      throw error
+    }
+  )
+  cache.set(key, { at: Date.now(), found })
   return found
 }
 
@@ -241,8 +257,7 @@ function layout(
       const dist = Math.sqrt(dx * dx + dy * dy) || 1
       // Federn von Punkten mit vielen Linien werden schwächer, sonst schwingt das Layout auf.
       const damp =
-        1 /
-        Math.sqrt(Math.max(1, degree.get(a.id) ?? 1, degree.get(b.id) ?? 1))
+        1 / Math.sqrt(Math.max(1, degree.get(a.id) ?? 1, degree.get(b.id) ?? 1))
       const pull = (dist - rest) * (0.015 + 0.04 * share) * damp
       velocity.get(a.id)!.x += (dx / dist) * pull
       velocity.get(a.id)!.y += (dy / dist) * pull
