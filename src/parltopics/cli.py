@@ -1,9 +1,9 @@
 """Kommandozeile `parltopics` (PRD 10.4).
 
 Funktionsfähig: version, db migrate, registry validate/sync/activate/import-aps/apply-descriptions,
-llm check, download, ingest, inputs, classify, worker, proposals group, jobs summary, adhoc. Die
-übrigen Kommandos (export, pages, wiki, eval) zeigen ihre geplante Schnittstelle und nennen ihren
-Meilenstein.
+llm check, download, ingest, inputs, classify, worker, proposals group, jobs summary, adhoc,
+export. Die übrigen Kommandos (pages, wiki, eval ohne --curia) zeigen ihre geplante Schnittstelle
+und nennen ihren Meilenstein.
 """
 
 import asyncio
@@ -432,9 +432,30 @@ def adhoc(
 @app.command()
 def export(
     out: Annotated[Path, typer.Option(help="Zielverzeichnis")] = Path("dist/export"),
+    dvs_topic: Annotated[
+        str, typer.Option(help="Seite der DVS-Liste, mit allen Themen darunter")
+    ] = "adhoc:digitalisierung-breit",
 ) -> None:
-    """affair_topics.ndjson.gz und DVS-Liste schreiben (F11, F12)."""
-    _planned("M3", "F11, F12")
+    """affair_topics.ndjson.gz mit index.json und die DVS-Liste dvs_liste.csv schreiben (F11, F12).
+
+    Die DVS-Liste enthält die laufenden Geschäfte von Bund und Kantonen mit aktivem Label.
+    """
+    from parltopics.db import connect
+    from parltopics.export import write_affair_topics, write_dvs_list
+    from parltopics.registry import load_registry
+    from parltopics.wiki.tree import build_tree, subtree_tag_ids
+
+    settings = get_settings()
+    tree = build_tree(load_registry(settings.registry_path))
+    if dvs_topic not in tree:
+        typer.secho(f"Seite {dvs_topic} gibt es nicht", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=2)
+    with connect(settings.database_url, autocommit=True) as conn:
+        labels = write_affair_topics(conn, out)
+        dvs = write_dvs_list(conn, out, subtree_tag_ids(tree, dvs_topic))
+    typer.echo(
+        f"{out}: affair_topics.ndjson.gz mit {labels} Labels, dvs_liste.csv mit {dvs} Zeilen"
+    )
 
 
 @app.command()
