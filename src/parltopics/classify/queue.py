@@ -7,6 +7,7 @@ gelöscht, nur auf superseded oder rejected gesetzt. Alle Funktionen erwarten ei
 Autocommit; was zusammengehört, läuft in einer eigenen Transaktion.
 """
 
+import re
 from dataclasses import dataclass
 from datetime import date
 
@@ -432,16 +433,40 @@ def release_stale(conn: psycopg.Connection, timeout_seconds: int) -> list[tuple[
     return [(affair_id, task, status) for affair_id, task, status, _ in released]
 
 
+# Typografische Zeichen schreibt das Modell oft anders als der Text («» statt „“, – statt -).
+_TYPO = str.maketrans(
+    {c: '"' for c in "„“”«»"} | {c: "'" for c in "‹›‘’‚"} | {c: "-" for c in "–—‑"}
+)
+_GAP = re.compile(r"\s*(?:…|\.\.\.)\s*")
+EVIDENCE_PART_MIN = 12  # kürzere Teile eines Belegs mit … zählen nicht, sie passen fast überall
+
+
+def evidence_parts(evidence: str) -> list[str]:
+    """Ein Beleg mit Auslassung (…) wird Teil für Teil geprüft; jeder Teil muss im Text stehen.
+
+    shortcut: die Reihenfolge der Teile wird nicht geprüft, erst bei Missbrauch nachrüsten.
+    """
+    normal = evidence.translate(_TYPO)
+    parts = [part for part in _GAP.split(normal) if len(part) >= EVIDENCE_PART_MIN]
+    return parts or [normal]
+
+
 def verify_evidence(conn: psycopg.Connection, text: str, evidences: list[str]) -> list[bool]:
     """Belegprüfung mit pg_trgm (PRD 7.3): steht der Beleg unscharf wörtlich im Text?"""
     if not evidences:
         return []
+    numbered = [(n, part) for n, e in enumerate(evidences) for part in evidence_parts(e)]
     rows = conn.execute(
-        "SELECT word_similarity(e, %s) >= %s"
-        " FROM unnest(%s::text[]) WITH ORDINALITY AS u(e, n) ORDER BY n",
-        (text, EVIDENCE_SIMILARITY, evidences),
+        "SELECT n, bool_and(word_similarity(e, %s) >= %s)"
+        " FROM unnest(%s::int[], %s::text[]) AS u(n, e) GROUP BY n ORDER BY n",
+        (
+            text.translate(_TYPO),
+            EVIDENCE_SIMILARITY,
+            [n for n, _ in numbered],
+            [part for _, part in numbered],
+        ),
     ).fetchall()
-    return [verified for (verified,) in rows]
+    return [verified for _, verified in rows]
 
 
 def finish(conn: psycopg.Connection, job: Job, worker_id: str, result: Result) -> bool:

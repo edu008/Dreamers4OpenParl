@@ -39,12 +39,15 @@ from parltopics.classify.queue import (
     task_tag,
     verify_evidence,
 )
+from parltopics.classify.rules import CONFIDENCE, RULES_VERSION, match_rule
 from parltopics.classify.schemas import (
     OutputError,
     Stage2Output,
+    parse_single,
     parse_stage1,
     parse_stage2,
     short_key,
+    single_format,
 )
 from parltopics.config import Settings
 from parltopics.llm import (
@@ -61,7 +64,9 @@ from parltopics.registry.sync import synced_version
 log = logging.getLogger("parltopics.worker")
 
 STAGE_PROMPTS = ("classify_chapters_v2", "classify_topics_v2")
-SINGLE_PROMPT = "classify_single_v2"
+SINGLE_PROMPT = "classify_single_v3"
+INSTITUTIONS = "aps:1.2"  # Kapitel Institutionen: eigene Liste B in classify_single_v3
+ADHOC_HEADING = "Ad-hoc-Themen"
 SAMPLE_EVERY = 50  # Stichprobe von 2 % nach affair_id: reproduzierbar, ohne Zufall
 IDLE_SECONDS = 5
 INVALID = (JSONExtractionError, OutputError, ValidationError)
@@ -179,10 +184,16 @@ def _brief(error: Exception) -> str:
 
 
 async def _ask(
-    client: LLMClient, messages: list[dict[str, Any]], large: bool, parse: Callable[[dict], T]
+    client: LLMClient,
+    messages: list[dict[str, Any]],
+    large: bool,
+    parse: Callable[[dict], T],
+    fmt: dict[str, Any] | None = None,
 ) -> tuple[T, str]:
-    """Eine Stufe: Anfrage, JSON lösen und prüfen; einmal mit Fehlerhinweis wiederholen."""
-    reply = await client.chat(messages, large=large)
+    """Eine Stufe: Anfrage, JSON lösen und prüfen; einmal mit Fehlerhinweis wiederholen.
+
+    fmt: response_format (JSON-Schema), das der Endpunkt beim Erzeugen erzwingt."""
+    reply = await client.chat(messages, large=large, response_format=fmt)
     try:
         return parse(extract_json(reply.content)), reply.model
     except INVALID as error:
@@ -195,7 +206,7 @@ async def _ask(
             {"role": "assistant", "content": reply.content},
             {"role": "user", "content": hint},
         ]
-    reply = await client.chat(messages, large=large)
+    reply = await client.chat(messages, large=large, response_format=fmt)
     try:
         return parse(extract_json(reply.content)), reply.model
     except INVALID as error:
@@ -220,8 +231,15 @@ async def _pass(
         offered = {adhoc_id: c.known[adhoc_id]}
     elif c.single is not None:
         prompt = c.single
-        offered = {tag.tag_id: tag for tags in c.topics.values() for tag in tags}
-        offered |= {tag.tag_id: tag for tag in c.adhoc}
+        institutions = {tag.tag_id: tag for tag in c.topics.get(INSTITUTIONS, [])}
+        groups = [
+            {"name": chapter.pref_label.de, "tags": c.topics[chapter.tag_id]}
+            for chapter in c.chapters
+            if chapter.tag_id != INSTITUTIONS
+        ]
+        if c.adhoc:
+            groups.append({"name": ADHOC_HEADING, "tags": c.adhoc})
+        offered = {tag.tag_id: tag for group in groups for tag in group["tags"]}
     else:
         chapter_ids = {chapter.tag_id for chapter in c.chapters}
         stage1, _ = await _ask(
@@ -240,20 +258,41 @@ async def _pass(
             model = settings.llm_name_large if large else settings.llm_name
             return Pass(stage, model, []), empty
     dropped: list[str] = []
+    single = c.single is not None and adhoc_id is None
 
     def parse2(data: dict) -> Stage2Output:
-        known = c.keys if prompt is c.single else set(offered)  # einstufig: Kurznamen
-        output, rejected = parse_stage2(data, affair_id=job.affair_id, offered=known)
+        if single:
+            output, rejected = parse_single(
+                data,
+                affair_id=job.affair_id,
+                topics=set(offered),
+                institutions=set(institutions),
+                keys=c.keys,
+            )
+        else:
+            output, rejected = parse_stage2(data, affair_id=job.affair_id, offered=set(offered))
         dropped.extend(rejected)
         return output
 
-    messages = prompt.messages({"tags": list(offered.values())}, user)
-    stage2, model = await _ask(client, messages, large, parse2)
+    variables: dict[str, Any] = {"tags": list(offered.values())}
+    fmt = None
+    if single:
+        variables |= {"chapters": groups, "institutions": list(institutions.values())}
+        fmt = single_format(job.affair_id, [], [])  # tag_id frei, siehe single_format
+    messages = prompt.messages(variables, user)
+    stage2, model = await _ask(client, messages, large, parse2, fmt)
+    picked = [ch for ch in c.chapters if f"?{ch.prompt_id}" in dropped] if single else []
+    if picked:
+        stage2 = await _chapter_retry(
+            client, messages, large, parse2, stage2, picked, c, offered | institutions, job
+        )
     verified = await verify(job.text, [tag.evidence for tag in stage2.tags])
     if not all(verified):
-        shown = {tid: tag.prompt_id for tid, tag in offered.items()} if prompt is c.single else {}
+        shown = (
+            {tid: tag.prompt_id for tid, tag in (offered | institutions).items()} if single else {}
+        )
         stage2, verified = await _requote(
-            client, messages, large, parse2, stage2, verified, job.text, verify, shown
+            client, messages, large, parse2, stage2, verified, job.text, verify, shown, fmt
         )
     if dropped:
         log.info("affair_id=%s verworfene Tags: %s", job.affair_id, ", ".join(dropped))
@@ -263,6 +302,54 @@ async def _pass(
         for tag, ok in zip(stage2.tags, verified, strict=True)
     ]
     return Pass(stage, model, labels), stage2
+
+
+async def _chapter_retry(
+    client: LLMClient,
+    messages: list[dict[str, Any]],
+    large: bool,
+    parse: Callable[[dict], Stage2Output],
+    stage2: Stage2Output,
+    picked: list[Tag],
+    c: Classifier,
+    offered: dict[str, Tag],
+    job: Job,
+) -> Stage2Output:
+    """Einmal nachfragen, wenn 70B ein Kapitel statt eines Themas nennt (v3, 19.10.2026).
+
+    Das Schema lässt dann nur die Themen dieser Kapitel und die schon gewählten zu, damit die
+    Grammatik «umweltschutz» nicht in ein Thema mit gleichem Anfang aus anderem Bereich zwingt.
+    Ist die neue Antwort ungültig, bleibt die erste.
+    """
+    tags = [t for ch in picked for t in c.topics.get(ch.tag_id, [])]
+    shown = [
+        t.model_copy(update={"tag_id": offered[t.tag_id].prompt_id})
+        for t in stage2.tags
+        if t.tag_id in offered
+    ]
+    allowed = [*(t.tag_id for t in shown), *(t.prompt_id for t in tags)]
+    institutions = [t.prompt_id for t in c.topics.get(INSTITUTIONS, [])]
+    names = ", ".join(f"«{ch.prompt_id}»" for ch in picked)
+    hint = (
+        f"{names} ist ein Kapitel, kein Thema. Wähle stattdessen das passende Thema aus diesen"
+        f" Kurznamen: {', '.join(t.prompt_id for t in tags)}."
+        " Antworte nur mit dem vollständigen JSON-Objekt nach dem Schema."
+    )
+    retry = [
+        *messages,
+        {
+            "role": "assistant",
+            "content": stage2.model_copy(update={"tags": shown}).model_dump_json(),
+        },
+        {"role": "user", "content": hint},
+    ]
+    # Das Kapitel nannte das Modell selbst: mindestens ein Thema daraus, sonst leerte es die Liste
+    fmt = single_format(job.affair_id, allowed, institutions, min_tags=1)
+    reply = await client.chat(retry, large=large, response_format=fmt)
+    try:
+        return parse(extract_json(reply.content))
+    except INVALID:
+        return stage2
 
 
 async def _requote(
@@ -275,6 +362,7 @@ async def _requote(
     text: str,
     verify: Callable[[str, list[str]], Awaitable[list[bool]]],
     shown: dict[str, str],
+    fmt: dict[str, Any] | None = None,
 ) -> tuple[Stage2Output, list[bool]]:
     """Einmal nachfragen, wenn Belege nicht wörtlich im Text stehen (Modelle umschreiben gern).
 
@@ -298,7 +386,7 @@ async def _requote(
         {"role": "assistant", "content": answer},
         {"role": "user", "content": hint},
     ]
-    reply = await client.chat(retry, large=large)
+    reply = await client.chat(retry, large=large, response_format=fmt)
     try:
         again = parse(extract_json(reply.content))
     except INVALID:
@@ -340,6 +428,15 @@ async def classify_affair(
     Ist nur die 70B-Antwort ungültig, gilt das 8B-Ergebnis (Grund `70b_ungueltig`).
     """
     passes: list[Pass] = []
+    rule = match_rule(job.text) if task_tag(job.task) is None else None
+    if rule is not None:
+        # Routinegeschäft (Vorschlag B): Thema aus dem Titel, kein Modellaufruf.
+        label = Label(rule.tag_id, CONFIDENCE, rule.evidence, True)
+        language = job.language if job.language in ("de", "fr", "it", "rm") else "other"
+        empty = Stage2Output(affair_id=job.affair_id, language=language)
+        return _result(c, job, [Pass("rule", RULES_VERSION, [label])], empty), [
+            f"regel:{rule.rule}"
+        ]
     if c.single is not None and task_tag(job.task) is None:
         # Einstufig: ein 70B-Durchlauf, keine Eskalation. Ungültig auch nach der Wiederholung:
         # OutputFailure, der Job ist dauerhaft failed.

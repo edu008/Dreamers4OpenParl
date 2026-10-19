@@ -211,6 +211,8 @@ def apply_descriptions(
         entry = descriptions.get(tag["tag_id"])
         if not entry:
             continue
+        if entry.get("slug"):  # eindeutiger Kurzname, wo der aus dem Namen das Modell irreführt
+            tag["slug"] = entry["slug"]
         for lang in ("it", "en"):  # APS liefert nur DE und FR
             if entry.get(lang):
                 tag["pref_label"][lang] = entry[lang]

@@ -3,7 +3,7 @@
 # Jede inhaltliche Änderung erhöht registry_version. Neue Tags nur über Vorschläge und Review.
 # Tag-Seiten im ParlWiki werden aus der Datenbank erzeugt und sind keine zweite Registry.
 # Schreibt ein Werkzeug die Datei neu, gehen diese Kommentare verloren (ADR 0001).
-registry_version: 2026-10-19.1
+registry_version: 2026-10-19.3
 schemes:
   aps:
     label: Année Politique Suisse
@@ -218,7 +218,8 @@ tags:
     en: Public administration
   definition:
     de: Öffentliche Verwaltung, Verwaltungsreform, Personal und Löhne des öffentlichen Dienstes, Behördenorganisation,
-      E-Government-Organisation, Beschaffungswesen.
+      E-Government-Organisation, Beschaffungswesen. Nicht, nur weil eine Verwaltung, ein Departement oder
+      eine Regierung etwas umsetzen, prüfen oder beantworten soll.
     fr: 'Objets relatifs au thème APS « Administration » (chemin : Institutions et acteurs > Institutions
       > Administration).'
   broader:
@@ -619,14 +620,16 @@ tags:
     it: Iniziativa popolare
     en: Popular initiative
   definition:
-    de: Volksinitiativen und Gemeindeinitiativen — Gültigkeit, Behandlung, Gegenvorschläge.
+    de: Volksinitiativen und Gemeindeinitiativen — Gültigkeit, Behandlung, Gegenvorschläge. Nicht für
+      parlamentarische Initiativen, Standesinitiativen oder Vorstösse von Ratsmitgliedern; dort zählt
+      ihr Sachthema.
     fr: 'Objets relatifs au thème APS « Initiative populaire » (chemin : Démocratie directe et élections
       > Démocratie directe > Initiative populaire).'
   broader:
   - aps:2.1
   alt_labels:
     de:
-    - Initiative
+    - Volksinitiative
     - Gegenvorschlag
     - Einzelinitiative
     - Gemeindeinitiative
@@ -767,14 +770,16 @@ tags:
 - tag_id: aps:2.1.9
   scheme: aps
   status: active
-  slug: politikfinanzierung
+  slug: parteien-kampagnenfinanzierung
   pref_label:
     de: Politikfinanzierung
     fr: Financement de la politique
     it: Finanziamento della politica
     en: Political finance
   definition:
-    de: Finanzierung von Parteien und Kampagnen, Transparenz der Politikfinanzierung.
+    de: Finanzierung von Parteien, Wahl- und Abstimmungskampagnen, Offenlegung von Spenden. Nicht für
+      Kosten, Kredite, Subventionen oder die Finanzierung staatlicher Aufgaben (dafür das Sachthema oder
+      Budget).
     fr: 'Objets relatifs au thème APS « Financement de la politique » (chemin : Démocratie directe et
       élections > Démocratie directe > Financement de la politique).'
   broader:
@@ -1332,7 +1337,7 @@ tags:
     en: Families
   definition:
     de: Familienpolitik, Kinderbetreuung, Kitas, Familienzulagen, Vereinbarkeit von Familie und Beruf,
-      Eltern- und Vaterschaftsurlaub.
+      Eltern- und Vaterschaftsurlaub. Nicht für Schulgesetze und Unterricht (Grundschulen).
     fr: 'Objets relatifs au thème APS « Familles » (chemin : Société et culture > Groupes sociaux > Familles).'
   broader:
   - aps:4.1
@@ -4328,7 +4333,7 @@ tags:
     en: Economic order
   definition:
     de: Wirtschaftsordnung, Wirtschaftsfreiheit, staatliche Unternehmen und Beteiligungen, Gewerbe- und
-      Ladenöffnung, Bürokratieabbau.
+      Ladenöffnung, Bürokratieabbau. Nicht für allgemeine Kosten- oder Preisfragen eines anderen Sachthemas.
     fr: 'Objets relatifs au thème APS « Ordre économique » (chemin : Economie et finances > Politique
       économique > Ordre économique).'
   broader:

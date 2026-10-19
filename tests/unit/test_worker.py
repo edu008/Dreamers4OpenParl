@@ -364,7 +364,63 @@ async def test_single_stage_asks_70b_once_with_all_topics(single):
         "adhoc:digitalisierung-breit",
         "aps:6.1.9",
     ]
-    assert result.prompt_version.startswith("classify_single_v2+")
+    assert result.prompt_version.startswith("classify_single_v3+")
+
+
+async def test_single_stage_forces_the_format_not_the_names(single):
+    """v3: JSON-Schema mit Beleg vor dem Thema, tag_id frei (ein enum über alle Namen erzwang
+    falsche Themen); ein Kapitelname wird verworfen, kern oder neben wird zur Konfidenz."""
+    settings, classifier = single
+    chapter = classifier.chapters[0].prompt_id
+
+    def answer(body):
+        data = json.loads(fake_completion(body["messages"]))
+        if "tags" in data:
+            text = TEXT[:40]
+            data["tags"] = [
+                {"evidence": text, "tag_id": "arbeitsmarkt", "fit": "kern"},
+                {"evidence": text, "tag_id": chapter, "fit": "kern"},
+                {"evidence": text, "tag_id": "digitalisierung", "fit": "neben"},
+            ]
+        return json.dumps(data)
+
+    client, requests = mock_llm(settings, answer)
+    async with client:
+        result, _ = await classify_affair(
+            classifier, client, job(), threshold=0.6, verify=verified, escalate=nothing
+        )
+    labels = [(label.tag_id, label.confidence) for label in result.passes[-1].labels]
+    assert labels == [("aps:2.4.1", 0.9), ("aps:6.1.9", 0.6)]
+    fmt = requests[0]["response_format"]["json_schema"]
+    assert fmt["strict"] is True
+    item = fmt["schema"]["properties"]["tags"]["items"]
+    assert list(item["properties"]) == ["evidence", "tag_id", "fit"]  # Beleg zuerst
+    assert item["properties"]["tag_id"] == {"type": "string"}
+    assert fmt["schema"]["properties"]["affair_id"]["enum"] == [7]
+
+
+async def test_a_chapter_name_is_asked_again_within_that_chapter(single):
+    settings, classifier = single
+    chapter = next(ch for ch in classifier.chapters if ch.tag_id == "aps:2.4")
+
+    def answer(body):
+        data = json.loads(fake_completion(body["messages"]))
+        if "tags" in data:
+            again = "ist ein Kapitel" in body["messages"][-1]["content"]
+            tag = "arbeitsmarkt" if again else chapter.prompt_id
+            data["tags"] = [{"evidence": TEXT[:40], "tag_id": tag, "fit": "kern"}]
+        return json.dumps(data)
+
+    client, requests = mock_llm(settings, answer)
+    async with client:
+        result, _ = await classify_affair(
+            classifier, client, job(), threshold=0.6, verify=verified, escalate=nothing
+        )
+    assert [label.tag_id for label in result.passes[-1].labels] == ["aps:2.4.1"]
+    enum = requests[1]["response_format"]["json_schema"]["schema"]["properties"]["tags"]
+    assert set(enum["items"]["properties"]["tag_id"]["enum"]) == {
+        t.prompt_id for t in classifier.topics["aps:2.4"]
+    }
 
 
 async def test_single_stage_asks_again_with_short_names(single):
@@ -422,3 +478,20 @@ async def test_single_stage_fails_after_two_invalid_answers(single):
                 classifier, client, job(), threshold=0.6, verify=verified, escalate=nothing
             )
     assert [body["model"] for body in requests] == ["test-70b", "test-70b"]
+
+
+async def test_routine_affair_is_labelled_by_rule_without_a_model_call(single):
+    settings, classifier = single
+    client, requests = mock_llm(settings)
+    routine = Job(9, "classify:aps", 1, 1, "Vereidigung eines Parlamentsmitglieds\nText", "h", "de")
+    async with client:
+        result, reasons = await classify_affair(
+            classifier, client, routine, threshold=0.6, verify=verified, escalate=nothing
+        )
+    assert requests == []
+    assert reasons == ["regel:vereidigung"]
+    (only,) = result.passes
+    assert (only.stage, only.model_version) == ("rule", "regeln-v1")
+    assert [(lb.tag_id, lb.confidence, lb.evidence_verified) for lb in only.labels] == [
+        ("aps:1.2.4", 0.95, True)
+    ]
