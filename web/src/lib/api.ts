@@ -195,6 +195,15 @@ export interface DocRecord {
   /** Bytes. */
   size: number | null
   url: string | null
+  /** Sprache des Dokuments, z. B. «fr». */
+  language: string | null
+  /** Text aus der Datei gespeichert: GET /v1/docs/{id}. */
+  has_text: boolean
+}
+
+/** GET /v1/docs/{id} (Auszug): das Dokument mit dem Text aus der Datei, bis einige MB. */
+export interface DocDetail extends DocRecord {
+  text: string | null
 }
 
 export interface DocList {
@@ -320,17 +329,6 @@ export interface SearchResult {
   offset: number
   duration_ms: number
   items: SearchHit[]
-}
-
-/** Antwort des Agenten (POST /v1/agent/search); Belege stehen als [ID] im Text. Hier nur die
- * Felder, die die öffentliche Seite zeigt (ohne Werkzeugaufrufe und Themen-Entwurf). */
-export interface AgentResult {
-  query: string
-  answer: string | null
-  cited_affair_ids: number[]
-  hits: (AffairHead & { topics: HitTopic[] })[]
-  status: "ok" | "no_results" | "limit_reached"
-  duration_ms: number
 }
 
 /** Graph, Sicht 2 (GET /v1/graph/affairs/{id}): ein Geschäft und seine Nachbarn über gemeinsame

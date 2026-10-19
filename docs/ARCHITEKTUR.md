@@ -31,7 +31,7 @@ flowchart LR
 | Komponente | Modul | Läuft als | Liest | Schreibt |
 |---|---|---|---|---|
 | Download | `parltopics.download` | CLI auf einem Rechner mit Internet | `files.openparldata.ch` | Import-Bündel |
-| Ingest, Input | `parltopics.ingest`, `parltopics.inputs` | CLI auf dem Server | Import-Bündel | `affairs`, `affair_texts`, `affair_docs`, `affair_inputs`, `search_documents` |
+| Ingest, Input | `parltopics.ingest`, `parltopics.inputs` | CLI auf dem Server | Import-Bündel | `affairs`, `affair_texts`, `affair_docs`, `affair_contributors`, `affair_inputs`, `search_documents` |
 | Registry | `parltopics.registry` | CLI und Bibliothek | `registry/tags.yaml` | `tags`, `registry_syncs`; die Datei nur bei Review-Aktionen |
 | Worker | `parltopics.classify` | Dienst `worker` oder CLI `classify` | `classification_jobs`, `affair_inputs`, `tags` | `affair_tags`, `affair_summaries`, `tag_proposal_raw`, Job-Status, `job_events`, Zähler in `classification_runs` |
 | Agent | `parltopics.agent` | im Prozess der API | über lesende Werkzeuge | `agent_runs` |
@@ -199,7 +199,7 @@ Der Agent beantwortet natürlichsprachige Fragen mit mehreren Schritten und hilf
 ### 4.2 Schleife
 
 ```text
-messages = [system(agent_system_v1), user(anfrage)]
+messages = [system(agent_system_v2), user(anfrage)]
 for schritt in 1..6:
     antwort = llm(messages, tools=TOOLS)            # oder Prompt-Protokoll ohne Tool-Calling
     if antwort ist Werkzeugaufruf:

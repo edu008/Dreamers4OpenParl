@@ -144,7 +144,7 @@ Hinweis aus dem README: Für APS existieren keine Gold-Labels; die Curia-Vista-S
 Download (separat, online)      → Import-Bündel (NDJSON.gz, CSV, XLSX)
         │ offline übertragbar
         ▼
-1 Ingest         affairs, texts, docs, bodies → PostgreSQL; inkrementell über index.json / updated_at
+1 Ingest         affairs, texts, docs, bodies, contributors → PostgreSQL; inkrementell über index.json / updated_at
         ▼
 2 Input          pro Geschäft ein Klassifikationstext: Bund = Titel + eingereichter Text (+ Begründung);
                  Kantone/Gemeinden = Titel + Anfang des ersten Dokuments; HTML entfernt, Sprache erkannt
@@ -371,7 +371,7 @@ Jede Anforderung hat eine prüfbare Abnahme.
 | ID | Anforderung | Abnahme |
 |---|---|---|
 | F1 | **Download** (`parltopics download`) lädt `index.json` und ausgewählte Exportdateien (affairs, bodies, texts/docs für gewählte `body_key`s, hackapertus) in ein Import-Bündel; nur geänderte Dateien (Grösse/Datum aus index.json). | Zweiter Lauf lädt nur geänderte Dateien; Bündel ist ein Verzeichnis, offline kopierbar. |
-| F2 | **Ingest** liest das Bündel in PostgreSQL (affairs, bodies, texts, docs-Text), inkrementell über `updated_at`, Zeilenzahlen gegen index.json geprüft. | Zeilenzahlen stimmen mit index.json überein; erneuter Lauf ändert nichts. |
+| F2 | **Ingest** liest das Bündel in PostgreSQL (affairs, bodies, texts, docs-Text, contributors), inkrementell über `updated_at`, Zeilenzahlen gegen index.json geprüft. | Zeilenzahlen stimmen mit index.json überein; erneuter Lauf ändert nichts. |
 | F3 | **Input-Aufbereitung** baut pro Geschäft einen Klassifikationstext (Regel Bund/Kantone, HTML entfernt, Längenlimit, Sprache erkannt) und speichert `input_hash`. | Stichprobe von 50 Geschäften: kein HTML, Sprache korrekt, Länge innerhalb Limit. |
 | F4 | **Registry**: `registry/tags.yaml` wird geladen, validiert (eindeutige IDs, Pflichtfelder, gültige Verweise in `broader`, `related` und `merged_into`, ID-Präfix passt zum Schema, `registry_version` bei Inhaltsänderung erhöht, SKOS-Regeln nach F27) und in die Tabelle `tags` synchronisiert; `scheme_hash` je Schema berechnet; APS aus `aps_topics.xlsx` erzeugbar. | Validierung schlägt bei doppelter ID und bei geänderter Datei ohne neue Version fehl; Sync ist idempotent; 165 APS-Themen vorhanden; gleicher Inhalt ergibt gleichen `scheme_hash`. |
 | F5 | **Klassifikation**: Worker rufen Apertus 8B zweistufig über die OpenAI-kompatible API auf (7.3), validieren die Ausgabe und speichern Tags mit Konfidenz, Beleg, `model_version`, `prompt_version`, `registry_version`, `input_hash`; parallelisiert und wiederaufnehmbar über den Status je Geschäft (7.7), Fehler protokolliert. | Lauf über CHE 2024–2026 vollständig; Abbruch und Neustart führt kein Geschäft doppelt aus; JSON-Fehlerquote < 1 %. |
@@ -385,7 +385,7 @@ Jede Anforderung hat eine prüfbare Abnahme.
 | F13 | **ParlWiki Web-App** (React-SPA) nach 7.5: Heart mit Seitenbaum, Geschäft, Tag-Seite, Parlament, Suche, Review-Warteschlange, Graph, Statusübersicht. | Geschäftsseite zeigt Text mit hervorgehobenem Beleg und verlinkten Tags; Tag-Seite zeigt Zusammenfassung mit Verweisen; alle Assets lokal (Netzwerk-Log ohne externe Hosts, Prüfung des Builds in CI); jede Route lädt auch direkt. |
 | F14 | **Markdown-Export** nach 7.5 und 7.9: Heart, Bereiche, Kapitel, Tag-Seiten, Querschnittsthemen und Parlamente. | Export läuft zweimal ohne Diff; Frontmatter enthält `tag_id`, `scheme`, `registry_version` und die Zahl der Geschäfte; keine Datei pro Geschäft; Dateinamen bleiben bei einer Namensänderung des Tags gleich. |
 | F15 | **Suche** nach 7.6: Volltext mit Filtern ohne LLM; natürlichsprachige Anfrage zuerst über die Navigationssuche (7.10, F26), im Dialog über den Agenten (7.8). | Anfrage in DE und FR liefert Treffer mit Kurzantwort und Verweisen; ohne Treffer keine erfundene Antwort. |
-| F16 | **Evaluation** als Kommando: Präzision/Recall gegen Gold-Set, nach Sprache, Ebene, Kanton und Hierarchiestufe (Bereich, Kapitel, Thema; falsches Thema im richtigen Kapitel zählt als Teiltreffer); Baseline Keyword-Suche; Präzision je Konfidenzband; Vergleich einstufig/zweistufig; bei Ad-hoc Kandidaten-Recall und Klassifikator-Recall getrennt; Bericht als Markdown. | Bericht enthält Tabellen je Sprache/Ebene/Kanton und je Hierarchiestufe, Baseline-Vergleich, Konfidenzbänder und beide Prompt-Varianten. |
+| F16 | **Evaluation** als Kommando: Präzision/Recall gegen Gold-Set, nach Sprache, Ebene, Kanton, Partei und Hierarchiestufe (Bereich, Kapitel, Thema; falsches Thema im richtigen Kapitel zählt als Teiltreffer); Baseline Keyword-Suche; Präzision je Konfidenzband; Vergleich einstufig/zweistufig; bei Ad-hoc Kandidaten-Recall und Klassifikator-Recall getrennt; Bericht als Markdown. | Bericht enthält Tabellen je Sprache/Ebene/Kanton/Partei und je Hierarchiestufe, Baseline-Vergleich, Konfidenzbänder und beide Prompt-Varianten. |
 | F17 | **Täglicher Lauf**: ein Kommando führt Ingest → Input → Klassifikation (nur neu/geändert) → Seiten → Export → Wiki aus; Laufprotokoll in `classification_runs`. | Lauf mit Tagesdelta < 1 h; Protokoll zeigt Anzahl neu/geändert/fehlgeschlagen. |
 | F18 | **Status pro Geschäft und Aufgabe** (`open`, `pending`, `done`, `failed`) nach 7.7, inkl. automatischem Zurücksetzen auf `open` bei geändertem Text, neuer Prompt-Version, neuem `scheme_hash` der Aufgabe oder neu freigegebenem Tag; Statusübersicht in API (`GET /v1/jobs/summary`) und Web-App. | Geändertes Geschäft im Tagesimport steht danach auf `open`, nach dem Lauf auf `done`; Job eines abgebrochenen Workers steht nach dem Timeout wieder auf `open`; ein neues Ad-hoc-Tag öffnet keinen `classify:aps`-Job; Übersicht zeigt die Zählung je Status. |
 | F19 | **Parallele Verarbeitung** mit Job-Übernahme per `SKIP LOCKED`, Heartbeat, Besitzprüfung beim Schreiben, Lauf-Lock pro Aufgabe, adaptiver Drosselung und Gruppierung paralleler Tag-Vorschläge nach 7.7. | Zwei gleichzeitig gestartete Worker-Prozesse bearbeiten kein Geschäft doppelt; ein Worker, dessen Job nach Timeout neu vergeben wurde, schreibt nichts; ein zweiter Start desselben Laufs wird abgelehnt; derselbe Vorschlag aus 5 Workern ergibt einen Eintrag mit 5 Geschäften. |
@@ -433,7 +433,7 @@ Jede Anforderung hat eine prüfbare Abnahme.
 | DB | PostgreSQL 16, Extensions `pg_trgm`, `vector` (ungenutzt, für später) | Daten, Labels, Jobs, Suche |
 | Doku | Archify (MIT, nur Build-Zeit) | Architektur-Diagramme als HTML |
 
-**Datenmodell** (SQL-Skizze in Anhang C, verbindlich sind `migrations/0001_init.sql` bis `migrations/0004_review_undo.sql`; Diagramm [07-datenmodell](architecture/07-datenmodell.html)): `bodies`, `affairs`, `affair_texts`, `affair_docs`, `affair_inputs`, `search_documents`, `tags`, `registry_syncs`, `affair_tags`, `reviews`, `classification_runs`, `classification_jobs`, `job_events`, `tag_proposal_raw`, `tag_proposals`, `tag_proposal_affairs`, `agent_runs`; neu in 0003: `tag_labels`, `tag_relations`, `tag_mappings`, `affair_summaries`, `wiki_pages`, `wiki_page_events`, `search_runs`.
+**Datenmodell** (SQL-Skizze in Anhang C, verbindlich sind die Migrationen in `migrations/`; Diagramm [07-datenmodell](architecture/07-datenmodell.html)): `bodies`, `affairs`, `affair_texts`, `affair_docs`, `affair_inputs`, `search_documents`, `tags`, `registry_syncs`, `affair_tags`, `reviews`, `classification_runs`, `classification_jobs`, `job_events`, `tag_proposal_raw`, `tag_proposals`, `tag_proposal_affairs`, `agent_runs`; neu in 0003: `tag_labels`, `tag_relations`, `tag_mappings`, `affair_summaries`, `wiki_pages`, `wiki_page_events`, `search_runs`; neu in 0007: `affair_contributors`.
 
 ### 10.2 LLM-Anbindung
 
@@ -745,6 +745,7 @@ affairs(id bigint pk, body_key, body_id, number, external_id, title_de, title_fr
         type_harmonized_en, begin_date date, url_external, raw jsonb, updated_at)
 affair_texts(id bigint pk, affair_id, text_type, language, format, text, raw jsonb, updated_at)
 affair_docs(id bigint pk, parent_type, parent_id, name, category, doc_date, language, text, raw jsonb, updated_at)
+affair_contributors(id bigint pk, affair_id, type, role, role_external_id, name, party, position, updated_at)  -- ohne raw
 
 -- Aufbereitung
 affair_inputs(affair_id pk → affairs, text, language, source, input_hash, built_at)

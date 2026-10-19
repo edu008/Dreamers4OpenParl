@@ -47,6 +47,7 @@ LAYOUT = {
     "bodies": (0, 5, "Quelldaten"),
     "affair_texts": (1, 5, "Quelldaten"),
     "affair_docs": (2, 5, "Quelldaten"),
+    "affair_contributors": (3, 5, "Quelldaten"),
 }
 
 # Gezeichnete Beziehungen (Kind-Tabelle, Fremdschlüssel). run_id-Verweise und Selbstverweise
@@ -80,8 +81,9 @@ CARDS = [
         "title": "Lesehilfe",
         "items": [
             "Erzeugt aus migrations/ mit scripts/erd_from_sql.py; verbindlich sind die Migrationen",
-            "Quelltabellen haben keine Fremdschlüssel: affair_texts.affair_id und "
-            "affair_docs.parent_id verweisen fachlich auf affairs",
+            "Quelltabellen haben keine Fremdschlüssel: affair_texts.affair_id, "
+            "affair_docs.parent_id und affair_contributors.affair_id verweisen "
+            "fachlich auf affairs",
             "run_id in affair_tags, affair_summaries, tag_proposals und tag_proposal_raw verweist "
             "auf classification_runs; die Linien sind weggelassen",
             "Ohne Linie: tags.parent_id, tags.merged_into und tag_relations.target_id verweisen "
@@ -254,7 +256,8 @@ def main() -> int:
     if missing:
         print(f"Ohne Platz in LAYOUT: {', '.join(missing)}")
         return 1
-    OUTPUT.write_text(compact_json(build(tables)) + "\n", encoding="utf-8")
+    # LF auch unter Windows, sonst passt der Hash in manifest.json nicht zur Datei im Repo
+    OUTPUT.write_text(compact_json(build(tables)) + "\n", encoding="utf-8", newline="\n")
     print(f"{OUTPUT.relative_to(ROOT)}: {len(tables)} Tabellen, {len(DRAWN)} Beziehungen")
     return 0
 

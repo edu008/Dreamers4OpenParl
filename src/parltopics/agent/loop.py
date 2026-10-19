@@ -36,7 +36,7 @@ from parltopics.llm import JSONExtractionError, LLMClient, extract_json, load_pr
 from parltopics.registry import Registry
 from parltopics.wiki.tree import Page
 
-PROMPT = "agent_system_v1"
+PROMPT = "agent_system_v2"
 MAX_STEPS = MAX_TOOL_CALLS + 3  # Modellaufrufe der Schleife: Platz für Fehler und Nachfrage
 RESULT_MAX = 8000  # Zeichen je Werkzeugergebnis im Prompt
 COUNTING = ("count_affairs", "read_page")  # die Quellen für Zahlen (Prompt, Regel 4)

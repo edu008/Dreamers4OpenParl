@@ -38,6 +38,23 @@ AFFAIRS = [
     (203, "CHE", "de", "2017-05-01", "Breitband auf dem Land\nGlasfaser für alle."),
     (250, "CHE", "de", "2024-03-01", "Steuern\nDie Steuern sinken."),  # Stichprobe: 250 % 50
 ]
+# Geschäft, Typ, Rolle, Rolle der Quelle, Partei, Position
+CONTRIBUTORS = [
+    # 200: Vor dem Urheber stehen die Berichterstattung, die nicht eingereicht hat,
+    # Mitunterzeichnende und eine Kommission. Partei ist die des Urhebers.
+    (200, "person", "author", "correspondent", "Schweizerische Volkspartei", 1),
+    (200, "person", "cosign", "cosign", "FDP.Die Liberalen", 2),
+    (200, "group", "author", "author", None, 3),
+    (200, "person", "author", "author", "Sozialdemokratische Partei", 7),
+    # 201: zwei Erstgenannte aus verschiedenen Parteien, die dritte Person zählt nicht
+    (201, "person", "author", None, "Die Mitte", 1),
+    (201, "person", "author", None, "Sozialdemokratische Partei", 1),
+    (201, "person", "author", None, "Grünliberale Partei", 2),
+    # 202: Eine Kommission ist keine Person; die erstgenannte Person hat keine Partei.
+    (202, "group", "author", None, None, 1),
+    (202, "person", "author", None, None, 2),
+    (202, "person", "author", None, "Die Grünen", 3),
+]
 KEYWORDS = {"de": ["Digitalisierung", "E-Government"], "fr": ["numérisation"]}
 RUNS = [
     (1, "full", "classify:aps", SINGLE, {}),
@@ -135,6 +152,12 @@ def data(conn, settings):
             (body_id, body_key, level, Jsonb(raw)),
         )
     add_affairs(conn, AFFAIRS)
+    for contributor_id, contributor in enumerate(CONTRIBUTORS):
+        conn.execute(
+            "INSERT INTO affair_contributors (id, affair_id, type, role, role_external_id, party,"
+            " position) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            (contributor_id, *contributor),
+        )
     for run in RUNS:
         add_run(conn, *run)
     for done in DONE:  # vor den Entscheiden: Die Läufe kamen vor dem Review
@@ -173,6 +196,11 @@ def test_report_shows_every_table_with_counts(conn, settings, data):
         "| Bund | 1 | 1/2 (50 %) | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) |",
         "| GE | 1 | 0/1 (0 %) | 1/1 (100 %) | 0/1 (0 %) | 1/1 (100 %) |",
         "| ZH | 1 | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) |",
+        # Parteien: 200 nach dem Urheber, 201 mit zwei Erstgenannten, 202 ohne Partei
+        "### Je Partei (Thema-Stufe)",
+        "| Sozialdemokratische Partei | 1 | 1/2 (50 %) | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) |",
+        "| mehrere Parteien | 1 | 0/1 (0 %) | 1/1 (100 %) | 0/1 (0 %) | 1/1 (100 %) |",
+        "| ohne Partei | 1 | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) |",
         # Prompt-Varianten auf den gemeinsamen Geschäften 200 und 201
         "Verglichen auf den 2 Geschäften, die alle Varianten bearbeitet haben.",
         f"| einstufig | `{SINGLE}` | 2 | 3 | 1/3 (33 %) | 1/2 (50 %) | 1/3 (33 %) | 1/2 (50 %) |",
@@ -202,6 +230,9 @@ def test_report_shows_every_table_with_counts(conn, settings, data):
     missing = [line for line in expected if line not in text]
     assert not missing, text
     assert "adhoc:ki-verwaltung" not in text  # Vorschlagslauf ohne Stichwortsuche
+    # Berichterstattung, Mitunterzeichnende, später Genannte
+    for party in ("Volkspartei", "FDP", "Die Mitte", "Grünliberale", "Die Grünen"):
+        assert party not in text
 
 
 def test_only_the_final_pass_of_an_escalated_job_counts(conn, settings):

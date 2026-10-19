@@ -2,7 +2,8 @@
 
 Jede Exportdatei kommt per COPY in eine temporäre Tabelle und von dort per Upsert in die
 Quelltabelle. Geschrieben werden nur neue oder geänderte Zeilen, ein zweiter Lauf ändert nichts.
-`raw` enthält den Originaldatensatz ohne das Feld, das schon in `text` steht.
+`raw` enthält den Originaldatensatz ohne das Feld, das schon in `text` steht. Die Beteiligten
+(contributors) haben kein `raw`, gespeichert sind nur Rolle und Partei (Migration 0007).
 """
 
 import gzip
@@ -92,11 +93,26 @@ def doc_row(r: Record) -> Record:
     }
 
 
+def contributor_row(r: Record) -> Record:
+    return {
+        "id": r["id"],
+        "affair_id": r.get("affair_id"),  # leer bei Beteiligten an News und Sitzungen
+        "type": r.get("type"),
+        "role": r.get("role_harmonized"),
+        "role_external_id": r.get("role_external_id"),
+        "name": r.get("fullname"),
+        "party": r.get("party_harmonized_de"),
+        "position": r.get("position"),
+        "updated_at": r.get("updated_at"),
+    }
+
+
 TABLES: dict[str, tuple[str, Callable[[Record], Record]]] = {
     "bodies": ("bodies", body_row),
     "affairs": ("affairs", affair_row),
     "texts": ("affair_texts", text_row),
     "docs": ("affair_docs", doc_row),
+    "contributors": ("affair_contributors", contributor_row),
 }
 
 
