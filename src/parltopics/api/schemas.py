@@ -8,7 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 from parltopics.classify.adhoc import Keywords
 from parltopics.wiki.tree import PageKind
 
-Stage = Literal["8b", "70b", "human"]
+# rule: Thema per Regel aus dem Titel eines Routinegeschäfts, ohne Modell (0006_rule_stage).
+Stage = Literal["8b", "70b", "human", "rule"]
 Lang = Literal["de", "fr", "it", "rm"]
 Reason = Literal["low_confidence", "no_evidence", "evidence_unverified", "sample"]
 LEVEL = "country, canton, city oder municipality"
