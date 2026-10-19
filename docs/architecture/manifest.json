@@ -10,8 +10,8 @@
     "02-pipeline": {
       "type": "workflow",
       "quality": "showcase",
-      "source_sha256": "b44dcf8b49628ebe86bc9b2866e39071dbd05b7612d0c13fa2ce0e0abd9d339c",
-      "html_sha256": "fd7ed8f053126f219f5d7a09a6323dbcfc7a43ee12030c664489018724103ec2"
+      "source_sha256": "db86ce6e34a6f8bcbef10ee59544687a0b6fd7ee761e017a1a145af2a263eb1b",
+      "html_sha256": "3107267eef6f662c4a8a8b04102b36aed006373db63e72f5ca760385d0a17e78"
     },
     "03-job-lifecycle": {
       "type": "lifecycle",

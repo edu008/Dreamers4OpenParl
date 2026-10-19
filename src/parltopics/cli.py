@@ -1,8 +1,4 @@
-"""Kommandozeile `parltopics` (PRD 10.4).
-
-Kommandos, die noch nicht umgesetzt sind, zeigen ihre geplante Schnittstelle, nennen ihren
-Meilenstein und enden mit Exit-Code 3.
-"""
+"""Kommandozeile `parltopics` (PRD 10.4)."""
 
 import asyncio
 import contextlib
@@ -15,7 +11,6 @@ import typer
 from parltopics import __version__
 from parltopics.config import Settings, get_settings
 
-NOT_IMPLEMENTED_EXIT = 3
 DATE = ["%Y-%m-%d"]
 
 app = typer.Typer(
@@ -31,15 +26,6 @@ app.add_typer(registry_app, name="registry")
 app.add_typer(llm_app, name="llm")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(proposals_app, name="proposals")
-
-
-def _planned(milestone: str, reference: str) -> None:
-    typer.secho(
-        f"Noch nicht umgesetzt: Meilenstein {milestone}, PRD {reference}.",
-        fg=typer.colors.YELLOW,
-        err=True,
-    )
-    raise typer.Exit(code=NOT_IMPLEMENTED_EXIT)
 
 
 @app.command()
@@ -429,6 +415,42 @@ def adhoc(
 
 
 @app.command()
+def daily(
+    bundle: Annotated[Path, typer.Option(help="Import-Bündel")] = Path("data/import"),
+    body: Annotated[
+        list[str] | None, typer.Option(help="nur diese Parlamente klassifizieren")
+    ] = None,
+    since: Annotated[
+        datetime | None, typer.Option(formats=DATE, help="nur Geschäfte ab Datum klassifizieren")
+    ] = None,
+) -> None:
+    """Täglicher Lauf (F17): Ingest, Input, Registry, Klassifikation, Vorschläge, Seiten, Export
+    und Wiki, ohne Review (ARCHITEKTUR 2, Schritte 2 bis 10).
+
+    Klassifiziert nur neue oder geänderte Geschäfte, protokolliert in classification_runs. Bricht
+    beim ersten fehlgeschlagenen Schritt ab. Den Download macht vorher `parltopics download`
+    (online) oder das Einspielen des Bündels (Air-Gap).
+    """
+    import time
+
+    steps = [
+        ("Ingest", lambda: ingest(bundle=bundle)),
+        ("Input", lambda: inputs(body=body, since=since)),
+        ("Registry", registry_sync),
+        ("Klassifikation", lambda: classify(task="classify:aps", body=body, since=since)),
+        ("Vorschläge", proposals_group),
+        ("Seiten", pages),
+        ("Export", export),
+        ("Wiki", wiki),
+    ]
+    started = time.perf_counter()
+    for name, step in steps:
+        typer.secho(f"== {name}", bold=True)
+        step()
+    typer.echo(f"Täglicher Lauf fertig nach {(time.perf_counter() - started) / 60:.1f} min")
+
+
+@app.command()
 def export(
     out: Annotated[Path, typer.Option(help="Zielverzeichnis")] = Path("dist/export"),
     dvs_topic: Annotated[
@@ -504,9 +526,43 @@ def pages() -> None:
 def wiki(
     out: Annotated[Path, typer.Option(help="Zielverzeichnis")] = Path("wiki"),
     affair: Annotated[int | None, typer.Option(help="nur dieses Geschäft exportieren")] = None,
+    web_url: Annotated[
+        str, typer.Option(help="Adresse der Web-App für die Links auf Geschäfte")
+    ] = "http://127.0.0.1:8000",
 ) -> None:
-    """Markdown-Export: Heart, Bereiche, Kapitel, Tag-Seiten, Querschnitt, Parlamente (F14)."""
-    _planned("M3", "F14")
+    """Markdown-Export: Heart, Bereiche, Kapitel, Tag-Seiten, Querschnitt, Parlamente (F14).
+
+    Keine Datei je Geschäft; Geschäfte verlinken auf die Web-App und OpenParlData. Liest die
+    Datenbank nur und schreibt nur geänderte Dateien.
+    """
+    import datetime as dt
+
+    from parltopics.db import connect
+    from parltopics.registry import load_registry
+    from parltopics.wiki.markdown import export_affair, export_wiki
+    from parltopics.wiki.tree import build_tree
+
+    settings = get_settings()
+    registry = load_registry(settings.registry_path)
+    tree = build_tree(registry)
+    with connect(settings.database_url, autocommit=True) as conn:
+        if affair is not None:
+            path = export_affair(conn, tree, out, affair, web_url=web_url)
+            if path is None:
+                typer.secho(f"Geschäft {affair} gibt es nicht", fg=typer.colors.RED, err=True)
+                raise typer.Exit(code=1)
+            typer.echo(f"Geschäft {affair}: {path}")
+            return
+        files, changed = export_wiki(
+            conn,
+            registry,
+            tree,
+            out,
+            web_url=web_url,
+            window_months=settings.page_window_months,
+            today=dt.datetime.now(dt.UTC).date(),
+        )
+    typer.echo(f"Wiki in {out}: {files} Dateien, {changed} geändert")
 
 
 @app.command("eval")

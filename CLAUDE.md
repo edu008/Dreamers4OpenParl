@@ -28,7 +28,7 @@ make web-dev               # Vite auf http://127.0.0.1:5173 (Web-App mit Hot Rel
 make web-check             # Web-App: Lint, Typprüfung, Build, Prüfung auf externe URLs
 make diagrams              # Diagramme mit Archify bauen; make diagrams-check prüft sie
 make offline-test          # Image aus Wheels, Test im Docker-Netz ohne Internet
-uv run parltopics --help   # CLI; nicht umgesetzte Kommandos enden mit Exit-Code 3 und nennen den Meilenstein
+uv run parltopics --help   # CLI mit allen Kommandos
 ```
 
 ## Struktur
