@@ -45,6 +45,21 @@ DOC = {
     "date": "2024-03-02T00:00:00",
     "language": "de",
 }
+CONTRIBUTORS = [
+    {
+        "id": 30,
+        "affair_id": 1,
+        "type": "person",
+        "role_harmonized": "author",
+        "role_external_id": "author",
+        "fullname": "Anna Muster",
+        "party_harmonized_de": "Sozialdemokratische Partei",
+        "position": 1,
+        "updated_at": "2026-10-01T10:00:00",
+    },
+    # Beteiligte an News haben kein Geschäft; sie zählen für den Abgleich mit index.json mit.
+    {"id": 31, "affair_id": None, "news_id": 5, "type": "group", "role_harmonized": "publisher"},
+]
 
 
 def write_bundle(path, affairs, row_count=None):
@@ -53,6 +68,7 @@ def write_bundle(path, affairs, row_count=None):
         "affairs.ndjson.gz": affairs,
         "texts/texts_CHE.ndjson.gz": [TEXT],
         "docs/docs_CHE.ndjson.gz": [DOC],
+        "contributors.ndjson.gz": CONTRIBUTORS,
     }
     entries = {}
     for name, rows in files.items():
@@ -82,6 +98,7 @@ def write_bundle(path, affairs, row_count=None):
                 "directory": "docs/",
                 "files": [entries["docs/docs_CHE.ndjson.gz"]],
             },
+            {"entity": "contributors", "type": "single", **entries["contributors.ndjson.gz"]},
         ]
     }
     (path / "index.json").write_text(json.dumps(index))
@@ -97,7 +114,7 @@ def test_ingest_loads_and_is_idempotent(conn, repo_root, tmp_path):
 
     out: list[str] = []
     assert ingest(conn, tmp_path, echo=out.append) == []
-    assert changed(out) == [1, 1, 1, 1]
+    assert changed(out) == [1, 1, 1, 1, 2]
     row = conn.execute("SELECT begin_date::text, raw->>'number' FROM affairs").fetchone()
     assert row == ("2024-03-01", "24.001")
     assert conn.execute("SELECT text, language FROM affair_texts").fetchone() == (
@@ -106,15 +123,20 @@ def test_ingest_loads_and_is_idempotent(conn, repo_root, tmp_path):
     )
     assert conn.execute("SELECT parent_id, raw ? 'text' FROM affair_docs").fetchone() == (1, False)
     assert conn.execute("SELECT languages FROM bodies").fetchone() == (["de", "fr", "it"],)
+    contributors = "SELECT affair_id, role, name, party, position FROM affair_contributors"
+    assert conn.execute(contributors + " ORDER BY id").fetchall() == [
+        (1, "author", "Anna Muster", "Sozialdemokratische Partei", 1),
+        (None, "publisher", None, None, None),
+    ]
 
     out.clear()
     ingest(conn, tmp_path, echo=out.append)
-    assert changed(out) == [0, 0, 0, 0]
+    assert changed(out) == [0, 0, 0, 0, 0]
 
     write_bundle(tmp_path, [{**AFFAIR, "title_de": "Neu"}, {**AFFAIR, "id": 2}])
     out.clear()
     ingest(conn, tmp_path, echo=out.append)
-    assert changed(out) == [0, 2, 0, 0]
+    assert changed(out) == [0, 2, 0, 0, 0]
     assert conn.execute("SELECT count(*) FROM affairs").fetchone() == (2,)
 
 
@@ -122,5 +144,5 @@ def test_ingest_reports_row_count_mismatch(conn, repo_root, tmp_path):
     migrate(conn, repo_root / "migrations")
     write_bundle(tmp_path, [AFFAIR], row_count=5)
     mismatches = ingest(conn, tmp_path, echo=lambda _: None)
-    assert len(mismatches) == 4
+    assert len(mismatches) == 5
     assert "index.json nennt 5" in mismatches[1]

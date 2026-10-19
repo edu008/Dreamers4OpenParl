@@ -331,17 +331,6 @@ export interface SearchResult {
   items: SearchHit[]
 }
 
-/** Antwort des Agenten (POST /v1/agent/search); Belege stehen als [ID] im Text. Hier nur die
- * Felder, die die öffentliche Seite zeigt (ohne Werkzeugaufrufe und Themen-Entwurf). */
-export interface AgentResult {
-  query: string
-  answer: string | null
-  cited_affair_ids: number[]
-  hits: (AffairHead & { topics: HitTopic[] })[]
-  status: "ok" | "no_results" | "limit_reached"
-  duration_ms: number
-}
-
 /** Graph, Sicht 2 (GET /v1/graph/affairs/{id}): ein Geschäft und seine Nachbarn über gemeinsame
  * aktive Themen; die meisten gemeinsamen Themen zuerst. */
 export interface AffairStar {

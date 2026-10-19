@@ -476,6 +476,24 @@
         {"name": "raw", "type": "jsonb"},
         {"name": "updated_at", "type": "timestamptz"}
       ]
+    },
+    {
+      "id": "affair_contributors",
+      "label": "affair_contributors",
+      "tag": "Quelldaten",
+      "row": 3,
+      "col": 5,
+      "attributes": [
+        {"name": "id", "type": "bigint", "key": "pk"},
+        {"name": "affair_id", "type": "bigint"},
+        {"name": "type", "type": "text"},
+        {"name": "role", "type": "text"},
+        {"name": "role_external_id", "type": "text"},
+        {"name": "name", "type": "text"},
+        {"name": "party", "type": "text"},
+        {"name": "position", "type": "integer"},
+        {"name": "updated_at", "type": "timestamptz"}
+      ]
     }
   ],
   "relationships": [
@@ -645,7 +663,7 @@
       "title": "Lesehilfe",
       "items": [
         "Erzeugt aus migrations/ mit scripts/erd_from_sql.py; verbindlich sind die Migrationen",
-        "Quelltabellen haben keine Fremdschlüssel: affair_texts.affair_id und affair_docs.parent_id verweisen fachlich auf affairs",
+        "Quelltabellen haben keine Fremdschlüssel: affair_texts.affair_id, affair_docs.parent_id und affair_contributors.affair_id verweisen fachlich auf affairs",
         "run_id in affair_tags, affair_summaries, tag_proposals und tag_proposal_raw verweist auf classification_runs; die Linien sind weggelassen",
         "Ohne Linie: tags.parent_id, tags.merged_into und tag_relations.target_id verweisen auf tags, wiki_pages.parent_id und redirect_to auf wiki_pages",
         "wiki_page_events.page_id verweist fachlich auf wiki_pages (Protokoll wie job_events)"

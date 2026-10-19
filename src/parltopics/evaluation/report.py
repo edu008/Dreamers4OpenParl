@@ -1,8 +1,8 @@
 """Evaluationsbericht als Markdown (PRD F16, 13).
 
-Präzision und Recall gegen das Gold-Set je Hierarchiestufe, Sprache, Ebene und Kanton, die Baseline
-Stichwortsuche, Präzision je Konfidenzband, die Prompt-Varianten und die Ad-hoc-Themen. Das
-Gold-Set sind die Entscheide der Menschen in affair_tags (api.queries.GOLD). Im Gold-Verzeichnis
+Präzision und Recall gegen das Gold-Set je Hierarchiestufe, Sprache, Ebene, Kanton und Partei, die
+Baseline Stichwortsuche, Präzision je Konfidenzband, die Prompt-Varianten und die Ad-hoc-Themen.
+Das Gold-Set sind die Entscheide der Menschen in affair_tags (api.queries.GOLD). Im Gold-Verzeichnis
 liegen, falls vorhanden, zwei Dateien des Hack-Datensatzes: PolitMonitor (nur Positive zu
 Digitalisierung) und die DVS-Liste. Der Bericht liest nur und schreibt nichts in die Datenbank.
 """
@@ -63,12 +63,25 @@ WHERE l.task = '{TASK_APS}' AND l.stage <> 'human' AND l.scheme = 'aps'
   AND l.affair_id = ANY(%s::bigint[]) AND {FINAL_PASS}
 """
 # Region: der Kanton des Parlaments (canton_key aus OpenParlData), Bundesgeschäfte als «Bund».
+# Partei: die der erstgenannten Person mit Rolle author (kleinste position). OpenParlData führt auch
+# die Berichterstattung im Bund (correspondent) als author; eingereicht hat sie das Geschäft nicht.
 FACTS = """
 SELECT a.id, coalesce(i.language, 'unbekannt'), coalesce(b.level, 'unbekannt'),
-       coalesce(b.raw->>'canton_key', CASE WHEN b.level = 'country' THEN 'Bund' END, 'unbekannt')
+       coalesce(b.raw->>'canton_key', CASE WHEN b.level = 'country' THEN 'Bund' END, 'unbekannt'),
+       coalesce(p.party, 'ohne Partei')
 FROM affairs a
 LEFT JOIN affair_inputs i ON i.affair_id = a.id
 LEFT JOIN bodies b ON b.body_key = a.body_key
+LEFT JOIN LATERAL (
+    SELECT CASE WHEN count(DISTINCT party) > 1 THEN 'mehrere Parteien' ELSE max(party) END
+    FROM (
+        SELECT c.party, rank() OVER (ORDER BY c.position) AS place
+        FROM affair_contributors c
+        WHERE c.affair_id = a.id AND c.type = 'person' AND c.role = 'author'
+          AND c.role_external_id IS DISTINCT FROM 'correspondent'
+    ) authors
+    WHERE place = 1
+) p (party) ON true
 WHERE a.id = ANY(%s::bigint[])
 """
 # Baseline: dieselbe Volltextsuche wie die Kandidatensuche der Ad-hoc-Themen, je APS-Thema mit
@@ -300,7 +313,8 @@ def _aps(conn: psycopg.Connection, registry: Registry, gold: Gold, latest: Decis
         by_version[version][affair_id].add(tag_id)
         if status != "superseded":
             current[affair_id].add(tag_id)
-    facts = {row[0]: row[1:] for row in conn.execute(FACTS, (ids,))}  # Sprache, Ebene, Kanton
+    # Sprache, Ebene, Kanton, Partei
+    facts = {row[0]: row[1:] for row in conn.execute(FACTS, (ids,))}
     baseline = _keyword_labels(conn, registry, list(evaluated))
 
     lines = [
@@ -338,10 +352,17 @@ def _aps(conn: psycopg.Connection, registry: Registry, gold: Gold, latest: Decis
         ("Sprache", lambda a: facts[a][0], LANGUAGES),
         ("Ebene", lambda a: facts[a][1], BODY_LEVELS),
         ("Kanton", lambda a: facts[a][2], ("Bund",)),
+        ("Partei", lambda a: facts[a][3], ()),
     ):
         table = [_compare(n, g, current, baseline, "thema") for n, g in _by(evaluated, key, order)]
         table.append(_compare("gesamt", evaluated, current, baseline, "thema"))
         lines += [f"### Je {title} (Thema-Stufe)", "", *_table([title, *METRICS], table)]
+    lines += [  # unter der Tabelle je Partei, der letzten der Schleife
+        "Partei: die der erstgenannten Person, die das Geschäft eingereicht hat (ohne"
+        " Berichterstattung). «mehrere Parteien»: Erstgenannte aus verschiedenen Parteien."
+        " «ohne Partei»: eingereicht von Bundesrat, Kommission oder Fraktion, oder ohne Angabe.",
+        "",
+    ]
     return lines + _variants(aps, classified, by_version, kept_since)
 
 

@@ -134,8 +134,7 @@ Keine Rundungen (`--radius: 0`). Knöpfe, Felder, Themen und Flächen sind Recht
 
 ## Components
 
-- **Suchfeld:** 56 px hoch, 2 px schwarzer Rahmen, daneben der rote Knopf «Suchen». Darunter «Frage stellen» (Rahmen in Tinte): derselbe Text geht als Frage an den Agenten (`POST /v1/agent/search`). Ausgelöst nur vom Knopf, nie beim Laden der Seite, weil eine Frage bis zu einer Minute Modellzeit kostet.
-- **Antwort:** Tonfläche mit 4-px-Linie links unter dem Suchfeld: Frage, Text mit hochgestellten Belegnummern, nummerierte Quellen (jede öffnet das Geschäft als Pop-up) und der Hinweis «Automatisch … zusammengestellt, ohne Wertung. Bitte die Quellen prüfen.» Während der Suche Zähler, Platzhalter und «Abbrechen»; Fehler in einem Satz, die Stichwortsuche bleibt nutzbar. Einen Themen-Entwurf des Agenten zeigt die öffentliche Seite nicht.
+- **Suchfeld:** 56 px hoch, 2 px schwarzer Rahmen, daneben der rote Knopf «Suchen», sonst nichts (Hick's Law). Stichwort, Thema und Frage gehen ins selbe Feld (Platzhalter «Stichwort, Thema oder Frage», höchstens 200 Zeichen). Kein zweiter Knopf für Fragen und keine geschriebene Antwort: Die Liste ist die Antwort, jedes Geschäft ist eine Quelle.
 - **Knöpfe:** Hauptaktion rot gefüllt; sonst schwarzer Rahmen, beim Hover schwarz gefüllt.
 - **Umschalter:** Felder in einem schwarzen Rahmen, die Auswahl schwarz gefüllt (`aria-pressed`).
 - **Themen:** in der Liste Rahmen in Tinte, auf der Geschäftsseite schwarz gefüllt; ein Klick filtert die Suche. Das aktive Thema steht schwarz gefüllt mit «×» und wird beim Hover rot.

@@ -43,7 +43,7 @@ Ergebnis: `dist/parltopics-bundle-<version>.tar`, die Version stammt aus `git de
 uv run parltopics download --bundle data/import --bodies CHE
 ```
 
-Das Import-Bündel ist ein normales Verzeichnis. Es wird getrennt vom Software-Bundle übertragen, weil es sich täglich ändert. Die Exporte (CHE etwa 300 MB) und optional die Dokumenttexte (5.5 GB) bestimmen die Grösse.
+Das Import-Bündel ist ein normales Verzeichnis. Es wird getrennt vom Software-Bundle übertragen, weil es sich täglich ändert. Die Exporte (CHE etwa 350 MB, davon 58 MB Beteiligte aller Parlamente) und optional die Dokumenttexte (5.5 GB) bestimmen die Grösse.
 
 ### 2.3 Transfer
 
