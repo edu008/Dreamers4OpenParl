@@ -32,7 +32,7 @@ from parltopics.agent.tools import (
 from parltopics.api import navigate, queries
 from parltopics.classify import adhoc
 from parltopics.config import Settings
-from parltopics.registry import Registry
+from parltopics.registry import Registry, Tag
 from parltopics.wiki.tree import Page, children, sort_key, subtree_tag_ids
 
 TEXT_MAX = 2000
@@ -65,12 +65,54 @@ ALL_AFFAIRS = (
     "Ohne tags zählt count_affairs alle Geschäfte, nicht die eines Themas. Für ein Thema die"
     " Tag-IDs mit list_tags suchen und als tags übergeben; für alle Geschäfte all_affairs: true."
 )
+LANGS = ("de", "fr", "it")
+OR = re.compile(r"\s+or\s+", re.IGNORECASE)  # das ODER von websearch_to_tsquery
 
 Found = tuple[Any, list[int]]  # Ergebnis für den Prompt, zitierbare Geschäfts-IDs
 
 
 def _short(text: str | None) -> str | None:
     return text[:SHORT_MAX] if text else text
+
+
+def _labels(tag: Tag) -> list[str]:
+    """Bezeichnungen eines Tags in DE, FR und IT: bevorzugte, alternative, versteckte."""
+    pref = [getattr(tag.pref_label, lang) for lang in LANGS]
+    alt = [label for lang in LANGS for label in getattr(tag.alt_labels, lang)]
+    return list(dict.fromkeys(label for label in [*pref, *alt, *tag.hidden_labels] if label))
+
+
+def _match(tag: Tag, text: str) -> tuple[int, bool]:
+    """Länge der Bezeichnungen, die als ganze Wörter im Text stehen, und ob eine bevorzugte dabei
+    ist: Sie schlägt ein Sammelthema, das denselben Begriff als alternative Bezeichnung führt."""
+
+    def found(labels) -> set[str]:
+        cased = (label.casefold() for label in labels if label)
+        return {
+            label
+            for label in cased
+            if label in text and re.search(rf"(?<!\w){re.escape(label)}(?!\w)", text)
+        }
+
+    preferred = found(getattr(tag.pref_label, lang) for lang in LANGS)
+    return sum(map(len, found(_labels(tag)))), bool(preferred)
+
+
+def translations(registry: Registry, query: str) -> list[str]:
+    """Bezeichnungen in DE, FR und IT der aktiven Tags, die einen Teil der Anfrage (zwischen
+    «or») am besten treffen; leer, wenn keine Bezeichnung darin steht.
+
+    shortcut: übersetzt nur Begriffe, die als Bezeichnung eines Tags in der Registry stehen; wenn
+    Fragen ausserhalb der Registry über Sprachgrenzen scheitern, Übersetzungen vom Modell holen.
+    """
+    tags = [tag for tag in registry.tags if tag.status == "active"]
+    terms: list[str] = []
+    for part in OR.split(query.casefold()):
+        scored = [(_match(tag, part), tag) for tag in tags]
+        best = max((score for score, _ in scored), default=(0, False))
+        if best[0]:
+            terms += [label for score, tag in scored if score == best for label in _labels(tag)]
+    return list(dict.fromkeys(terms))
 
 
 def _heads(rows: list[dict]) -> list[dict]:
@@ -146,11 +188,17 @@ class Tools:
 
     async def search_affairs(self, args: SearchAffairsArgs) -> Found:
         tags = self._expand(args.tags)
+        terms = translations(self.registry, args.query)
 
         def run() -> list[dict]:
             self._bodies(args.body_keys)
             params = {**_filters(args, tags), "q": args.query, "limit": args.limit}
             ids = [row[0] for row in self.conn.execute(SEARCH, params)]
+            # Testfragen F21: «Raumplanung» fand in GE nichts, die Texte dort sind französisch.
+            # Fehlen Treffer, kommen die des Themas mit seinen Bezeichnungen in DE, FR und IT dazu.
+            if len(ids) < args.limit and terms:
+                more = self.conn.execute(SEARCH, {**params, "q": adhoc.websearch(terms)})
+                ids += [row[0] for row in more if row[0] not in ids][: args.limit - len(ids)]
             return _heads(queries.hits(self.conn, ids))
 
         found = await asyncio.to_thread(run)
