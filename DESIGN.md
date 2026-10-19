@@ -135,6 +135,7 @@ Keine Rundungen (`--radius: 0`). Knöpfe, Felder, Themen und Flächen sind Recht
 ## Components
 
 - **Suchfeld:** 56 px hoch, 2 px schwarzer Rahmen, daneben der rote Knopf «Suchen», sonst nichts (Hick's Law). Stichwort, Thema und Frage gehen ins selbe Feld (Platzhalter «Stichwort, Thema oder Frage», höchstens 200 Zeichen). Kein zweiter Knopf für Fragen und keine geschriebene Antwort: Die Liste ist die Antwort, jedes Geschäft ist eine Quelle.
+- **Verstanden als:** Erkennt `GET /v1/search` Themen in der Eingabe (`topics`, auch mit Tippfehlern), steht unter der Trefferzahl in derselben Schrift ein Satz: «Verstanden als Thema [Digitalisierung]: auch «Numérisation» und «Digitalizzazione» gesucht. [Nur «Digitalisirung» suchen]». Das Thema ist ein Link auf den Themenfilter. «Nur … suchen» schaltet die Erweiterung für diese Eingabe ab (`wortlaut=1`, API `expand=false`); dann steht dort «Wörtlich gesucht, ohne Themenerkennung. [Mit Themenerkennung suchen]». Vom Sprachmodell erkannte Themen tragen «(Vorschlag des Sprachmodells)». Kein Kasten, kein Icon, keine Animation: Text statt Symbol.
 - **Knöpfe:** Hauptaktion rot gefüllt; sonst schwarzer Rahmen, beim Hover schwarz gefüllt.
 - **Umschalter:** Felder in einem schwarzen Rahmen, die Auswahl schwarz gefüllt (`aria-pressed`).
 - **Themen:** in der Liste Rahmen in Tinte, auf der Geschäftsseite schwarz gefüllt; ein Klick filtert die Suche. Das aktive Thema steht schwarz gefüllt mit «×» und wird beim Hover rot.
