@@ -279,8 +279,8 @@ aps:2.1.9:
   slug: parteien-kampagnenfinanzierung
   en: "Political finance"
   it: "Finanziamento della politica"
-  de: Finanzierung von Parteien, Wahl- und Abstimmungskampagnen, Offenlegung von Spenden. Nicht für Kosten, Kredite, Subventionen oder die Finanzierung staatlicher Aufgaben (dafür das Sachthema oder Budget).
-  alt: {de: [Parteispenden, Transparenzinitiative], fr: [financement des partis, transparence], it: [finanziamento dei partiti]}
+  de: Finanzierung von Parteien, Wahl- und Abstimmungskampagnen, Offenlegung von Spenden. Nicht für Kosten, Kredite, Subventionen oder die Finanzierung staatlicher Aufgaben (dafür das Sachthema oder budget), nicht für Transparenz, Löhne oder Entschädigungen von Behörden, Verwaltungsräten oder staatlichen Unternehmen (wirtschaftsordnung).
+  alt: {de: [Parteispenden, Transparenzinitiative], fr: [financement des partis], it: [finanziamento dei partiti]}
 aps:2.2.1:
   en: "National Council and Council of States elections"
   it: "Elezioni del Consiglio nazionale e del Consiglio degli Stati"
@@ -830,7 +830,7 @@ aps:8.1.6:
 aps:8.1.7:
   en: "Economic order"
   it: "Ordinamento economico"
-  de: Wirtschaftsordnung, Wirtschaftsfreiheit, staatliche Unternehmen und Beteiligungen, Gewerbe- und Ladenöffnung, Bürokratieabbau. Nicht für allgemeine Kosten- oder Preisfragen eines anderen Sachthemas.
+  de: Wirtschaftsordnung, Wirtschaftsfreiheit, staatliche Unternehmen und Beteiligungen, Gewerbe- und Ladenöffnung, Bürokratieabbau. Nicht für Budgets, Finanzpläne, Kosten, Beiträge oder Kredite einer Behörde (budget, finanzhaushalt-kantone-gemeinden) und nicht für die Lage einer einzelnen Branche (deren Sachthema, etwa agrarpolitik oder tourismus).
   alt: {de: [Ladenöffnungszeiten, Gewerbe, Service public, Regulierung, staatsnahe Betriebe, Bürokratieabbau], fr: [ouverture des magasins, entreprises publiques, régulation], it: [orari di apertura, aziende pubbliche]}
 aps:8.2.1:
   en: "Budget"

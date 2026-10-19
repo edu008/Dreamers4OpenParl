@@ -281,10 +281,11 @@ async def _pass(
         fmt = single_format(job.affair_id, [], [])  # tag_id frei, siehe single_format
     messages = prompt.messages(variables, user)
     stage2, model = await _ask(client, messages, large, parse2, fmt)
-    picked = [ch for ch in c.chapters if f"?{ch.prompt_id}" in dropped] if single else []
-    if picked:
-        stage2 = await _chapter_retry(
-            client, messages, large, parse2, stage2, picked, c, offered | institutions, job
+    wrong = {name[1:]: _candidates(c, name[1:]) for name in dropped if name.startswith("?")}
+    wrong = {name: tags for name, tags in wrong.items() if tags} if single else {}
+    if wrong:
+        stage2 = await _name_retry(
+            client, messages, large, parse2, stage2, wrong, c, offered | institutions, job
         )
     verified = await verify(job.text, [tag.evidence for tag in stage2.tags])
     if not all(verified):
@@ -304,34 +305,49 @@ async def _pass(
     return Pass(stage, model, labels), stage2
 
 
-async def _chapter_retry(
+CANDIDATES_MAX = 25  # mehr wäre fast die ganze Liste, die Nachfrage hülfe nicht
+
+
+def _candidates(c: Classifier, name: str) -> list[Tag]:
+    """Themen zu einem Namen, den es nicht gibt: zu einem Kapitelnamen oder einem Wort davon
+    (umweltschutz, bildung → bildung-forschung) die Themen des Kapitels, sonst die Themen, deren
+    Kurzname den Namen enthält (jugendliche → kinder-jugendliche). Leer: keine Nachfrage."""
+    key = short_key(name)
+    chapters = [ch for ch in c.chapters if key in (ch.prompt_id, *ch.prompt_id.split("-"))]
+    tags = [t for ch in chapters for t in c.topics.get(ch.tag_id, [])]
+    if not tags:
+        tags = [t for ts in c.topics.values() for t in ts if key in t.prompt_id]
+    return tags if len(tags) <= CANDIDATES_MAX else []
+
+
+async def _name_retry(
     client: LLMClient,
     messages: list[dict[str, Any]],
     large: bool,
     parse: Callable[[dict], Stage2Output],
     stage2: Stage2Output,
-    picked: list[Tag],
+    wrong: dict[str, list[Tag]],
     c: Classifier,
     offered: dict[str, Tag],
     job: Job,
 ) -> Stage2Output:
-    """Einmal nachfragen, wenn 70B ein Kapitel statt eines Themas nennt (v3, 19.10.2026).
+    """Einmal nachfragen, wenn 70B ein Kapitel oder einen erfundenen Namen nennt (v3, 19.10.2026).
 
-    Das Schema lässt dann nur die Themen dieser Kapitel und die schon gewählten zu, damit die
-    Grammatik «umweltschutz» nicht in ein Thema mit gleichem Anfang aus anderem Bereich zwingt.
-    Ist die neue Antwort ungültig, bleibt die erste.
+    Ohne Nachfrage blieben 4–8 % der Geschäfte ohne Label (Lauf 22–24). Das Schema lässt nur die
+    passenden Themen und die schon gewählten zu, mindestens eines: Das Modell hat das Gebiet ja
+    selbst genannt. Ist die neue Antwort ungültig, bleibt die erste.
     """
-    tags = [t for ch in picked for t in c.topics.get(ch.tag_id, [])]
     shown = [
         t.model_copy(update={"tag_id": offered[t.tag_id].prompt_id})
         for t in stage2.tags
         if t.tag_id in offered
     ]
+    tags = list({t.tag_id: t for ts in wrong.values() for t in ts}.values())
     allowed = [*(t.tag_id for t in shown), *(t.prompt_id for t in tags)]
     institutions = [t.prompt_id for t in c.topics.get(INSTITUTIONS, [])]
-    names = ", ".join(f"«{ch.prompt_id}»" for ch in picked)
+    names = ", ".join(f"«{name}»" for name in wrong)
     hint = (
-        f"{names} ist ein Kapitel, kein Thema. Wähle stattdessen das passende Thema aus diesen"
+        f"{names} ist kein Thema der Liste. Wähle stattdessen das passende Thema aus diesen"
         f" Kurznamen: {', '.join(t.prompt_id for t in tags)}."
         " Antworte nur mit dem vollständigen JSON-Objekt nach dem Schema."
     )
@@ -343,7 +359,6 @@ async def _chapter_retry(
         },
         {"role": "user", "content": hint},
     ]
-    # Das Kapitel nannte das Modell selbst: mindestens ein Thema daraus, sonst leerte es die Liste
     fmt = single_format(job.affair_id, allowed, institutions, min_tags=1)
     reply = await client.chat(retry, large=large, response_format=fmt)
     try:
