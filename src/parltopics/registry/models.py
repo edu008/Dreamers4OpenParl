@@ -30,12 +30,14 @@ class _Strict(BaseModel):
 
 
 class LocalizedText(_Strict):
-    """Ein Text je Sprache, Deutsch ist Pflicht (prefLabel, definition)."""
+    """Ein Text je Sprache, Deutsch ist Pflicht (prefLabel, definition). Alle Sprachen hängen an
+    derselben tag_id; Englisch dient der Suche und Schnittstellen (19.10.2026)."""
 
     de: str = Field(min_length=1)
     fr: str | None = None
     it: str | None = None
     rm: str | None = None
+    en: str | None = None
 
 
 class LocalizedLabels(_Strict):
@@ -45,11 +47,12 @@ class LocalizedLabels(_Strict):
     fr: list[str] = Field(default_factory=list)
     it: list[str] = Field(default_factory=list)
     rm: list[str] = Field(default_factory=list)
+    en: list[str] = Field(default_factory=list)
 
     def all(self) -> list[str]:
         """Alle Bezeichnungen über alle Sprachen, sortiert und ohne Doppel."""
         return sorted(
-            {label for labels in (self.de, self.fr, self.it, self.rm) for label in labels}
+            {label for labels in (self.de, self.fr, self.it, self.rm, self.en) for label in labels}
         )
 
 

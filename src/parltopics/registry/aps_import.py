@@ -211,8 +211,9 @@ def apply_descriptions(
         entry = descriptions.get(tag["tag_id"])
         if not entry:
             continue
-        if entry.get("it"):
-            tag["pref_label"]["it"] = entry["it"]
+        for lang in ("it", "en"):  # APS liefert nur DE und FR
+            if entry.get(lang):
+                tag["pref_label"][lang] = entry[lang]
         if entry.get("de"):
             children = tag["definition"]["de"].partition(" Umfasst: ")[2]
             tag["definition"]["de"] = entry["de"] + (f" Umfasst: {children}" if children else "")
