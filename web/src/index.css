@@ -173,6 +173,8 @@
   }
   html {
     @apply font-sans;
+    /* Platz für die Scrollleiste bleibt reserviert, damit die Seite beim Wechsel nicht springt. */
+    scrollbar-gutter: stable;
   }
   ::selection {
     background: var(--evidence);

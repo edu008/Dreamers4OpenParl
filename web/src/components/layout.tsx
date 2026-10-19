@@ -39,7 +39,7 @@ export function Layout() {
   usePageTitle(STATIC_TITLES[pathname])
   const openReviews = useReviewQueue().summary?.open ?? 0
   // Ein Raster für Kopf, Inhalt und Fuss: alle beginnen an derselben linken Kante.
-  const frame = `mx-auto w-full px-4 sm:px-8 ${pathname === "/admin/review" ? "max-w-6xl" : "max-w-5xl"}`
+  const frame = "mx-auto w-full max-w-6xl px-4 sm:px-8"
 
   return (
     <div className="flex min-h-svh flex-col">
