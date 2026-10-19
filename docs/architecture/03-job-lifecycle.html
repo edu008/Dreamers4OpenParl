@@ -5536,6 +5536,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <li>Neues Geschäft oder geänderter Text (input_hash)</li>
           <li>Neue prompt_version oder neuer scheme_hash der Aufgabe</li>
           <li>Freigegebenes Tag betrifft das Geschäft (reclassify)</li>
+          <li>Zurückgezogenes Ad-hoc-Tag neu angelegt (failed, Grund retired)</li>
         </ul>
       </div>
 
@@ -5559,6 +5560,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <ul>
           <li>Geschrieben wird nur, wenn der Job noch pending ist und die worker_id passt</li>
           <li>Sonst wird das Ergebnis verworfen und lost_lock protokolliert</li>
+          <li>retire setzt alle Jobs des Tags auf failed; wer gerade prüft, verliert den Besitz</li>
         </ul>
       </div>
     </div>

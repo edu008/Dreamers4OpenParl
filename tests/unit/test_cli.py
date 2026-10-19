@@ -1,10 +1,12 @@
+from datetime import datetime
 from functools import partial
 
 import httpx
+import typer
 from typer.testing import CliRunner
 
 from parltopics import __version__
-from parltopics.cli import NOT_IMPLEMENTED_EXIT, app
+from parltopics.cli import app
 from parltopics.llm import LLMClient
 
 runner = CliRunner()
@@ -24,6 +26,7 @@ def test_help_lists_all_commands():
         "worker",
         "jobs",
         "adhoc",
+        "daily",
         "export",
         "wiki",
         "eval",
@@ -50,9 +53,41 @@ def test_registry_validate_reports_errors(tmp_path):
     assert runner.invoke(app, ["registry", "validate", str(path)]).exit_code == 1
 
 
-def test_planned_commands_name_their_milestone():
-    result = runner.invoke(app, ["export"])
-    assert result.exit_code == NOT_IMPLEMENTED_EXIT
+DAILY_STEPS = [
+    "ingest",
+    "inputs",
+    "registry_sync",
+    "classify",
+    "proposals_group",
+    "pages",
+    "export",
+    "wiki",
+]
+
+
+def test_daily_runs_every_step_in_order_and_stops_at_the_first_failure(monkeypatch):
+    calls = []
+
+    def step(name, fail=False):
+        def run(**kwargs):
+            calls.append((name, kwargs))
+            if fail:
+                raise typer.Exit(code=1)
+
+        return run
+
+    for name in DAILY_STEPS:
+        monkeypatch.setattr(f"parltopics.cli.{name}", step(name))
+    result = runner.invoke(app, ["daily", "--body", "CHE", "--since", "2026-01-01"])
+    assert result.exit_code == 0, result.output
+    assert [name for name, _ in calls] == DAILY_STEPS
+    scope = {"body": ["CHE"], "since": datetime(2026, 1, 1)}
+    assert (calls[1][1], calls[3][1]) == (scope, {"task": "classify:aps", **scope})
+
+    calls.clear()
+    monkeypatch.setattr("parltopics.cli.classify", step("classify", fail=True))
+    assert runner.invoke(app, ["daily"]).exit_code == 1
+    assert [name for name, _ in calls] == DAILY_STEPS[:4]  # nach dem Fehler läuft nichts mehr
 
 
 def test_classify_accepts_only_the_aps_task_in_m1():

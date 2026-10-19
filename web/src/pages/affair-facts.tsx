@@ -1,11 +1,24 @@
-import type { ElementType, ReactNode } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ElementType,
+  type ReactNode,
+} from "react"
 import { Link, useLocation, useParams } from "react-router"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
 import { usePageTitle } from "@/hooks/use-page-title"
-import type { AffairTopics } from "@/lib/api"
+import {
+  fetchJson,
+  type AffairRecord,
+  type AffairTopics,
+  type DocList,
+  type Localized,
+} from "@/lib/api"
 import { LEVEL_LABEL } from "@/lib/export"
 import { paragraphsOf } from "@/pages/affair"
 
@@ -16,10 +29,43 @@ const LANGUAGE_NAME: Record<string, string> = {
   rm: "Rätoromanisch",
 }
 
+// Lesbare Namen der Formate in affair_docs (Stand 19.10.2026); andere bleiben ohne Angabe.
+const FORMAT_NAME: Record<string, string> = {
+  "application/pdf": "PDF",
+  pdf: "PDF",
+  "text/html": "HTML",
+  "video/sonomix": "Video",
+  "application/msword": "Word",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+    "Word",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel",
+  "application/rtf": "RTF",
+  "application/zip": "ZIP",
+  "text/plain": "Text",
+}
+
+// Höchstes limit von GET /v1/affairs/{id}/docs.
+const DOCS_PAGE = 200
+
+// Zeile im Raster der Fakten und Dokumente: Begriff links, Wert rechts.
+const ROW =
+  "grid gap-x-6 gap-y-1 border-t border-border py-3 first:border-t-0 first:pt-0 @md:grid-cols-[10rem_minmax(0,1fr)]"
+
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return ""
-  const [year, month, day] = iso.split("-")
+  const [year, month, day] = iso.slice(0, 10).split("-")
   return `${day}.${month}.${year}`
+}
+
+/** Erste gefüllte Sprache in der Reihenfolge de, fr, it, rm, en. */
+function firstLanguage(field: Localized | undefined): string | undefined {
+  return field?.de || field?.fr || field?.it || field?.rm || field?.en
+}
+
+function fileSize(bytes: number): string {
+  return bytes < 1e6
+    ? `${Math.max(1, Math.round(bytes / 1e3))} kB`
+    : `${(bytes / 1e6).toFixed(1)} MB`
 }
 
 /** Kurzangabe wie bei OpenParlData: «Geschäft | Nr. … | Datum | Typ». Seite und Pop-up setzen
@@ -49,10 +95,7 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
   return (
     <dl>
       {rows.map(([term, value]) => (
-        <div
-          key={term}
-          className="grid gap-x-6 gap-y-1 border-t border-border py-3 first:border-t-0 first:pt-0 @md:grid-cols-[10rem_minmax(0,1fr)]"
-        >
+        <div key={term} className={ROW}>
           <dt className="text-sm font-bold">{term}</dt>
           <dd className="min-w-0 text-sm break-words">{value}</dd>
         </div>
@@ -61,10 +104,102 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
   )
 }
 
-export function useAffair(affairId: string) {
-  return useApi<AffairTopics>(
-    `/v1/affairs/${encodeURIComponent(affairId)}/topics`
+/** Dokumente als Links zum Parlament (die Web-App lädt nichts davon); «Alle n» holt den Rest. */
+function Documents({ record }: { record: AffairRecord }) {
+  const [docs, setDocs] = useState(record.docs)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>()
+  const firstNew = useRef<HTMLAnchorElement>(null)
+
+  // Der Knopf verschwindet nach dem Laden; der Fokus springt zum ersten neuen Dokument.
+  useEffect(() => firstNew.current?.focus(), [docs.length])
+
+  async function loadAll() {
+    if (loading) return
+    setLoading(true)
+    setError(undefined)
+    try {
+      const all = [...docs]
+      while (all.length < record.n_docs) {
+        const page = await fetchJson<DocList>(
+          `/v1/affairs/${record.id}/docs?limit=${DOCS_PAGE}&offset=${all.length}`
+        )
+        if (page.items.length === 0) break
+        all.push(...page.items)
+      }
+      setDocs(all)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <ul>
+        {docs.map((doc, index) => {
+          const name = doc.name || "Dokument"
+          const file = [
+            doc.format && FORMAT_NAME[doc.format],
+            doc.size && fileSize(doc.size),
+          ]
+            .filter(Boolean)
+            .join(", ")
+          const details = [firstLanguage(doc.category), file]
+            .filter(Boolean)
+            .join(" · ")
+          return (
+            <li key={doc.id} className={ROW}>
+              {/* OpenParlData setzt 1900-01-01 (selten Tippfehler wie 0202), wenn das Datum fehlt. */}
+              <span className="tabular text-sm font-bold">
+                {doc.date && doc.date >= "1901"
+                  ? formatDate(doc.date)
+                  : "ohne Datum"}
+              </span>
+              <div className="min-w-0 text-sm break-words">
+                {doc.url ? (
+                  <a
+                    ref={index === record.docs.length ? firstNew : undefined}
+                    href={doc.url}
+                    className="underline underline-offset-4 hover:text-primary"
+                  >
+                    {name}
+                  </a>
+                ) : (
+                  name
+                )}
+                {details && <p className="text-muted-foreground">{details}</p>}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      {docs.length < record.n_docs && (
+        <Button
+          variant="outline"
+          className="self-start"
+          onClick={() => void loadAll()}
+        >
+          {loading ? "Dokumente laden …" : `Alle ${record.n_docs} Dokumente`}
+        </Button>
+      )}
+      {error && (
+        <p role="alert" className="text-sm">
+          Weitere Dokumente nicht geladen: {error}
+        </p>
+      )}
+    </div>
   )
+}
+
+/** Themen und bereinigter Text (…/topics) und der gespeicherte Datensatz mit Dokumenten. */
+export function useAffair(affairId: string) {
+  const path = `/v1/affairs/${encodeURIComponent(affairId)}`
+  const topics = useApi<AffairTopics>(`${path}/topics`)
+  const record = useApi<AffairRecord>(path)
+  // Ein Ladezustand für beide, damit die Abschnitte nicht nachrutschen.
+  return { ...topics, loading: topics.loading || record.loading, record }
 }
 
 // Öffentliche Geschäftsseite (direkter Link): Rückweg zur Suche und die Fakten.
@@ -122,37 +257,37 @@ export function AffairFacts({
   }
 
   const affair = found.data
+  const record = found.record.data
+  const body = record?.body
   const title = affair.title ?? `Geschäft ${affair.affair_id}`
   const type = affair.type_de ?? affair.type
   const language = affair.language ?? "de"
   const paragraphs = paragraphsOf(affair.text)
   const topics = affair.labels.filter((label) => label.status === "active")
-  const level = affair.body_level
-    ? (LEVEL_LABEL[affair.body_level] ?? affair.body_level)
-    : null
 
   const details: [string, ReactNode][] = [
     ["ID", <span className="tabular">{affair.affair_id}</span>],
   ]
-  if (affair.external_id) details.push(["Externe ID", affair.external_id])
+  if (record?.external_id) details.push(["Externe ID", record.external_id])
   if (affair.number) details.push(["Nummer", affair.number])
   details.push(["Titel", <span lang={language}>{title}</span>])
-  if (affair.title_long && affair.title_long !== affair.title) {
-    details.push([
-      "Langer Titel",
-      <span lang={language}>{affair.title_long}</span>,
-    ])
+  const titleLong = firstLanguage(record?.title_long)
+  if (titleLong && titleLong !== affair.title) {
+    details.push(["Langer Titel", <span lang={language}>{titleLong}</span>])
   }
-  if (type) {
-    const original =
-      affair.type_name && affair.type_name !== type
-        ? ` (${affair.type_name})`
-        : ""
-    details.push(["Typ", `${type}${original}`])
-  }
-  if (affair.state) details.push(["Stand", affair.state])
+  // Harmonisierter Typ, dahinter der Typ, wie ihn das Parlament nennt.
+  const ownType = firstLanguage(record?.type_name)
+  const typeText =
+    type && ownType && ownType !== type
+      ? `${type} (${ownType})`
+      : (type ?? ownType)
+  if (typeText) details.push(["Typ", typeText])
+  const state =
+    firstLanguage(record?.state_name_harmonized) ||
+    firstLanguage(record?.state_name)
+  if (state) details.push(["Stand", state])
   if (affair.begin_date) details.push(["Beginn", formatDate(affair.begin_date)])
-  if (affair.end_date) details.push(["Ende", formatDate(affair.end_date)])
+  if (record?.end_date) details.push(["Ende", formatDate(record.end_date)])
   if (affair.url_external) {
     details.push([
       "URL",
@@ -168,8 +303,24 @@ export function AffairFacts({
   const area: [string, ReactNode][] = [
     ["Parlament", affair.body_name ?? affair.body_key],
   ]
+  const council = firstLanguage(body?.legislative_name)
+  if (council) area.push(["Gremium", council])
+  const level =
+    (affair.body_level && LEVEL_LABEL[affair.body_level]) ||
+    firstLanguage(body?.type_name) ||
+    affair.body_level
   if (level) area.push(["Ebene", level])
-  area.push(["Kürzel", affair.body_key])
+  if (body?.canton_key) area.push(["Kanton", body.canton_key])
+  if (body?.languages) {
+    const names = body.languages
+      .split(",")
+      .map((code) => code.trim())
+      .map((code) => LANGUAGE_NAME[code.toLowerCase()] ?? code)
+    area.push([
+      names.length > 1 ? "Amtssprachen" : "Amtssprache",
+      names.join(", "),
+    ])
+  }
 
   return (
     <div className="@container flex flex-col gap-10">
@@ -197,6 +348,13 @@ export function AffairFacts({
         )}
       </header>
 
+      {found.record.error && (
+        <Alert variant="destructive">
+          <AlertTitle>Dokumente und weitere Angaben nicht geladen</AlertTitle>
+          <AlertDescription>{found.record.error}</AlertDescription>
+        </Alert>
+      )}
+
       <Section title="Geschäft">
         <Facts rows={details} />
       </Section>
@@ -216,6 +374,12 @@ export function AffairFacts({
               Originalsprache: {LANGUAGE_NAME[language] ?? language}
             </p>
           </div>
+        </Section>
+      )}
+
+      {record && record.n_docs > 0 && (
+        <Section title="Dokumente">
+          <Documents key={record.id} record={record} />
         </Section>
       )}
 

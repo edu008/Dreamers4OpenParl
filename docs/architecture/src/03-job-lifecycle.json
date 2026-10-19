@@ -141,7 +141,8 @@
       "items": [
         "Neues Geschäft oder geänderter Text (input_hash)",
         "Neue prompt_version oder neuer scheme_hash der Aufgabe",
-        "Freigegebenes Tag betrifft das Geschäft (reclassify)"
+        "Freigegebenes Tag betrifft das Geschäft (reclassify)",
+        "Zurückgezogenes Ad-hoc-Tag neu angelegt (failed, Grund retired)"
       ]
     },
     {
@@ -158,7 +159,8 @@
       "title": "Besitzprüfung",
       "items": [
         "Geschrieben wird nur, wenn der Job noch pending ist und die worker_id passt",
-        "Sonst wird das Ergebnis verworfen und lost_lock protokolliert"
+        "Sonst wird das Ergebnis verworfen und lost_lock protokolliert",
+        "retire setzt alle Jobs des Tags auf failed; wer gerade prüft, verliert den Besitz"
       ]
     }
   ]

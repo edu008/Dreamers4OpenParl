@@ -24,14 +24,7 @@ LABEL_COLUMNS = """
        t.status AS tag_status"""
 
 AFFAIR = f"""
-SELECT {AFFAIR_HEAD}, a.url_external, i.text, i.language, s.summary AS summary_de,
-       a.external_id,
-       coalesce(a.raw->>'title_long_de', a.raw->>'title_long_fr', a.raw->>'title_long_it',
-                a.raw->>'title_long_rm') AS title_long,
-       coalesce(a.raw->>'type_name_de', a.raw->>'type_name_fr', a.raw->>'type_name_it',
-                a.raw->>'type_name_rm') AS type_name,
-       coalesce(a.raw->>'state_name_harmonized_de', a.raw->>'state_name_de') AS state,
-       left(a.raw->>'end_date', 10)::date AS end_date
+SELECT {AFFAIR_HEAD}, a.url_external, i.text, i.language, s.summary AS summary_de
 FROM affairs a
 LEFT JOIN bodies b ON b.body_key = a.body_key
 LEFT JOIN affair_inputs i ON i.affair_id = a.id
@@ -66,13 +59,14 @@ HEADLINE = f"MaxFragments=2, MaxWords=25, MinWords=10, StartSel={MARK[0]}, StopS
 
 
 def hit_topics(affair: str) -> str:
-    """Aktive Themen eines Geschäfts als JSON-Liste mit Beleg (schemas.HitTopic)."""
+    """Aktive Themen eines Geschäfts als JSON-Liste mit Beleg (schemas.HitTopic). Ein
+    zurückgezogenes Thema fehlt, auch wo ein Mensch sein Label bestätigt hat."""
     return f"""(SELECT coalesce(json_agg(json_build_object(
                     'tag_id', l.tag_id, 'name_de', t.name_de, 'confidence', l.confidence,
                     'evidence', l.evidence, 'evidence_verified', l.evidence_verified,
                     'stage', l.stage) ORDER BY l.confidence DESC), '[]')
         FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
-        WHERE l.affair_id = {affair} AND l.status = 'active')"""
+        WHERE l.affair_id = {affair} AND l.status = 'active' AND t.status <> 'retired')"""
 
 
 SEARCH = f"""
@@ -220,15 +214,19 @@ FROM tags t LEFT JOIN affair_tags l ON l.tag_id = t.tag_id AND l.status = 'activ
 WHERE %(scheme)s::text IS NULL OR t.scheme = %(scheme)s::text
 GROUP BY t.tag_id
 """
-TOPIC_FILTER = """
+# Laufend heisst: ohne Enddatum und nicht als inaktiv markiert. shortcut: Der harmonisierte Stand
+# fehlt fast überall (102 von 147'805 Geschäften seit 2018); füllt OpenParlData ihn, dort ablesen.
+RUNNING = "(a.raw->>'end_date' IS NULL AND a.raw->>'active' IS DISTINCT FROM 'false')"
+TOPIC_FILTER = f"""
 FROM affair_tags l JOIN affairs a ON a.id = l.affair_id JOIN tags t ON t.tag_id = l.tag_id
 LEFT JOIN bodies b ON b.body_key = a.body_key
 WHERE l.tag_id = ANY(%(tag_ids)s) AND l.status = 'active' AND l.confidence >= %(min_confidence)s
   AND (%(body_key)s::text IS NULL OR a.body_key = %(body_key)s::text)
-  AND (%(level)s::text IS NULL OR b.level = %(level)s::text)
+  AND (%(level)s::text[] IS NULL OR b.level = ANY(%(level)s::text[]))
   AND (%(type)s::text IS NULL OR a.type_harmonized_en = %(type)s::text)
   AND (%(date_from)s::date IS NULL OR a.begin_date >= %(date_from)s::date)
   AND (%(date_to)s::date IS NULL OR a.begin_date <= %(date_to)s::date)
+  AND (NOT %(running)s OR {RUNNING})
 """
 TOPIC_AFFAIRS = f"""
 SELECT {AFFAIR_HEAD}, l.tag_id, t.name_de, l.confidence, l.evidence, l.evidence_verified,
@@ -327,23 +325,24 @@ def topic_affairs(
     min_confidence: float,
     limit: int,
     offset: int,
-    level: str | None = None,
+    level: list[str] | None = None,
     affair_type: str | None = None,
+    running: bool = False,
 ) -> tuple[int, list[dict]]:
     """Geschäfte mit aktivem Label eines der Tags, eine Zeile je Geschäft und Tag:
     (Treffer insgesamt, eine Seite)."""
     cursor = conn.cursor(row_factory=dict_row)
-    params = {
-        "tag_ids": tag_ids,
-        "body_key": body_key,
-        "level": level,
-        "type": affair_type,
-        "date_from": date_from,
-        "date_to": date_to,
-        "min_confidence": min_confidence,
-        "limit": limit,
-        "offset": offset,
-    }
+    filters = _filter_params(
+        tag_ids,
+        body_key=body_key,
+        level=level,
+        affair_type=affair_type,
+        date_from=date_from,
+        date_to=date_to,
+        min_confidence=min_confidence,
+        running=running,
+    )
+    params = {**filters, "limit": limit, "offset": offset}
     total = cursor.execute(f"SELECT count(*) AS n {TOPIC_FILTER}", params).fetchone()["n"]
     return total, cursor.execute(TOPIC_AFFAIRS, params).fetchall()
 
@@ -715,11 +714,12 @@ def _filter_params(
     tag_ids: list[str],
     *,
     body_key: str | None = None,
-    level: str | None = None,
+    level: list[str] | None = None,
     affair_type: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     min_confidence: float = 0.0,
+    running: bool = False,
 ) -> dict:
     return {
         "tag_ids": tag_ids,
@@ -729,6 +729,7 @@ def _filter_params(
         "date_from": date_from,
         "date_to": date_to,
         "min_confidence": min_confidence,
+        "running": running,
     }
 
 
@@ -746,3 +747,15 @@ def stream_topic_affairs(conn: psycopg.Connection, tag_ids: list[str], **filters
     """Alle Zeilen wie topic_affairs, ohne Grenze, Zeile für Zeile vom Server (CSV-Export)."""
     params = {**_filter_params(tag_ids, **filters), "limit": None, "offset": 0}  # LIMIT NULL
     yield from conn.cursor(row_factory=dict_row).stream(TOPIC_AFFAIRS, params)
+
+
+WIKI_PAGE = """
+SELECT status AS page_status, n_affairs, summary_short, summary_long, statements, built_at,
+       window_start, window_end, model_version, prompt_version
+FROM wiki_pages WHERE page_id = %s
+"""
+
+
+def wiki_page(conn: psycopg.Connection, page_id: str) -> dict | None:
+    """Stand einer Seite aus dem Seitenlauf; None, solange kein Lauf sie angelegt hat."""
+    return conn.cursor(row_factory=dict_row).execute(WIKI_PAGE, (page_id,)).fetchone()

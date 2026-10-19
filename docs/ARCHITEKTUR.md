@@ -60,7 +60,7 @@ Diagramm: [01-systemarchitektur](architecture/01-systemarchitektur.html).
 | 9 Seiten | `parltopics pages` (M3) | `wiki_pages` von unten nach oben, Status mit Weitergabe (Abschnitt 5) |
 | 10 Ausgabe | `parltopics export`, `parltopics wiki`, Web-App | Exportdatei, DVS-Liste, Markdown, Seiten |
 
-Der tägliche Lauf (F17) verkettet 2 bis 10 ohne Review. Diagramm: [02-pipeline](architecture/02-pipeline.html).
+Der tägliche Lauf (F17, `parltopics daily`) verkettet 2 bis 10 ohne Review und bricht beim ersten fehlgeschlagenen Schritt ab. Diagramm: [02-pipeline](architecture/02-pipeline.html).
 
 ## 3. Worker (Massenklassifikation)
 
@@ -232,18 +232,20 @@ Argumente und Beschreibungen sind als Pydantic-Modelle in [`src/parltopics/agent
 
 - Jede Aussage ist mit OpenParlData-IDs belegt, die in dieser Sitzung aus einem Werkzeug kamen. Der Code prüft das vor der Ausgabe.
 - Ohne Treffer: „Keine passenden Geschäfte gefunden“ und die verwendeten Filter.
-- Zahlen stammen aus `count_affairs`, nicht aus dem Modell. Das Ergebnis nennt seine Filter mit Namen, damit eine Zählung aller Geschäfte nicht einem Thema zugeschrieben wird.
-- Auch Tag-IDs in Filtern müssen aus einem Werkzeug stammen (meist `list_tags`); eine erfundene ID geht als Fehler zurück. Kapitel und Bereiche umfassen ihre Themen.
-- Eine Antwort ohne jeden Werkzeugaufruf schickt der Code einmal zurück.
+- Zahlen stammen aus `count_affairs`, nicht aus dem Modell. Das Ergebnis nennt seine Filter mit Namen (Themen, Parlamente, Jahre), damit eine Zählung aller Geschäfte oder eines anderen Parlaments nicht dem gefragten Thema zugeschrieben wird. Ohne Tags zählt `count_affairs` nur mit `all_affairs: true`; sonst geht der Aufruf mit dem Hinweis auf `list_tags` zurück (Testfragen F21).
+- Auch Tag-IDs in Filtern müssen aus einem Werkzeug stammen (meist `list_tags`); eine erfundene ID geht als Fehler zurück. Kapitel und Bereiche umfassen ihre Themen. Ein unbekanntes Parlament (etwa «Tessin» statt `TI`) geht mit passenden Namen als Fehler zurück, statt still null Treffer zu liefern.
+- Eine Antwort ohne jeden Werkzeugaufruf schickt der Code einmal zurück. Ihren Inhalt und den einer unbrauchbaren Antwort streicht er aus dem Gespräch: In den Testfragen erfand 70B dabei Werkzeug-Ergebnisse und suchte danach dem Erfundenen nach.
+- Als Zitat zählen `[70435]`, `cited_ids` und die Form «ID 70435», die 70B oft wählt. Die Rückfrage zu unbekannten IDs nennt die gelieferten, damit das Modell korrigiert statt aufzugeben.
 - Werkzeug-Ergebnisse und Geschäftstexte stehen im Prompt als Daten in eigenen Blöcken. Anweisungen darin werden ignoriert.
 
 ### 4.5 Ad-hoc-Dialog
 
 1. Die Redaktion beschreibt das Thema in der Web-App.
-2. Der Agent ruft `generate_keywords` auf und prüft mit `search_affairs` und `count_affairs`, wie viele Kandidaten entstehen.
+2. Der Agent ruft `generate_keywords` auf und prüft mit `search_affairs` Beispiele; wie viele Kandidaten entstehen, nennt der Entwurf.
 3. Er gibt mit `propose_adhoc_topic` einen Entwurf zurück: Name, Beschreibung, Stichwörter, geschätzte Kandidaten.
 4. Die Web-App zeigt den Entwurf mit einem Bestätigen-Knopf. Erst die Bestätigung durch einen angemeldeten Menschen ruft `POST /v1/adhoc` auf. Das legt das Tag mit Status `proposed` in `tags.yaml` an und öffnet `classify:adhoc:<tag>`-Jobs für Kandidaten und Stichprobe.
 5. Die Worker prüfen die Kandidaten, die Treffer sind sofort als vorläufig sichtbar, und ein Reviewer aktiviert das Thema, wenn es sich bewährt.
+6. Sonst zieht ein Mensch es zurück (`POST /v1/adhoc/{tag_id}/retire`, F10): Status `retired`, alle Jobs des Tags auf `failed` mit Grund `retired`, seine Labels ohne menschlichen Entscheid auf `superseded`. Wer es mit demselben Namen neu anlegt, öffnet diese Jobs wieder.
 
 Diagramm: [06-adhoc-thema](architecture/06-adhoc-thema.html).
 
@@ -260,7 +262,7 @@ Dieselben Pydantic-Modelle validieren beide Formen. Ungültige Argumente gehen m
 
 ### 4.7 Protokoll
 
-Jede Sitzung landet in `agent_runs`: Anfrage, alle Werkzeugaufrufe mit Argumenten und Ergebnisgrösse, Antwort, zitierte IDs, Modell- und Prompt-Version, Dauer, Status (`ok`, `no_results`, `limit_reached`, `error`). `ok` heisst belegt: mit Zitaten oder mit Zahlen aus `count_affairs` oder `read_page`. So lassen sich F21 und die Testfragen aus Abschnitt 13 des PRD auswerten.
+Jede Sitzung landet in `agent_runs`: Anfrage, alle Werkzeugaufrufe mit Argumenten und Ergebnisgrösse, Antwort, zitierte IDs, Modell- und Prompt-Version, Dauer, Status (`ok`, `no_results`, `limit_reached`, `error`). `ok` heisst belegt: mit Zitaten, mit Zahlen aus `count_affairs` oder `read_page` oder mit einem Entwurf aus `propose_adhoc_topic`. So lassen sich F21 und die Testfragen aus Abschnitt 13 des PRD auswerten: `scripts/agent_eval.py` stellt die 20 Fragen aus `tests/eval/agent_questions.yaml` schreibgeschützt, das Ergebnis steht in `tests/eval/agent_results.md`.
 
 Diagramm: [05-agent-suche](architecture/05-agent-suche.html).
 
@@ -275,8 +277,10 @@ PRD 7.9, ADR 0008. Der Seitenlauf baut die Seiten des ParlWiki aus den Labels, d
 | Heart | `heart` | `HEART.md` | – | Bereiche und Querschnittsthemen | 70B |
 | Bereich | `aps:6` | `bereiche/aps-6-<slug>.md` | Heart | Kapitel plus Stichproben | 70B |
 | Kapitel | `aps:6.1` | `kapitel/aps-6.1-<slug>.md` | Bereich | Tag-Seiten plus Stichproben; Querschnitt nur verlinkt | 70B |
-| Tag-Seite | `aps:6.1.9` | `tags/aps-6.1.9-<slug>.md` | Kapitel | Kurzzusammenfassungen der Geschäfte und Kennzahlen | 8B |
-| Querschnitt | `adhoc:<name>` | `querschnitt/adhoc-<name>.md` | Heart; verlinkt aus allen `broader` | wie Tag-Seite | 8B |
+| Tag-Seite | `aps:6.1.9` | `tags/aps-6.1.9-<slug>.md` | Kapitel | Kurzzusammenfassungen der Geschäfte und Kennzahlen | 70B |
+| Querschnitt | `adhoc:<name>` | `querschnitt/adhoc-<name>.md` | Heart; verlinkt aus allen `broader` | wie Tag-Seite | 70B |
+
+Geplant waren Tag- und Querschnittsseiten mit 8B. Im Test mit echten Daten (Oktober 2026) hielt 8B die JSON-Form nicht ein und erfand Geschäfts-IDs; mit 70B gelangen dieselben Seiten in 8 bis 13 s mit gültigen Belegen. Kurzzusammenfassungen über 200 Zeichen kürzt `tidy()` in `wiki/run.py` an einer Wortgrenze.
 
 `build_tree(registry)` in `wiki/tree.py` erzeugt den Baum aus den aktiven Tags. Ist die Eltern-Seite eines aktiven Tags nicht aktiv, bricht der Aufbau mit einer Fehlermeldung ab. Über 1'000 Geschäften kommt die Geschäftsliste in Jahresdateien (`tags/aps-6.1.9-<slug>/2025.md`); die Seite selbst behält ihren Namen.
 
@@ -342,6 +346,20 @@ UPDATE wiki_pages SET pending_changes = pending_changes + 1 WHERE page_id = %(pa
 UPDATE wiki_pages SET cited_label_removed = true
 WHERE cited_affair_ids @> ARRAY[%(affair_id)s]::bigint[];
 ```
+
+### 5.6 Markdown-Export
+
+`parltopics wiki` (`wiki/markdown.py`, F14) schreibt den Seitenbaum und die Parlamente als Markdown und liest dafür nur:
+
+- Kennzahlen wie im Seitenlauf (`page_stats`),
+- Zusammenfassung und Seitenstand aus `wiki_pages`,
+- die Geschäftsliste einer Tag- oder Querschnittsseite über `stream_topic_affairs`.
+
+Die Dateinamen kommen aus `page_path()`. Zusammengelegte und zurückgezogene Tags bekommen eine Weiterleitungsseite. Über 1'000 Geschäften steht die Liste in Jahresdateien.
+
+Links zwischen Seiten sind relativ. Geschäfte verlinken auf die Web-App (`/geschaefte/{id}`) und auf OpenParlData.
+
+Unveränderte Dateien schreibt der Export nicht neu. Dateien, die er nicht mehr erzeugt, bleiben liegen (Shortcut im Code). Gegen die geteilte Datenbank (Oktober 2026: 197 Seiten, 63 Parlamente, 260 Dateien) dauert ein Lauf rund eine Minute. Die Zeit geht fast ganz in die Antwortzeit der rund 1'500 Abfragen.
 
 Diagramm: [09-wiki-hierarchie](architecture/09-wiki-hierarchie.html).
 

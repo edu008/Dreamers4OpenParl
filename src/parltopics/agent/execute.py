@@ -17,6 +17,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 from parltopics.agent.tools import (
+    BODIES,
     CountAffairsArgs,
     GenerateKeywordsArgs,
     GetAffairArgs,
@@ -51,11 +52,19 @@ ORDER BY ts_rank_cd(d.document, {queries.TSQUERY}) DESC, a.id DESC
 LIMIT %(limit)s
 """
 GROUPS = {
-    "body_key": "a.body_key AS key, max(b.name) AS name",
+    "body_key": "a.body_key AS key, max(b.name) AS name, max(b.level) AS level",
     "level": "b.level AS key",
     "year": "extract(year FROM a.begin_date)::int AS key",
 }
 TAG_ID = re.compile(r'"(?:tag_id|page_id)": "([^"]+)"')
+BODY_NAMES = """
+SELECT body_key, name, level FROM bodies
+WHERE body_key = ANY(%(keys)s::text[]) OR name ILIKE ANY(%(keys)s::text[])
+"""
+ALL_AFFAIRS = (
+    "Ohne tags zählt count_affairs alle Geschäfte, nicht die eines Themas. Für ein Thema die"
+    " Tag-IDs mit list_tags suchen und als tags übergeben; für alle Geschäfte all_affairs: true."
+)
 
 Found = tuple[Any, list[int]]  # Ergebnis für den Prompt, zitierbare Geschäfts-IDs
 
@@ -122,10 +131,24 @@ class Tools:
         }
         return sorted({*tags, *below})
 
+    def _bodies(self, keys: list[str]) -> dict[str, str]:
+        """Namen der Parlamente. Ein unbekanntes Kürzel (Tessin statt TI) geht als Fehler zurück,
+        mit passenden Namen als Hinweis: Es zählte sonst still null Geschäfte."""
+        if not keys:
+            return {}
+        rows = self.conn.execute(BODY_NAMES, {"keys": keys}).fetchall()
+        names = {key: f"{name} ({level})" for key, name, level in rows if key in keys}
+        unknown = [key for key in keys if key not in names]
+        if unknown:
+            hints = [f"{key} {name} ({level})" for key, name, level in rows if key not in names]
+            raise ToolError(f"Unbekannte Parlamente: {unknown}. {BODIES}. Passend: {hints}")
+        return names
+
     async def search_affairs(self, args: SearchAffairsArgs) -> Found:
         tags = self._expand(args.tags)
 
         def run() -> list[dict]:
+            self._bodies(args.body_keys)
             params = {**_filters(args, tags), "q": args.query, "limit": args.limit}
             ids = [row[0] for row in self.conn.execute(SEARCH, params)]
             return _heads(queries.hits(self.conn, ids))
@@ -186,6 +209,9 @@ class Tools:
         return found, [args.affair_id]
 
     async def count_affairs(self, args: CountAffairsArgs) -> Found:
+        # Live-Test F21: Ohne diese Sperre gab 70B eine Zählung aller Geschäfte als Thema aus.
+        if not args.tags and not args.all_affairs:
+            raise ToolError(ALL_AFFAIRS)
         tags = self._expand(args.tags)
         sql = (
             f"SELECT {GROUPS[args.group_by]}, count(*) AS count"
@@ -195,14 +221,18 @@ class Tools:
         )
         cursor = self.conn.cursor(row_factory=dict_row)
         params = _filters(args, tags)
-        rows = await asyncio.to_thread(lambda: cursor.execute(sql, params).fetchall())
-        # Die Filter stehen mit Namen im Ergebnis, damit das Modell keine Zählung aller Geschäfte
-        # oder eines anderen Themas dem gefragten Thema zuschreibt.
+
+        def run() -> tuple[dict[str, str], list[dict]]:
+            return self._bodies(args.body_keys), cursor.execute(sql, params).fetchall()
+
+        bodies, rows = await asyncio.to_thread(run)
+        # Die Filter stehen mit Namen im Ergebnis, damit das Modell keine Zählung aller Geschäfte,
+        # eines anderen Themas oder eines anderen Parlaments dem gefragten zuschreibt.
         names = {tag.tag_id: tag.pref_label.de for tag in self.registry.tags}
         counted = {
             "themen": [f"{tag} {names.get(tag, '')}".strip() for tag in args.tags]
             or "keine: alle Geschäfte, nicht nur eines Themas",
-            "parlamente": args.body_keys or "alle",
+            "parlamente": [f"{key} {bodies[key]}" for key in args.body_keys] or "alle",
             "jahre": [args.year_from, args.year_to],
         }
         return {"group_by": args.group_by, "gezählt": counted, "groups": rows}, []

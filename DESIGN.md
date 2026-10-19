@@ -120,7 +120,7 @@ Helvetica Neue, Helvetica, sonst Arial, alles Systemschriften (keine externen Re
 - Ein Rahmen für Kopf, Inhalt und Fuss: höchstens 64 rem (Review 72 rem), Rand 16 px auf dem Handy, 32 px ab `sm`.
 - **Öffentlich:** rotes Kopfband mit Wortmarke. Startseite: Display, ein Satz, Suchfeld mit rotem Knopf, Zeile mit «Filter einblenden (n)» und aktivem Thema, Trefferzahl, Liste. Fuss mit «So funktioniert's» und Darstellungsschalter über einer 2-px-Linie.
 - **Trefferliste:** Raster mit zwei Spalten. Links Datum (fett) und Parlament (Kürzel oder Ebene), rechts Typ · Nr. · Parlament, Titel, Ausschnitt bei einer Suche, höchstens drei Themen. Die ganze Zeile ist der Link, der Titel wird beim Hover rot.
-- **Geschäftsseite:** Rückweg «← Geschäfte», Meta-Zeile «Geschäft | Nr. | Datum | Typ», Titel, Themen. Darunter Abschnitte im Raster (Titel links, Inhalt rechts): Geschäft (ID, externe ID, Nummer, Titel, langer Titel, Typ, Stand, Beginn, Ende, URL), Text, Gebiet (Parlament, Ebene, Kürzel).
+- **Geschäftsseite:** Rückweg «← Geschäfte», Meta-Zeile «Geschäft | Nr. | Datum | Typ», Titel, Themen. Darunter Abschnitte im Raster (Titel links, Inhalt rechts): Geschäft (ID, externe ID, Nummer, Titel, langer Titel, Typ, Stand, Beginn, Ende, URL), Text, Dokumente (Datum, Name als Link zum Parlament, Kategorie, Format und Grösse; die ersten 20, «Alle n Dokumente» lädt den Rest), Gebiet (Parlament, Gremium, Ebene, Kanton, Amtssprachen). Links nach aussen sind nur Links, die Web-App lädt nichts von dort.
 - **Admin:** dieselbe Kopfzeile mit «ParlTopics Admin» und Reitern Übersicht, Review (Anzahl), Themen, Graph; der aktive Reiter ist weiss mit roter Schrift.
 - Handybreite 375 px ohne seitliches Überlaufen. Bedienflächen mindestens 32 px hoch.
 

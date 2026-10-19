@@ -146,14 +146,58 @@ export interface AffairTopics {
   text: string | null
   language: string | null
   summary_de: string | null
-  /** ID beim Parlament, z. B. «E 3265». */
-  external_id?: string | null
-  title_long?: string | null
-  /** Typ, wie ihn das Parlament nennt (type_de ist der harmonisierte). */
-  type_name?: string | null
-  state?: string | null
-  end_date?: string | null
   labels: LabelOut[]
+}
+
+/** Sprachfeld wie bei OpenParlData: nur gefüllte Sprachen, ohne Werte {}. */
+export type Localized = Partial<
+  Record<"de" | "fr" | "it" | "rm" | "en", string>
+>
+
+/** Parlament aus bodies.raw (Auszug; Wappen-URL bewusst weggelassen). */
+export interface BodyRecord {
+  type_name: Localized
+  legislative_name: Localized
+  canton_key: string | null
+  /** Amtssprachen, kommagetrennt, z. B. «DE,FR». */
+  languages: string | null
+}
+
+/** Dokument ohne Text; url zeigt zum Parlament und wird nur verlinkt, nie geladen. */
+export interface DocRecord {
+  id: number
+  name: string | null
+  category: Localized
+  date: string | null
+  /** MIME-Typ, z. B. «application/pdf». */
+  format: string | null
+  /** Bytes. */
+  size: number | null
+  url: string | null
+}
+
+export interface DocList {
+  total: number
+  limit: number
+  offset: number
+  items: DocRecord[]
+}
+
+/** Gespeichertes Geschäft aus OpenParlData (GET /v1/affairs/{id}, Auszug). texts[].text ist
+ * ungefiltertes HTML; den bereinigten Text liefert AffairTopics. */
+export interface AffairRecord {
+  id: number
+  external_id?: string | null
+  title_long: Localized
+  /** Typ beim Parlament; der harmonisierte steht in AffairTopics.type_de. */
+  type_name: Localized
+  state_name: Localized
+  state_name_harmonized: Localized
+  end_date: string | null
+  body: BodyRecord | null
+  /** Die ersten 20 nach Datum; alle unter GET /v1/affairs/{id}/docs. */
+  docs: DocRecord[]
+  n_docs: number
 }
 
 export interface JobCounts {
