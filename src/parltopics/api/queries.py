@@ -220,15 +220,19 @@ FROM tags t LEFT JOIN affair_tags l ON l.tag_id = t.tag_id AND l.status = 'activ
 WHERE %(scheme)s::text IS NULL OR t.scheme = %(scheme)s::text
 GROUP BY t.tag_id
 """
-TOPIC_FILTER = """
+# Laufend heisst: ohne Enddatum und nicht als inaktiv markiert. shortcut: Der harmonisierte Stand
+# fehlt fast überall (102 von 147'805 Geschäften seit 2018); füllt OpenParlData ihn, dort ablesen.
+RUNNING = "(a.raw->>'end_date' IS NULL AND a.raw->>'active' IS DISTINCT FROM 'false')"
+TOPIC_FILTER = f"""
 FROM affair_tags l JOIN affairs a ON a.id = l.affair_id JOIN tags t ON t.tag_id = l.tag_id
 LEFT JOIN bodies b ON b.body_key = a.body_key
 WHERE l.tag_id = ANY(%(tag_ids)s) AND l.status = 'active' AND l.confidence >= %(min_confidence)s
   AND (%(body_key)s::text IS NULL OR a.body_key = %(body_key)s::text)
-  AND (%(level)s::text IS NULL OR b.level = %(level)s::text)
+  AND (%(level)s::text[] IS NULL OR b.level = ANY(%(level)s::text[]))
   AND (%(type)s::text IS NULL OR a.type_harmonized_en = %(type)s::text)
   AND (%(date_from)s::date IS NULL OR a.begin_date >= %(date_from)s::date)
   AND (%(date_to)s::date IS NULL OR a.begin_date <= %(date_to)s::date)
+  AND (NOT %(running)s OR {RUNNING})
 """
 TOPIC_AFFAIRS = f"""
 SELECT {AFFAIR_HEAD}, l.tag_id, t.name_de, l.confidence, l.evidence, l.evidence_verified,
@@ -327,23 +331,24 @@ def topic_affairs(
     min_confidence: float,
     limit: int,
     offset: int,
-    level: str | None = None,
+    level: list[str] | None = None,
     affair_type: str | None = None,
+    running: bool = False,
 ) -> tuple[int, list[dict]]:
     """Geschäfte mit aktivem Label eines der Tags, eine Zeile je Geschäft und Tag:
     (Treffer insgesamt, eine Seite)."""
     cursor = conn.cursor(row_factory=dict_row)
-    params = {
-        "tag_ids": tag_ids,
-        "body_key": body_key,
-        "level": level,
-        "type": affair_type,
-        "date_from": date_from,
-        "date_to": date_to,
-        "min_confidence": min_confidence,
-        "limit": limit,
-        "offset": offset,
-    }
+    filters = _filter_params(
+        tag_ids,
+        body_key=body_key,
+        level=level,
+        affair_type=affair_type,
+        date_from=date_from,
+        date_to=date_to,
+        min_confidence=min_confidence,
+        running=running,
+    )
+    params = {**filters, "limit": limit, "offset": offset}
     total = cursor.execute(f"SELECT count(*) AS n {TOPIC_FILTER}", params).fetchone()["n"]
     return total, cursor.execute(TOPIC_AFFAIRS, params).fetchall()
 
@@ -715,11 +720,12 @@ def _filter_params(
     tag_ids: list[str],
     *,
     body_key: str | None = None,
-    level: str | None = None,
+    level: list[str] | None = None,
     affair_type: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     min_confidence: float = 0.0,
+    running: bool = False,
 ) -> dict:
     return {
         "tag_ids": tag_ids,
@@ -729,6 +735,7 @@ def _filter_params(
         "date_from": date_from,
         "date_to": date_to,
         "min_confidence": min_confidence,
+        "running": running,
     }
 
 

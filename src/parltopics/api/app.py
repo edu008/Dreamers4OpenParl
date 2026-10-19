@@ -10,11 +10,9 @@ OpenAPI-Schema steht unter /v1/openapi.json.
 """
 
 import asyncio
-import csv
-import io
 import re
 import time
-from collections.abc import AsyncIterator, Iterable, Iterator
+from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
@@ -81,6 +79,7 @@ from parltopics.api.schemas import (
 from parltopics.classify import adhoc, proposals
 from parltopics.classify.queue import summary as job_summary
 from parltopics.config import Settings, get_settings
+from parltopics.export import affairs_csv
 from parltopics.llm import JSONExtractionError
 from parltopics.registry import Registry, RegistryError, load_registry
 from parltopics.registry.edit import TagExists
@@ -168,61 +167,6 @@ def page_out(page: Page, lang: Lang) -> PageOut:
         parent_id=page.parent_id,
         linked_from=list(page.linked_from),
     )
-
-
-# CSV wie der Export der Web-App (web/src/lib/export.ts): Spalten, Ebenen, Formelzeichen.
-CSV_HEADER = [
-    "OpenParlData-ID",
-    "Nummer",
-    "Titel",
-    "Typ",
-    "Parlament",
-    "Ebene",
-    "Datum",
-    "Thema",
-    "Konfidenz",
-    "Beleg im Text gefunden",
-    "Beleg",
-    "Prüfstufe",
-]
-LEVEL_LABEL = {"country": "Bund", "canton": "Kanton", "city": "Stadt", "municipality": "Gemeinde"}
-CSV_BLOCK = 1000
-
-
-def csv_cell(value: object) -> str:
-    """Leer für None; ein Formelzeichen am Anfang wird mit ' entschärft (Tabellenkalkulation)."""
-    text = "" if value is None else str(value)
-    return f"'{text}" if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
-
-
-def affairs_csv(rows: Iterable[dict]) -> Iterator[str]:
-    """Semikolon, UTF-8 mit BOM, CRLF; gibt die Zeilen in Blöcken zu CSV_BLOCK aus."""
-    buffer = io.StringIO()
-    writer = csv.writer(buffer, delimiter=";", lineterminator="\r\n")
-    buffer.write("﻿")
-    writer.writerow(CSV_HEADER)
-    for count, row in enumerate(rows, start=1):
-        level = row["body_level"]
-        values = [
-            row["affair_id"],
-            row["number"],
-            row["title"],
-            row["type_de"] or row["type"],
-            row["body_name"] or row["body_key"],
-            LEVEL_LABEL.get(level, level) if level else None,
-            row["begin_date"],
-            row["name_de"],
-            f"{row['confidence']:.2f}",
-            "ja" if row["evidence_verified"] else "nein",
-            row["evidence"],
-            "Mensch" if row["stage"] == "human" else row["stage"],
-        ]
-        writer.writerow([csv_cell(value) for value in values])
-        if count % CSV_BLOCK == 0:
-            yield buffer.getvalue()
-            buffer.seek(0)
-            buffer.truncate()
-    yield buffer.getvalue()
 
 
 class TreeCache:
@@ -1083,8 +1027,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def affair_filters(
         body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
         level: Annotated[
-            Literal["country", "canton", "city", "municipality"] | None,
-            Query(description="Ebene des Parlaments"),
+            list[Literal["country", "canton", "city", "municipality"]] | None,
+            Query(description="Ebene des Parlaments; mehrfach möglich, z. B. Bund und Kantone"),
         ] = None,
         affair_type: Annotated[
             str | None, Query(alias="type", description="harmonisierter Typ, z. B. Motion")
@@ -1092,8 +1036,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         date_from: Annotated[date | None, Query(alias="from", description="ab Datum")] = None,
         date_to: Annotated[date | None, Query(alias="to", description="bis Datum")] = None,
         min_confidence: Annotated[float, Query(ge=0, le=1)] = 0.0,
+        running: Annotated[
+            bool,
+            Query(description="nur laufende Geschäfte: ohne Enddatum, nicht als inaktiv markiert"),
+        ] = False,
     ) -> dict:
-        """Filter der Geschäfte einer Seite, mit den Namen von queries.topic_affairs."""
+        """Filter der Geschäfte einer Seite, mit den Namen von queries.topic_affairs. Die DVS-Liste
+        (F12) ist level=country&level=canton&running=true auf adhoc:digitalisierung-breit."""
         return {
             "body_key": body_key,
             "level": level,
@@ -1101,6 +1050,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "date_from": date_from,
             "date_to": date_to,
             "min_confidence": min_confidence,
+            "running": running,
         }
 
     AffairFilters = Annotated[dict, Depends(affair_filters)]
