@@ -195,6 +195,15 @@ export interface DocRecord {
   /** Bytes. */
   size: number | null
   url: string | null
+  /** Sprache des Dokuments, z. B. «fr». */
+  language: string | null
+  /** Text aus der Datei gespeichert: GET /v1/docs/{id}. */
+  has_text: boolean
+}
+
+/** GET /v1/docs/{id} (Auszug): das Dokument mit dem Text aus der Datei, bis einige MB. */
+export interface DocDetail extends DocRecord {
+  text: string | null
 }
 
 export interface DocList {

@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type ElementType,
@@ -17,7 +18,9 @@ import {
   type AffairRecord,
   type AffairStar,
   type AffairTopics,
+  type DocDetail,
   type DocList,
+  type DocRecord,
   type Localized,
 } from "@/lib/api"
 import { LEVEL_LABEL } from "@/lib/export"
@@ -47,6 +50,13 @@ const FORMAT_NAME: Record<string, string> = {
 
 // Höchstes limit von GET /v1/affairs/{id}/docs.
 const DOCS_PAGE = 200
+
+// shortcut: zeigt nur den Anfang, weil das Layout rund 0,7 ms je 1'000 Zeichen kostet (p99 der
+// Texte 253'000 Zeichen, einzelne über 1 MB), lädt aber den ganzen Text; braucht man öfter das
+// Ende, GET /v1/docs/{id} um eine Länge erweitern.
+const TEXT_CHARS = 100_000
+
+const number = new Intl.NumberFormat("de-CH")
 
 // Zeile im Raster der Fakten und Dokumente: Begriff links, Wert rechts.
 const ROW =
@@ -105,7 +115,80 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
   )
 }
 
-/** Dokumente als Links zum Parlament (die Web-App lädt nichts davon); «Alle n» holt den Rest. */
+/** Der gespeicherte Text eines Dokuments (GET /v1/docs/{id}), erst auf Klick geladen, weil er
+ * einige MB lang sein kann. Einmal geladen, öffnet er ohne neuen Aufruf; nach einem Fehler lädt
+ * das nächste Öffnen neu. */
+function DocText({ doc }: { doc: DocRecord }) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [text, setText] = useState<string>()
+  const [error, setError] = useState<string>()
+  const id = useId()
+
+  async function toggle() {
+    setOpen(!open)
+    if (open || loading || text !== undefined) return
+    setLoading(true)
+    setError(undefined)
+    try {
+      const detail = await fetchJson<DocDetail>(`/v1/docs/${doc.id}`)
+      // Die Extraktion aus PDF setzt oft mehrere Leerzeilen hintereinander; eine genügt.
+      setText(detail.text?.replace(/\n\s*\n/g, "\n\n").trim() ?? "")
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="mt-2 flex flex-col items-start gap-3">
+      <Button
+        variant="outline"
+        size="sm"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => void toggle()}
+      >
+        {!open ? "Text anzeigen" : loading ? "Text laden …" : "Text ausblenden"}
+      </Button>
+      {open && !loading && (
+        <div id={id} className="flex flex-col gap-2 self-stretch">
+          {error ? (
+            <p role="alert">Text nicht geladen: {error}</p>
+          ) : text ? (
+            <>
+              {/* Eigener Scrollbereich: mit Tab erreichbar, damit er auch per Tastatur scrollt. */}
+              <div
+                role="region"
+                aria-label={`Text von «${doc.name || "Dokument"}»`}
+                tabIndex={0}
+                lang={doc.language?.split(";")[0]}
+                className="max-h-96 max-w-[68ch] overflow-y-auto bg-muted p-4 font-reading text-base leading-relaxed whitespace-pre-line"
+              >
+                {text.slice(0, TEXT_CHARS)}
+              </div>
+              {text.length > TEXT_CHARS && (
+                <p className="text-muted-foreground">
+                  Gekürzt: die ersten {number.format(TEXT_CHARS)} von{" "}
+                  {number.format(text.length)} Zeichen. Das ganze Dokument liegt
+                  beim Parlament.
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-muted-foreground">
+              Zu diesem Dokument ist kein Text gespeichert.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Dokumente als Links zum Parlament (die Web-App lädt nichts von dort); «Alle n» holt den Rest,
+ * «Text anzeigen» den gespeicherten Text aus der eigenen API. */
 function Documents({ record }: { record: AffairRecord }) {
   const [docs, setDocs] = useState(record.docs)
   const [loading, setLoading] = useState(false)
@@ -171,6 +254,7 @@ function Documents({ record }: { record: AffairRecord }) {
                   name
                 )}
                 {details && <p className="text-muted-foreground">{details}</p>}
+                {doc.has_text && <DocText doc={doc} />}
               </div>
             </li>
           )
