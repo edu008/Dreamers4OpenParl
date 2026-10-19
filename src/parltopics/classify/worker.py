@@ -39,7 +39,14 @@ from parltopics.classify.queue import (
     task_tag,
     verify_evidence,
 )
-from parltopics.classify.schemas import OutputError, Stage2Output, parse_stage1, parse_stage2
+from parltopics.classify.rules import CONFIDENCE, RULES_VERSION, match_rule
+from parltopics.classify.schemas import (
+    OutputError,
+    Stage2Output,
+    parse_single,
+    parse_stage1,
+    parse_stage2,
+)
 from parltopics.config import Settings
 from parltopics.llm import (
     JSONExtractionError,
@@ -55,7 +62,8 @@ from parltopics.registry.sync import synced_version
 log = logging.getLogger("parltopics.worker")
 
 STAGE_PROMPTS = ("classify_chapters_v2", "classify_topics_v2")
-SINGLE_PROMPT = "classify_single_v1"
+SINGLE_PROMPT = "classify_single_v2"
+INSTITUTIONS = "aps:1.2"  # Kapitel Institutionen: eigene Liste B in classify_single_v2
 SAMPLE_EVERY = 50  # Stichprobe von 2 % nach affair_id: reproduzierbar, ohne Zufall
 IDLE_SECONDS = 5
 INVALID = (JSONExtractionError, OutputError, ValidationError)
@@ -179,7 +187,13 @@ async def _pass(
         offered = {adhoc_id: c.known[adhoc_id]}
     elif c.single is not None:
         prompt = c.single
-        offered = {tag.tag_id: tag for tags in c.topics.values() for tag in tags}
+        institutions = {tag.tag_id: tag for tag in c.topics.get(INSTITUTIONS, [])}
+        offered = {
+            tag.tag_id: tag
+            for chapter, tags in c.topics.items()
+            if chapter != INSTITUTIONS
+            for tag in tags
+        }
         offered |= {tag.tag_id: tag for tag in c.adhoc}
     else:
         chapter_ids = {chapter.tag_id for chapter in c.chapters}
@@ -199,13 +213,22 @@ async def _pass(
             model = settings.llm_name_large if large else settings.llm_name
             return Pass(stage, model, []), empty
     dropped: list[str] = []
+    single = c.single is not None and adhoc_id is None
 
     def parse2(data: dict) -> Stage2Output:
-        output, rejected = parse_stage2(data, affair_id=job.affair_id, offered=set(offered))
+        if single:
+            output, rejected = parse_single(
+                data, affair_id=job.affair_id, topics=set(offered), institutions=set(institutions)
+            )
+        else:
+            output, rejected = parse_stage2(data, affair_id=job.affair_id, offered=set(offered))
         dropped.extend(rejected)
         return output
 
-    messages = prompt.messages({"tags": list(offered.values())}, user)
+    variables: dict[str, Any] = {"tags": list(offered.values())}
+    if single:
+        variables["institutions"] = list(institutions.values())
+    messages = prompt.messages(variables, user)
     stage2, model = await _ask(client, messages, large, parse2)
     verified = await verify(job.text, [tag.evidence for tag in stage2.tags])
     if not all(verified):
@@ -289,6 +312,15 @@ async def classify_affair(
     Ist nur die 70B-Antwort ungültig, gilt das 8B-Ergebnis (Grund `70b_ungueltig`).
     """
     passes: list[Pass] = []
+    rule = match_rule(job.text) if task_tag(job.task) is None else None
+    if rule is not None:
+        # Routinegeschäft (Vorschlag B): Thema aus dem Titel, kein Modellaufruf.
+        label = Label(rule.tag_id, CONFIDENCE, rule.evidence, True)
+        language = job.language if job.language in ("de", "fr", "it", "rm") else "other"
+        empty = Stage2Output(affair_id=job.affair_id, language=language)
+        return _result(c, job, [Pass("rule", RULES_VERSION, [label])], empty), [
+            f"regel:{rule.rule}"
+        ]
     if c.single is not None and task_tag(job.task) is None:
         # Einstufig: ein 70B-Durchlauf, keine Eskalation. Ungültig auch nach der Wiederholung:
         # OutputFailure, der Job ist dauerhaft failed.

@@ -168,3 +168,36 @@ def test_stage1_accepts_no_matching_chapter():
         {"affair_id": 1, "language": "de", "chapters": []}, affair_id=1, offered={"aps:6.1"}
     )
     assert output.chapters == []
+
+
+def test_single_puts_institutions_behind_topics_and_keeps_three():
+    from parltopics.classify.schemas import parse_single
+
+    def t(tag_id, confidence):
+        return {"tag_id": tag_id, "confidence": confidence, "evidence": "x"}
+
+    data = {
+        "affair_id": 1,
+        "language": "de",
+        "tags": [t("aps:1.2.4", 0.9), t("aps:6.1.1", 0.5), t("aps:6.1.3", 0.6)],
+        "institution_tags": [t("aps:1.2.2", 0.8)],
+    }
+    topics = {"aps:6.1.1", "aps:6.1.3", "aps:6.4.6"}
+    institutions = {"aps:1.2.4", "aps:1.2.2"}
+    result, dropped = parse_single(data, affair_id=1, topics=topics, institutions=institutions)
+    assert [x.tag_id for x in result.tags] == ["aps:6.1.3", "aps:6.1.1", "aps:1.2.4"]
+    assert result.institution_tags == []
+    assert dropped == ["aps:1.2.2"]
+
+
+def test_single_keeps_an_institution_when_no_topic_fits():
+    from parltopics.classify.schemas import parse_single
+
+    data = {
+        "affair_id": 1,
+        "language": "de",
+        "tags": [],
+        "institution_tags": [{"tag_id": "aps:1.2.4", "confidence": 0.9, "evidence": "x"}],
+    }
+    result, _ = parse_single(data, affair_id=1, topics={"aps:6.1.1"}, institutions={"aps:1.2.4"})
+    assert [x.tag_id for x in result.tags] == ["aps:1.2.4"]

@@ -60,6 +60,8 @@ class Stage2Output(_Output):
     language: Language
     summary_de: str | None = None
     tags: list[TagAssignment] = Field(default_factory=list)
+    # Vorschlag A (classify_single_v2): Institution oder Verfahren, nur wenn das Geschäft sie regelt
+    institution_tags: list[TagAssignment] = Field(default_factory=list)
     proposed_tags: list[TagProposal] = Field(default_factory=list)
 
     @field_validator("summary_de", mode="before")
@@ -120,5 +122,45 @@ def parse_stage2(
     dropped = [tag.tag_id for tag in tags if tag.tag_id not in kept]
     cleaned = output.model_copy(
         update={"tags": best, "proposed_tags": output.proposed_tags[:MAX_PROPOSALS]}
+    )
+    return cleaned, dropped
+
+
+MAX_INSTITUTIONS = 1
+
+
+def parse_single(
+    data: dict, *, affair_id: int, topics: set[str], institutions: set[str]
+) -> tuple[Stage2Output, list[str]]:
+    """Einstufig mit getrennten Listen (Vorschlag A, 19.10.2026).
+
+    Sachthemen kommen zuerst, ein Institutions-Thema (Parlament, Verwaltung, Bundesrat …) höchstens
+    einmal und nur dahinter; insgesamt höchstens 3. Steht ein Institutions-Thema in `tags`, wird es
+    als Institution behandelt: Wer ein Geschäft einreicht oder behandelt, ist nicht sein Thema.
+    """
+    output = Stage2Output.model_validate(data)
+    if output.affair_id != affair_id:
+        raise OutputError(f"Antwort für Geschäft {output.affair_id}, angefragt war {affair_id}")
+    offered = topics | institutions
+    given = [
+        t.model_copy(update={"tag_id": _offered_id(t.tag_id, offered)})
+        for t in [*output.tags, *output.institution_tags]
+    ]
+
+    def best(ids: set[str], limit: int) -> list[TagAssignment]:
+        unique: dict[str, TagAssignment] = {}
+        for tag in _by_confidence([t for t in given if t.tag_id in ids], len(given)):
+            unique.setdefault(tag.tag_id, tag)
+        return list(unique.values())[:limit]
+
+    kept = [*best(topics, MAX_TAGS), *best(institutions, MAX_INSTITUTIONS)][:MAX_TAGS]
+    kept_ids = {tag.tag_id for tag in kept}
+    dropped = [tag.tag_id for tag in given if tag.tag_id not in kept_ids]
+    cleaned = output.model_copy(
+        update={
+            "tags": kept,
+            "institution_tags": [],
+            "proposed_tags": output.proposed_tags[:MAX_PROPOSALS],
+        }
     )
     return cleaned, dropped

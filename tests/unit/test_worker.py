@@ -337,7 +337,7 @@ async def test_single_stage_asks_70b_once_with_all_topics(single):
         "adhoc:digitalisierung-breit",
         "aps:6.1.9",
     ]
-    assert result.prompt_version.startswith("classify_single_v1+")
+    assert result.prompt_version.startswith("classify_single_v2+")
 
 
 async def test_single_stage_fails_after_two_invalid_answers(single):
@@ -349,3 +349,20 @@ async def test_single_stage_fails_after_two_invalid_answers(single):
                 classifier, client, job(), threshold=0.6, verify=verified, escalate=nothing
             )
     assert [body["model"] for body in requests] == ["test-70b", "test-70b"]
+
+
+async def test_routine_affair_is_labelled_by_rule_without_a_model_call(single):
+    settings, classifier = single
+    client, requests = mock_llm(settings)
+    routine = Job(9, "classify:aps", 1, 1, "Vereidigung eines Parlamentsmitglieds\nText", "h", "de")
+    async with client:
+        result, reasons = await classify_affair(
+            classifier, client, routine, threshold=0.6, verify=verified, escalate=nothing
+        )
+    assert requests == []
+    assert reasons == ["regel:vereidigung"]
+    (only,) = result.passes
+    assert (only.stage, only.model_version) == ("rule", "regeln-v1")
+    assert [(lb.tag_id, lb.confidence, lb.evidence_verified) for lb in only.labels] == [
+        ("aps:1.2.4", 0.95, True)
+    ]

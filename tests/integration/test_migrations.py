@@ -15,6 +15,7 @@ def test_migrations_apply_once(conn, repo_root):
         "0003_wiki_skos",
         "0004_review_undo",
         "0005_english_labels",
+        "0006_rule_stage",
     ]
     assert migrate(conn, repo_root / "migrations") == []
     tables = {
