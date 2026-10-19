@@ -14,7 +14,7 @@ import time
 import uuid
 from collections import Counter
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
 import httpx
@@ -39,7 +39,13 @@ from parltopics.classify.queue import (
     task_tag,
     verify_evidence,
 )
-from parltopics.classify.schemas import OutputError, Stage2Output, parse_stage1, parse_stage2
+from parltopics.classify.schemas import (
+    OutputError,
+    Stage2Output,
+    parse_stage1,
+    parse_stage2,
+    short_key,
+)
 from parltopics.config import Settings
 from parltopics.llm import (
     JSONExtractionError,
@@ -55,7 +61,7 @@ from parltopics.registry.sync import synced_version
 log = logging.getLogger("parltopics.worker")
 
 STAGE_PROMPTS = ("classify_chapters_v2", "classify_topics_v2")
-SINGLE_PROMPT = "classify_single_v1"
+SINGLE_PROMPT = "classify_single_v2"
 SAMPLE_EVERY = 50  # Stichprobe von 2 % nach affair_id: reproduzierbar, ohne Zufall
 IDLE_SECONDS = 5
 INVALID = (JSONExtractionError, OutputError, ValidationError)
@@ -79,6 +85,7 @@ class Classifier:
     stage2: Prompt
     known: dict[str, Tag]  # alle Tags der Registry, für Ad-hoc-Jobs auch vorgeschlagene
     single: Prompt | None = None  # gesetzt: APS-Jobs einstufig mit 70B (CLASSIFY_MODE)
+    keys: dict[str, str] = field(default_factory=dict)  # einstufig: Kurzname im Prompt → tag_id
 
     @property
     def prompt_version(self) -> str:
@@ -106,26 +113,48 @@ class Classifier:
         return self.stage2.version, tag_hash(self.known[tag_id])
 
 
+def short_keys(tags: list[Tag]) -> dict[str, str]:
+    """Antwort des Modells → tag_id: der Kurzname im Prompt, dazu Namen (DE, FR, IT) und
+    Synonyme, soweit sie nur ein Thema meinen (70B schreibt etwa "justiz" statt "judikative").
+    Doppelte Kurznamen würden Themen verwechseln."""
+    keys = {short_key(tag.prompt_id): tag.tag_id for tag in tags}
+    if len(keys) != len(tags):
+        counts = Counter(short_key(tag.prompt_id) for tag in tags)
+        doubled = sorted(key for key, n in counts.items() if n > 1)
+        raise RegistryError(f"Kurznamen im Prompt nicht eindeutig: {', '.join(doubled)}")
+    names: dict[str, set[str]] = {}
+    for tag in tags:
+        label = tag.pref_label
+        for name in filter(None, (label.de, label.fr, label.it, *tag.alt_labels.all())):
+            names.setdefault(short_key(name), set()).add(tag.tag_id)
+    unique = {key: ids.pop() for key, ids in names.items() if len(ids) == 1}
+    return unique | keys  # der Kurzname geht vor
+
+
 def load_classifier(settings: Settings) -> Classifier:
     registry = load_registry(settings.registry_path)
     chapters = [tag for tag in registry.active("aps") if tag.aps_level == "kapitel"]
+    topics = {
+        chapter.tag_id: [t for t in registry.narrower(chapter.tag_id) if t.scheme == "aps"]
+        for chapter in chapters
+    }
+    adhoc = registry.active("adhoc")
+    single = (
+        load_prompt(settings.prompts_dir, SINGLE_PROMPT)
+        if settings.classify_mode == "single_70b"
+        else None
+    )
     return Classifier(
         chapters=chapters,
-        topics={
-            chapter.tag_id: [t for t in registry.narrower(chapter.tag_id) if t.scheme == "aps"]
-            for chapter in chapters
-        },
-        adhoc=registry.active("adhoc"),
+        topics=topics,
+        adhoc=adhoc,
         registry_version=registry.registry_version,
         scheme_hash=scheme_hash(registry, "aps"),
         stage1=load_prompt(settings.prompts_dir, STAGE_PROMPTS[0]),
         stage2=load_prompt(settings.prompts_dir, STAGE_PROMPTS[1]),
         known={tag.tag_id: tag for tag in registry.tags},
-        single=(
-            load_prompt(settings.prompts_dir, SINGLE_PROMPT)
-            if settings.classify_mode == "single_70b"
-            else None
-        ),
+        single=single,
+        keys=short_keys([*(t for tags in topics.values() for t in tags), *adhoc]) if single else {},
     )
 
 
@@ -213,7 +242,8 @@ async def _pass(
     dropped: list[str] = []
 
     def parse2(data: dict) -> Stage2Output:
-        output, rejected = parse_stage2(data, affair_id=job.affair_id, offered=set(offered))
+        known = c.keys if prompt is c.single else set(offered)  # einstufig: Kurznamen
+        output, rejected = parse_stage2(data, affair_id=job.affair_id, offered=known)
         dropped.extend(rejected)
         return output
 
@@ -221,8 +251,9 @@ async def _pass(
     stage2, model = await _ask(client, messages, large, parse2)
     verified = await verify(job.text, [tag.evidence for tag in stage2.tags])
     if not all(verified):
+        shown = {tid: tag.prompt_id for tid, tag in offered.items()} if prompt is c.single else {}
         stage2, verified = await _requote(
-            client, messages, large, parse2, stage2, verified, job.text, verify
+            client, messages, large, parse2, stage2, verified, job.text, verify, shown
         )
     if dropped:
         log.info("affair_id=%s verworfene Tags: %s", job.affair_id, ", ".join(dropped))
@@ -243,20 +274,28 @@ async def _requote(
     verified: list[bool],
     text: str,
     verify: Callable[[str, list[str]], Awaitable[list[bool]]],
+    shown: dict[str, str],
 ) -> tuple[Stage2Output, list[bool]]:
     """Einmal nachfragen, wenn Belege nicht wörtlich im Text stehen (Modelle umschreiben gern).
 
     Die neue Antwort gilt nur, wenn sie gültig ist und mehr Belege im Text gefunden werden.
+    shown: tag_id → ID wie im Prompt; zeigt die Nachfrage Zahlencodes, antwortet 70B mit ihnen.
     """
-    missing = [tag.tag_id for tag, ok in zip(stage2.tags, verified, strict=True) if not ok]
+    missing = [
+        shown.get(tag.tag_id, tag.tag_id)
+        for tag, ok in zip(stage2.tags, verified, strict=True)
+        if not ok
+    ]
     hint = (
         f"Diese Belege stehen nicht wörtlich im Geschäftstext: {', '.join(missing)}."
         " Ersetze sie durch exakt kopierte Abschnitte zwischen <<< und >>>, ohne eigene"
         " Formulierung. Antworte nur mit dem vollständigen JSON-Objekt nach dem Schema."
     )
+    echo = [t.model_copy(update={"tag_id": shown.get(t.tag_id, t.tag_id)}) for t in stage2.tags]
+    answer = stage2.model_copy(update={"tags": echo}).model_dump_json()
     retry = [
         *messages,
-        {"role": "assistant", "content": stage2.model_dump_json()},
+        {"role": "assistant", "content": answer},
         {"role": "user", "content": hint},
     ]
     reply = await client.chat(retry, large=large)

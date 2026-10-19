@@ -1,8 +1,11 @@
 """Ausgabeschemas der Klassifikation (PRD Anhang B, ARCHITEKTUR 3.4)."""
 
+from collections.abc import Mapping
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from parltopics.registry.aps_import import aps_slug
 
 Language = Literal["de", "fr", "it", "rm", "other"]
 
@@ -77,8 +80,24 @@ def _by_confidence(items: list, limit: int) -> list:
     return sorted(items, key=lambda item: item.confidence, reverse=True)[:limit]
 
 
-def _offered_id(tag_id: str, offered: set[str]) -> str:
-    """Modelle lassen das Präfix manchmal weg ("7.2" statt "aps:7.2"); eindeutig, also ergänzen."""
+def short_key(value: str) -> str:
+    """Kurzname in fester Schreibweise: Gross- und Kleinschreibung, Umlaute, Leer- und
+    Satzzeichen zählen nicht ("Ärzte und Pflegepersonal" = "aerzte-pflegepersonal")."""
+    prefix = "adhoc:" if value.startswith("adhoc:") else ""
+    return prefix + aps_slug(value.removeprefix("adhoc:").removeprefix("aps:"))
+
+
+def _offered_id(tag_id: str, offered: set[str] | Mapping[str, str]) -> str:
+    """Angebotene tag_id zur Angabe des Modells.
+
+    Mit Kurznamen (Mapping short_key → tag_id, classify_single_v2) zählt nur ein Schlüssel des
+    Mappings (Kurzname, eindeutiger Name oder Synonym), auch ohne das Präfix adhoc:; alles andere,
+    auch ein Zahlencode, bleibt unbekannt und mit ? markiert.
+    Sonst: Modelle lassen das Präfix manchmal weg ("7.2" statt "aps:7.2"); eindeutig, also ergänzen.
+    """
+    if isinstance(offered, Mapping):
+        key = short_key(tag_id)
+        return offered.get(key) or offered.get(f"adhoc:{key}") or f"?{tag_id}"
     prefixed = f"aps:{tag_id}"
     return prefixed if tag_id not in offered and prefixed in offered else tag_id
 
@@ -99,21 +118,23 @@ def parse_stage1(data: dict, *, affair_id: int, offered: set[str]) -> Stage1Outp
 
 
 def parse_stage2(
-    data: dict, *, affair_id: int, offered: set[str]
+    data: dict, *, affair_id: int, offered: set[str] | Mapping[str, str]
 ) -> tuple[Stage2Output, list[str]]:
     """Stufe 2 prüfen. Gibt die bereinigte Ausgabe und die verworfenen Tag-IDs zurück.
 
-    Nicht angebotene Tags werden verworfen; ein mehrfach genanntes Tag zählt einmal, mit seiner
+    offered: angebotene tag_ids oder, bei Kurznamen im Prompt, short_key → tag_id. Nicht
+    angebotene Tags werden verworfen; ein mehrfach genanntes Tag zählt einmal, mit seiner
     höchsten Konfidenz; behalten werden die 3 Tags mit der höchsten Konfidenz und die ersten 2
     Vorschläge.
     """
     output = Stage2Output.model_validate(data)
     if output.affair_id != affair_id:
         raise OutputError(f"Antwort für Geschäft {output.affair_id}, angefragt war {affair_id}")
+    ids = set(offered.values()) if isinstance(offered, Mapping) else offered
     tags = [t.model_copy(update={"tag_id": _offered_id(t.tag_id, offered)}) for t in output.tags]
     unique: dict[str, TagAssignment] = {}
     for tag in _by_confidence(tags, len(tags)):
-        if tag.tag_id in offered:
+        if tag.tag_id in ids:
             unique.setdefault(tag.tag_id, tag)
     best = list(unique.values())[:MAX_TAGS]
     kept = {tag.tag_id for tag in best}

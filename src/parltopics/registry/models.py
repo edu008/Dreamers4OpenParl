@@ -116,6 +116,12 @@ class Tag(_Strict):
         depth = self.tag_id.split(":", 1)[1].count(".")
         return ("bereich", "kapitel", "thema")[min(depth, 2)]
 
+    @property
+    def prompt_id(self) -> str:
+        """ID im Prompt: Kurzname statt Zahlencode, weil Apertus Zahlencodes aus langen Listen
+        falsch abschreibt (classify_single_v2). Ad-hoc-IDs tragen den Namen schon."""
+        return self.slug or self.tag_id
+
     @field_validator("tag_id")
     @classmethod
     def _tag_id_format(cls, value: str) -> str:
