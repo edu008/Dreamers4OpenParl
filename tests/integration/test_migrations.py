@@ -15,6 +15,7 @@ def test_migrations_apply_once(conn, repo_root):
         "0003_wiki_skos",
         "0004_review_undo",
         "0005_english_labels",
+        "0007_affair_contributors",
     ]
     assert migrate(conn, repo_root / "migrations") == []
     tables = {
@@ -23,7 +24,7 @@ def test_migrations_apply_once(conn, repo_root):
             "SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema()"
         )
     }
-    assert len(tables - {"schema_migrations"}) == 24
+    assert len(tables - {"schema_migrations"}) == 25
     assert {"affairs", "tags", "affair_tags", "classification_jobs", "agent_runs"} <= tables
     assert {"tag_labels", "tag_relations", "wiki_pages", "search_runs"} <= tables
 

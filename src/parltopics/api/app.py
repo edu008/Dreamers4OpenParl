@@ -309,8 +309,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def affair_record(affair_id: int, conn: Conn) -> AffairRecord:
         """Das Geschäft, wie es aus OpenParlData in der Datenbank liegt: alle Felder von
         affairs.raw, Sprachfelder geschachtelt wie bei OpenParlData ({"de": …, "fr": …}), dazu
-        das Parlament, alle Texte und die ersten 20 Dokumente. Nicht gespeichert und darum nicht
-        dabei: Events, Contributors, Votings, Speeches, Agendas, Meetings und externe Links."""
+        das Parlament, alle Texte und die ersten 20 Dokumente. Nicht dabei: die Contributors
+        (gespeichert nur für die Auswertung nach Partei) und, weil nicht gespeichert, Events,
+        Votings, Speeches, Agendas, Meetings und externe Links."""
         record = queries.affair_record(conn, affair_id)
         if record is None:
             raise HTTPException(404, f"Geschäft {affair_id} unbekannt")

@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 
 BASE_URL = "https://files.openparldata.ch/exports"
-ENTITIES = ("bodies", "affairs", "texts", "docs")
+ENTITIES = ("bodies", "affairs", "texts", "docs", "contributors")
 
 
 def select_files(
