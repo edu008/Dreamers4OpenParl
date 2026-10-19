@@ -332,3 +332,10 @@ export interface AgentResult {
   status: "ok" | "no_results" | "limit_reached"
   duration_ms: number
 }
+
+/** Graph, Sicht 2 (GET /v1/graph/affairs/{id}): ein Geschäft und seine Nachbarn über gemeinsame
+ * aktive Themen; die meisten gemeinsamen Themen zuerst. */
+export interface AffairStar {
+  center: AffairHead & { topics: HitTopic[] }
+  neighbours: (AffairHead & { shared: string[]; score: number })[]
+}
