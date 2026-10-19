@@ -44,6 +44,16 @@ def test_classification_prompts_render_with_registry_tags():
     assert "summary_de" in system2
     assert "<<<\nDer Bundesrat …\n>>>" in user
 
+    _, stage1_v3 = split(ROOT / "prompts" / "classify_chapters_v3.md")
+    _, stage2_v3 = split(ROOT / "prompts" / "classify_topics_v3.md")
+    system1_v3 = ENV.from_string(stage1_v3["system"]).render(chapters=chapters, language="de")
+    system2_v3 = ENV.from_string(stage2_v3["system"]).render(tags=topics, language="de")
+    assert "aps:6.1 | Verkehr und Kommunikation" in system1_v3
+    assert "aps:6.1.9 | Digitalisierung | Numérisation | Digitalizzazione" in system2_v3
+    assert "fit" in system2_v3
+    assert "institution_tags" in system2_v3
+    assert "Not-Aus" in system2_v3
+
 
 def test_load_prompt_builds_messages_and_version():
     registry = Registry.model_validate(yaml.safe_load(FIXTURE.read_text(encoding="utf-8")))

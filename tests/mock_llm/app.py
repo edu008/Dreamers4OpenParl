@@ -90,7 +90,7 @@ def fake_completion(messages: list[dict]) -> str:
     body = text.group(1) if text else ""
     evidence = (body if len(body) <= 120 else body[:120].rsplit(" ", 1)[0]) or "Mock"
     tags = [
-        {"tag_id": tag_id, "confidence": 0.9, "evidence": evidence}
+        {"evidence": evidence, "fit": "kern_explizit", "tag_id": tag_id, "confidence": 0.9}
         for tag_id in TOPIC.findall(system)[:1]
     ]
     output = {

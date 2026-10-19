@@ -9,6 +9,7 @@ selben Job an 70B (ARCHITEKTUR 3.4). Registry und Prompts werden beim Start eing
 import asyncio
 import logging
 import os
+import re
 import socket
 import time
 import uuid
@@ -23,6 +24,7 @@ import psycopg
 from psycopg_pool import ConnectionPool
 from pydantic import ValidationError
 
+from parltopics.classify.lexical import LexicalMatcher
 from parltopics.classify.queue import (
     TASK_APS,
     Job,
@@ -39,7 +41,15 @@ from parltopics.classify.queue import (
     task_tag,
     verify_evidence,
 )
-from parltopics.classify.schemas import OutputError, Stage2Output, parse_stage1, parse_stage2
+from parltopics.classify.routine import match_routine
+from parltopics.classify.schemas import (
+    MAX_TAGS,
+    OutputError,
+    Stage1Output,
+    Stage2Output,
+    parse_stage1,
+    parse_stage2,
+)
 from parltopics.config import Settings
 from parltopics.llm import (
     JSONExtractionError,
@@ -54,7 +64,7 @@ from parltopics.registry.sync import synced_version
 
 log = logging.getLogger("parltopics.worker")
 
-STAGE_PROMPTS = ("classify_chapters_v2", "classify_topics_v2")
+STAGE_PROMPTS = ("classify_chapters_v3", "classify_topics_v3")
 SINGLE_PROMPT = "classify_single_v1"
 SAMPLE_EVERY = 50  # Stichprobe von 2 % nach affair_id: reproduzierbar, ohne Zufall
 IDLE_SECONDS = 5
@@ -79,6 +89,8 @@ class Classifier:
     stage2: Prompt
     known: dict[str, Tag]  # alle Tags der Registry, für Ad-hoc-Jobs auch vorgeschlagene
     single: Prompt | None = None  # gesetzt: APS-Jobs einstufig mit 70B (CLASSIFY_MODE)
+    lexical: LexicalMatcher | None = None
+    chapter_keywords: dict[str, list[str]] | None = None
 
     @property
     def prompt_version(self) -> str:
@@ -109,12 +121,22 @@ class Classifier:
 def load_classifier(settings: Settings) -> Classifier:
     registry = load_registry(settings.registry_path)
     chapters = [tag for tag in registry.active("aps") if tag.aps_level == "kapitel"]
+    topics = {
+        chapter.tag_id: [t for t in registry.narrower(chapter.tag_id) if t.scheme == "aps"]
+        for chapter in chapters
+    }
+    all_aps_topics = [t for tag_list in topics.values() for t in tag_list]
+    chapter_keywords: dict[str, list[str]] = {}
+    for ch_id, ch_topics in topics.items():
+        kw: list[str] = []
+        for t in ch_topics:
+            kw.append(t.pref_label.de)
+            kw.extend(t.alt_labels.de[:3])
+        chapter_keywords[ch_id] = kw[:20]
+
     return Classifier(
         chapters=chapters,
-        topics={
-            chapter.tag_id: [t for t in registry.narrower(chapter.tag_id) if t.scheme == "aps"]
-            for chapter in chapters
-        },
+        topics=topics,
         adhoc=registry.active("adhoc"),
         registry_version=registry.registry_version,
         scheme_hash=scheme_hash(registry, "aps"),
@@ -126,6 +148,8 @@ def load_classifier(settings: Settings) -> Classifier:
             if settings.classify_mode == "single_70b"
             else None
         ),
+        lexical=LexicalMatcher(all_aps_topics),
+        chapter_keywords=chapter_keywords,
     )
 
 
@@ -168,13 +192,14 @@ async def _pass(
     *,
     large: bool,
     verify: Callable[[str, list[str]], Awaitable[list[bool]]],
-) -> tuple[Pass, Stage2Output]:
+) -> tuple[Pass, Stage2Output, Stage1Output | None]:
     """Beide Stufen mit 8B oder 70B, danach die Belegprüfung. Ein Ad-hoc-Job braucht keine
     Kapitel: Stufe 2 bietet nur sein Tag an. Einstufig bietet ein Prompt alle Themen an."""
     user = {"affair_id": job.affair_id, "text": job.text}
     stage = "70b" if large else "8b"
     adhoc_id = task_tag(job.task)
     prompt = c.stage2
+    stage1_out: Stage1Output | None = None
     if adhoc_id is not None:
         offered = {adhoc_id: c.known[adhoc_id]}
     elif c.single is not None:
@@ -183,32 +208,45 @@ async def _pass(
         offered |= {tag.tag_id: tag for tag in c.adhoc}
     else:
         chapter_ids = {chapter.tag_id for chapter in c.chapters}
-        stage1, _ = await _ask(
+        s1_context: dict[str, Any] = {
+            "chapters": c.chapters,
+            "language": job.language or "de",
+        }
+        if c.chapter_keywords:
+            s1_context["chapter_keywords"] = c.chapter_keywords
+        stage1_out, _ = await _ask(
             client,
-            c.stage1.messages({"chapters": c.chapters}, user),
+            c.stage1.messages(s1_context, user),
             large,
             lambda data: parse_stage1(data, affair_id=job.affair_id, offered=chapter_ids),
         )
         offered = {
-            tag.tag_id: tag for choice in stage1.chapters for tag in c.topics[choice.chapter_id]
+            tag.tag_id: tag for choice in stage1_out.chapters for tag in c.topics[choice.chapter_id]
         }
+        if c.lexical and job.text:
+            for matched_tag in c.lexical.match(job.text):
+                offered[matched_tag.tag_id] = matched_tag
         offered |= {tag.tag_id: tag for tag in c.adhoc}
         if not offered:  # kein Kapitel und kein aktives Ad-hoc-Tag: nichts zur Auswahl
-            empty = Stage2Output(affair_id=job.affair_id, language=stage1.language)
+            empty = Stage2Output(affair_id=job.affair_id, language=stage1_out.language)
             settings = client.settings
             model = settings.llm_name_large if large else settings.llm_name
-            return Pass(stage, model, []), empty
+            return Pass(stage, model, []), empty, stage1_out
     dropped: list[str] = []
+    max_tags = 2 if job.source == "title_only" else MAX_TAGS
 
     def parse2(data: dict) -> Stage2Output:
-        output, rejected = parse_stage2(data, affair_id=job.affair_id, offered=set(offered))
+        output, rejected = parse_stage2(
+            data, affair_id=job.affair_id, offered=set(offered), max_tags=max_tags
+        )
         dropped.extend(rejected)
         return output
 
-    messages = prompt.messages({"tags": list(offered.values())}, user)
+    s2_context = {"tags": list(offered.values()), "language": job.language or "de"}
+    messages = prompt.messages(s2_context, user)
     stage2, model = await _ask(client, messages, large, parse2)
     verified = await verify(job.text, [tag.evidence for tag in stage2.tags])
-    if not all(verified):
+    if not all(verified) and job.source != "title_only":
         stage2, verified = await _requote(
             client, messages, large, parse2, stage2, verified, job.text, verify
         )
@@ -219,7 +257,7 @@ async def _pass(
         Label(tag.tag_id, round(tag.confidence if ok else tag.confidence / 2, 3), tag.evidence, ok)
         for tag, ok in zip(stage2.tags, verified, strict=True)
     ]
-    return Pass(stage, model, labels), stage2
+    return Pass(stage, model, labels), stage2, stage1_out
 
 
 async def _requote(
@@ -257,7 +295,13 @@ async def _requote(
 
 
 def escalation_reasons(
-    job: Job, labels: list[Label], output: Stage2Output, threshold: float
+    job: Job,
+    labels: list[Label],
+    output: Stage2Output,
+    threshold: float,
+    *,
+    stage1: Stage1Output | None = None,
+    classifier: Classifier | None = None,
 ) -> list[str]:
     """Wann 70B übernimmt (ARCHITEKTUR 3.4). Ad-hoc-Jobs nur bei tiefer Konfidenz: ihre
     Stichprobe hat meist kein Thema, und ohne Kapitelwahl gibt es keine Vorschläge zu prüfen."""
@@ -271,6 +315,33 @@ def escalation_reasons(
         "sprache": job.language in (None, "other"),
         "stichprobe": job.affair_id % SAMPLE_EVERY == 0,
     }
+    if stage1 and labels and classifier:
+        high_conf_chapters = {c.chapter_id for c in stage1.chapters if c.confidence >= 0.8}
+        if high_conf_chapters:
+            label_chapters = {
+                classifier.known[lbl.tag_id].broader[0]
+                for lbl in labels
+                if lbl.tag_id in classifier.known and classifier.known[lbl.tag_id].broader
+            }
+            if not (high_conf_chapters & label_chapters):
+                checks["diskrepanz"] = True
+    if len(job.text or "") < 400 and len(labels) >= 4:
+        checks["tag_spamming"] = True
+    if labels and classifier and len(classifier.known) > 20 and job.text:
+        text_lower = job.text.lower()
+        has_overlap = False
+        for lbl in labels:
+            tag = classifier.known.get(lbl.tag_id)
+            if not tag:
+                continue
+            words = set(re.findall(r"\w{4,}", tag.pref_label.de.lower()))
+            for alt in tag.alt_labels.all():
+                words.update(re.findall(r"\w{4,}", alt.lower()))
+            if any(w in text_lower for w in words):
+                has_overlap = True
+                break
+        if not has_overlap:
+            checks["null_lexikon"] = True
     return [reason for reason, hit in checks.items() if hit]
 
 
@@ -285,25 +356,34 @@ async def classify_affair(
 ) -> tuple[Result, list[str]]:
     """Klassifiziert ein Geschäft. Gibt das Ergebnis und die Gründe einer Eskalation zurück.
 
+    Routinegeschäfte (Vereidigung, Einbürgerung, Kommissions-/Richterwahl, Jahresrechnung/Budget)
+    werden vorab deterministisch per Regel klassifiziert (Vorschlag B).
     OutputFailure: weder 8B noch 70B lieferten eine gültige Antwort, der Job ist dauerhaft failed.
     Ist nur die 70B-Antwort ungültig, gilt das 8B-Ergebnis (Grund `70b_ungueltig`).
     """
+    routine = match_routine(job, c.known)
+    if routine is not None:
+        routine_pass, routine_out = routine
+        return _result(c, job, [routine_pass], routine_out), []
+
     passes: list[Pass] = []
     if c.single is not None and task_tag(job.task) is None:
         # Einstufig: ein 70B-Durchlauf, keine Eskalation. Ungültig auch nach der Wiederholung:
         # OutputFailure, der Job ist dauerhaft failed.
-        final, output = await _pass(c, client, job, large=True, verify=verify)
+        final, output, _ = await _pass(c, client, job, large=True, verify=verify)
         return _result(c, job, [final], output), []
     try:
-        first, output = await _pass(c, client, job, large=False, verify=verify)
+        first, output, stage1 = await _pass(c, client, job, large=False, verify=verify)
         passes.append(first)
-        reasons = escalation_reasons(job, first.labels, output, threshold)
+        reasons = escalation_reasons(
+            job, first.labels, output, threshold, stage1=stage1, classifier=c
+        )
     except OutputFailure:
         reasons = ["json"]
     if reasons:
         await escalate()
         try:
-            final, output = await _pass(c, client, job, large=True, verify=verify)
+            final, output, _ = await _pass(c, client, job, large=True, verify=verify)
             passes.append(final)
         except OutputFailure:
             if not passes:

@@ -75,3 +75,16 @@ def test_strip_html_survives_ocr_garbage():
     assert text.startswith("Rubattel Di?enl")
     assert text.endswith("Ruch Daniel")
     assert "<" not in text
+
+
+def test_compose_title_only_includes_metadata_header():
+    affair = {
+        "body_key": "BE",
+        "type_harmonized_en": "Motion",
+        "title_de": "Änderung des Baugesetzes",
+        "raw": {"committee_name_de": "BaK"},
+    }
+    text, _, src = compose(affair, [], None, lambda _: "de")
+    assert src == "title_only"
+    assert "[Metadaten: Kanton/Gremium: BE | Typ: Motion | Kommission: BaK]" in text
+    assert "Änderung des Baugesetzes" in text

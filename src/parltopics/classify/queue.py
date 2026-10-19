@@ -6,6 +6,7 @@ gelöscht, nur auf superseded oder rejected gesetzt. Alle Funktionen erwarten ei
 Autocommit; was zusammengehört, läuft in einer eigenen Transaktion.
 """
 
+import re
 from dataclasses import dataclass
 from datetime import date
 
@@ -39,6 +40,7 @@ class Job:
     text: str | None
     input_hash: str | None
     language: str | None
+    source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -176,13 +178,13 @@ claimed AS (
         attempts = j.attempts + 1, updated_at = now()
     FROM next LEFT JOIN affair_inputs i ON i.affair_id = next.affair_id
     WHERE j.affair_id = next.affair_id AND j.task = next.task
-    RETURNING j.affair_id, j.task, j.attempts, j.run_id, i.text, i.input_hash, i.language
+    RETURNING j.affair_id, j.task, j.attempts, j.run_id, i.text, i.input_hash, i.language, i.source
 ),
 logged AS (
     INSERT INTO job_events (affair_id, task, from_status, to_status, reason, run_id, worker_id)
     SELECT affair_id, task, 'open', 'pending', 'claim', run_id, %(worker_id)s FROM claimed
 )
-SELECT affair_id, task, attempts, run_id, text, input_hash, language FROM claimed
+SELECT affair_id, task, attempts, run_id, text, input_hash, language, source FROM claimed
 """
 RELEASE_STALE = """
 WITH stale AS (
@@ -389,16 +391,51 @@ def release_stale(conn: psycopg.Connection, timeout_seconds: int) -> list[tuple[
     return [(affair_id, task, status) for affair_id, task, status, _ in released]
 
 
+def _normalize_evidence_text(s: str) -> str:
+    """Gleicht typografische Anführungszeichen, Gedankenstriche und Leerraum an."""
+    for quote in ("«", "»", "„", "“", "”", "‹", "›"):
+        s = s.replace(quote, '"')
+    s = s.replace("–", "-").replace("—", "-")
+    return " ".join(s.split())
+
+
+def _check_ellipsis_match(evidence: str, norm_text_lower: str) -> bool:
+    """Prüft bei Zitaten mit Auslassungen (... oder …), ob die Teilsegmente im Text stehen."""
+    if "..." not in evidence and "…" not in evidence:
+        return False
+    parts = [p.strip() for p in re.split(r"\.{3}|…", evidence) if p.strip()]
+    if not parts:
+        return False
+    matched_any = False
+    for part in parts:
+        norm_part = _normalize_evidence_text(part).lower()
+        if len(norm_part) >= 6:
+            if norm_part not in norm_text_lower:
+                return False
+            matched_any = True
+    return matched_any
+
+
 def verify_evidence(conn: psycopg.Connection, text: str, evidences: list[str]) -> list[bool]:
-    """Belegprüfung mit pg_trgm (PRD 7.3): steht der Beleg unscharf wörtlich im Text?"""
+    """Belegprüfung mit pg_trgm (PRD 7.3): steht der Beleg unscharf wörtlich im Text?
+
+    Toleriert typografische Anführungszeichen/Striche sowie Auslassungen mit ... oder ….
+    Kein Auto-Snap und keine Belegstrafe auf die Konfidenz (sauberes evidence_verified-Flag).
+    """
     if not evidences:
         return []
+    norm_text = _normalize_evidence_text(text)
+    norm_text_lower = norm_text.lower()
+    norm_evidences = [_normalize_evidence_text(e) for e in evidences]
     rows = conn.execute(
         "SELECT word_similarity(e, %s) >= %s"
         " FROM unnest(%s::text[]) WITH ORDINALITY AS u(e, n) ORDER BY n",
-        (text, EVIDENCE_SIMILARITY, evidences),
+        (norm_text, EVIDENCE_SIMILARITY, norm_evidences),
     ).fetchall()
-    return [verified for (verified,) in rows]
+    return [
+        bool(verified) or _check_ellipsis_match(ev, norm_text_lower)
+        for (verified,), ev in zip(rows, evidences, strict=True)
+    ]
 
 
 def finish(conn: psycopg.Connection, job: Job, worker_id: str, result: Result) -> bool:

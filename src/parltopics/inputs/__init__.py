@@ -35,9 +35,10 @@ RANK = {
 INLINE_TAGS = {"a", "b", "em", "font", "i", "span", "strong", "sub", "sup", "u"}  # sonst Umbruch
 
 AFFAIRS = """
-SELECT id, title_de, title_fr, title_it, title_rm,
+SELECT id, body_key, type_harmonized_en, title_de, title_fr, title_it, title_rm,
        raw->>'title_long_de' AS title_long_de, raw->>'title_long_fr' AS title_long_fr,
-       raw->>'title_long_it' AS title_long_it, raw->>'title_long_rm' AS title_long_rm
+       raw->>'title_long_it' AS title_long_it, raw->>'title_long_rm' AS title_long_rm,
+       raw
 FROM affairs
 WHERE id > %(last)s
   AND (%(bodies)s::text[] IS NULL OR body_key = ANY(%(bodies)s::text[]))
@@ -190,6 +191,42 @@ def _clip(parts: list[str]) -> str:
     return "\n".join(part for part in parts if part)[:INPUT_MAX_CHARS]
 
 
+def _metadata_header(affair: dict) -> str:
+    """Erzeugt eine strukturierte Kopfzeile mit Metadaten für kurz angebundene Vorstösse."""
+    raw = affair.get("raw") or {}
+    affair_type = (
+        affair.get("type_harmonized_en")
+        or raw.get("type_name_de")
+        or raw.get("affair_type_de")
+        or raw.get("type_name_fr")
+    )
+    dept = (
+        raw.get("department_name_de")
+        or raw.get("department_de")
+        or raw.get("department_name_fr")
+        or raw.get("department_fr")
+    )
+    comm = (
+        raw.get("committee_name_de")
+        or raw.get("committee_de")
+        or raw.get("commission_name_fr")
+        or raw.get("commission_fr")
+    )
+    if not (affair_type or dept or comm):
+        return ""
+    parts: list[str] = []
+    body = affair.get("body_key")
+    if body:
+        parts.append(f"Kanton/Gremium: {body}")
+    if affair_type:
+        parts.append(f"Typ: {affair_type}")
+    if dept:
+        parts.append(f"Departement: {dept}")
+    if comm:
+        parts.append(f"Kommission: {comm}")
+    return f"[Metadaten: {' | '.join(parts)}]"
+
+
 def compose(
     affair: dict,
     blocks: list[tuple[str | None, str]],
@@ -207,8 +244,9 @@ def compose(
         text = _clip([title, body])
         return text, doc["language"] if doc["language"] in LANGS else detect(text), "first_doc"
     if title:
-        text = _clip([title])
-        return text, detect(text), "title_only"
+        meta = _metadata_header(affair)
+        text = _clip([meta, title] if meta else [title])
+        return text, detect(title), "title_only"
     return None
 
 

@@ -238,9 +238,11 @@ def test_verify_evidence_tolerates_small_differences(db):
     evidences = [
         "Digitalisierung der Verwaltung",
         "digitalisierung der  verwaltung!",
+        "Der Bundesrat … Verwaltung beschleunigen",
+        "«Digitalisierung der Verwaltung»",
         "Landwirtschaft und Tierschutz",
     ]
-    assert verify_evidence(db, TEXT, evidences) == [True, True, False]
+    assert verify_evidence(db, TEXT, evidences) == [True, True, True, True, False]
     assert verify_evidence(db, TEXT, []) == []
 
 

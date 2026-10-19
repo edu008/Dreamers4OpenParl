@@ -61,7 +61,7 @@ async def test_two_stages_offer_only_the_topics_of_the_chosen_chapter(settings, 
     assert (only.stage, only.model_version) == ("8b", "test-8b")
     assert [(label.tag_id, label.confidence) for label in only.labels] == [("aps:2.4.1", 0.9)]
     assert result.summary_de == "Geschäft 7 (Mock)."
-    assert result.prompt_version.startswith("classify_chapters_v2+")
+    assert result.prompt_version.startswith("classify_chapters_v3+")
     assert len(requests) == 2
     stage2 = requests[1]["messages"][0]["content"]
     assert "aps:2.4.1 |" in stage2
@@ -235,14 +235,43 @@ async def test_no_matching_chapter_offers_only_adhoc_tags(settings, classifier):
         return json.dumps(data)
 
     client, requests = mock_llm(settings, answer)
+    neutral_job = Job(7, "classify:aps", 1, 1, "Text ohne jedes Schlagwort.", "h", "de")
     async with client:
         result, _ = await classify_affair(
-            classifier, client, job(), threshold=0.6, verify=verified, escalate=nothing
+            classifier, client, neutral_job, threshold=0.6, verify=verified, escalate=nothing
         )
     stage2 = requests[1]["messages"][0]["content"]
     assert "adhoc:digitalisierung-breit |" in stage2
     assert "aps:2.4.1 |" not in stage2
     assert [label.tag_id for label in result.passes[-1].labels] == ["adhoc:digitalisierung-breit"]
+
+
+async def test_lexical_hybrid_routing_injects_matching_topic(settings, classifier):
+    # Stufe 1 wählt aps:6.1 (Verkehr), der Text enthält jedoch "Arbeitsmarkt" (aps:2.4.1)
+    def answer(body):
+        data = json.loads(fake_completion(body["messages"]))
+        if "chapters" in data:
+            data["chapters"] = [{"chapter_id": "aps:6.1", "confidence": 0.9}]
+        return json.dumps(data)
+
+    client, requests = mock_llm(settings, answer)
+    async with client:
+        await classify_affair(
+            classifier, client, job(), threshold=0.6, verify=verified, escalate=nothing
+        )
+    stage2 = requests[1]["messages"][0]["content"]
+    assert "aps:2.4.1 |" in stage2
+
+
+async def test_title_only_limits_tags_and_skips_requote(settings, classifier):
+    title_job = Job(7, "classify:aps", 1, 1, "Titel", "h", "de", source="title_only")
+    client, requests = mock_llm(settings)
+    async with client:
+        _, _ = await classify_affair(
+            classifier, client, title_job, threshold=0.6, verify=unverified, escalate=nothing
+        )
+    # Keine Requote-Anfrage bei title_only, direkt eskaliert oder beendet
+    assert len(requests) in (2, 4)
 
 
 ADHOC = "classify:adhoc:ki-verwaltung"  # in der Test-Registry vorgeschlagen, nicht aktiv
@@ -265,7 +294,7 @@ async def test_adhoc_job_offers_only_its_tag_and_skips_the_chapters(settings, cl
     assert "adhoc:digitalisierung-breit |" not in system
     (only,) = result.passes
     assert [label.tag_id for label in only.labels] == ["adhoc:ki-verwaltung"]
-    assert result.prompt_version.startswith("classify_topics_v2+")
+    assert result.prompt_version.startswith("classify_topics_v3+")
     assert " " not in result.prompt_version
     assert result.scheme_hash == tag_hash(classifier.known["adhoc:ki-verwaltung"])
     assert result.proposals == []
