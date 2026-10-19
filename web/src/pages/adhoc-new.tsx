@@ -17,13 +17,15 @@ import {
   type AdhocPreview,
   type Keywords,
 } from "@/lib/adhoc"
-import type { PageTree } from "@/lib/api"
+import { formatHours, type RunsSummary } from "@/lib/runs"
 
-/** Ab dieser Zahl Prüfungen warnt die Vorschau. */
-const LARGE_RUN = 1000
+const number = new Intl.NumberFormat("de-CH")
+
+/** Ab so vielen Stunden Laufzeit warnt die Vorschau: zu breit für einen sinnvollen Lauf. */
+const LONG_RUN_HOURS = 3
 
 const TEXTAREA =
-  "min-h-24 w-full rounded-md border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+  "min-h-20 w-full rounded-md border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 
 const LANGUAGES: { key: keyof Keywords; label: string }[] = [
   { key: "de", label: "Deutsch" },
@@ -41,106 +43,120 @@ function keywordsOf(texts: Texts): Keywords {
   }
 }
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+/** Die API verlangt eine Beschreibung; ohne eigene Angabe genügt der Name des Themas. */
+function descriptionFor(title: string, own: string): string {
+  const text = own.trim()
+  return text.length >= 10 ? text : `Geschäfte zum Thema «${title.trim()}».`
 }
 
-// Ad-hoc-Thema anlegen: beschreiben, Stichwörter prüfen, Treffer abschätzen, anlegen. Das Modell
-// schlägt nur vor, angelegt wird erst auf den Knopf eines Menschen. Danach prüft Apertus die
-// Kandidaten und eine Stichprobe; die Treffer erscheinen als vorläufig auf der Themenseite.
+// Ad-hoc-Thema anlegen in zwei Schritten: Thema nennen, dann Treffer ansehen und anlegen. Die
+// Stichwörter schlägt das Sprachmodell im Hintergrund vor; wer will, passt sie an (eingeklappt).
+// Angelegt wird erst auf den Knopf eines Menschen; danach prüft Apertus die Kandidaten, und die
+// Treffer erscheinen als vorläufig auf der Themenseite.
 export function AdhocNewPage() {
   const { name } = useReview()
-  const tree = useApi<PageTree>("/v1/pages")
+  const runs = useApi<RunsSummary>("/v1/jobs/summary")
+  // Gemessenes Tempo des letzten Laufs, für die Schätzung der Dauer.
+  const tempo = runs.data?.runs.find((run) => (run.per_minute ?? 0) > 0)?.per_minute
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
-  const [texts, setTexts] = useState<Texts>({ de: "", fr: "", it: "" })
+  const [texts, setTexts] = useState<Texts | null>(null)
   const [since, setSince] = useState("")
-  const [broader, setBroader] = useState("")
-  const [busy, setBusy] = useState<"keywords" | "preview" | "create" | null>(
-    null
-  )
-  const [error, setError] = useState<string>()
   const [preview, setPreview] = useState<AdhocPreview>()
+  const [busy, setBusy] = useState<"preview" | "create" | null>(null)
+  const [error, setError] = useState<string>()
   const [created, setCreated] = useState<AdhocCreated>()
 
-  const keywords = keywordsOf(texts)
-  const terms = termCount(keywords)
-  const nameOk = title.trim().length >= 2
-  const descriptionOk = description.trim().length >= 10
-  const chapters = (tree.data?.pages ?? []).filter(
-    (page) => page.kind === "kapitel"
-  )
-  const scope = { keywords, since: since || null }
+  const titleOk = title.trim().length >= 2
+  const keywords = texts ? keywordsOf(texts) : null
 
-  async function run<T>(
-    kind: "keywords" | "preview" | "create",
-    action: () => Promise<T>,
-    done: (result: T) => void
-  ) {
-    setBusy(kind)
+  function fail(failure: unknown) {
+    if (failure instanceof HttpError && failure.status === 409) {
+      setError(`Dieses Thema gibt es schon: ${failure.message}`)
+    } else if (failure instanceof HttpError && failure.status === 503) {
+      setError(
+        `Das Sprachmodell oder die Datenbank ist gerade nicht erreichbar. ${failure.message}`
+      )
+    } else {
+      setError(failure instanceof Error ? failure.message : String(failure))
+    }
+  }
+
+  /** Schritt 1: Stichwörter vorschlagen lassen und gleich die Treffer zählen. */
+  async function start() {
+    setBusy("preview")
     setError(undefined)
+    setPreview(undefined)
     try {
-      done(await action())
+      const suggested = await suggestKeywords(
+        title.trim(),
+        descriptionFor(title, description)
+      )
+      setTexts({
+        de: suggested.de.join("\n"),
+        fr: suggested.fr.join("\n"),
+        it: suggested.it.join("\n"),
+      })
+      setPreview(
+        await previewAdhoc({ keywords: suggested, since: since || null })
+      )
     } catch (failure) {
-      if (failure instanceof HttpError && failure.status === 409) {
-        setError(`Dieses Thema gibt es schon: ${failure.message}`)
-      } else if (failure instanceof HttpError && failure.status === 503) {
-        setError(
-          `Das Sprachmodell oder die Datenbank ist gerade nicht erreichbar. ${failure.message}`
-        )
-      } else {
-        setError(messageOf(failure))
-      }
+      fail(failure)
     } finally {
       setBusy(null)
     }
   }
 
-  const suggest = () =>
-    run(
-      "keywords",
-      () => suggestKeywords(title.trim(), description.trim()),
-      (result) => {
-        setTexts({
-          de: result.de.join("\n"),
-          fr: result.fr.join("\n"),
-          it: result.it.join("\n"),
-        })
-        setPreview(undefined)
-      }
-    )
+  /** Nach angepassten Stichwörtern neu zählen. */
+  async function recount() {
+    if (!keywords) return
+    setBusy("preview")
+    setError(undefined)
+    try {
+      setPreview(await previewAdhoc({ keywords, since: since || null }))
+    } catch (failure) {
+      fail(failure)
+    } finally {
+      setBusy(null)
+    }
+  }
 
-  const estimate = () =>
-    run("preview", () => previewAdhoc(scope), setPreview)
-
-  const create = () =>
-    run(
-      "create",
-      () =>
-        createAdhoc({
+  async function create() {
+    if (!keywords) return
+    setBusy("create")
+    setError(undefined)
+    try {
+      setCreated(
+        await createAdhoc({
           name_de: title.trim(),
-          description_de: description.trim(),
-          ...scope,
-          broader: broader ? [broader] : [],
+          description_de: descriptionFor(title, description),
+          keywords,
+          since: since || null,
+          broader: [],
           user_name: name.trim() || "Admin",
-        }),
-      setCreated
-    )
+        })
+      )
+    } catch (failure) {
+      fail(failure)
+    } finally {
+      setBusy(null)
+    }
+  }
 
   if (created) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex max-w-[68ch] flex-col gap-4">
         <h1 className="font-heading text-2xl leading-tight font-semibold">
           Thema angelegt
         </h1>
         <Alert>
           <AlertTitle>«{title.trim()}» wird jetzt ausgewertet</AlertTitle>
           <AlertDescription>
-            {created.jobs} Geschäfte werden mit dem Sprachmodell geprüft:{" "}
-            {created.candidates} Kandidaten aus der Stichwortsuche und{" "}
-            {created.sample} aus der Stichprobe. Die Treffer erscheinen nach und
-            nach auf der Themenseite, solange als vorläufig. Ein Mensch schaltet
-            das Thema danach frei.
+            {number.format(created.jobs)} Geschäfte werden mit dem Sprachmodell
+            geprüft ({number.format(created.candidates)} aus der Stichwortsuche,{" "}
+            {number.format(created.sample)} zur Kontrolle). Die Treffer
+            erscheinen nach und nach auf der Themenseite, zuerst als
+            vorläufig.
           </AlertDescription>
         </Alert>
         <p className="flex flex-wrap gap-x-4 text-sm">
@@ -151,122 +167,89 @@ export function AdhocNewPage() {
             Zur Themenseite
           </Link>
           <Link to="/admin" className="py-2 underline underline-offset-2">
-            Verarbeitungsstand im Admin
+            Verarbeitungsstand
           </Link>
         </p>
       </div>
     )
   }
 
+  const candidates = preview?.candidates ?? 0
+  const checks = candidates + (preview?.sample ?? 0)
+  const hours = tempo ? checks / tempo / 60 : null
+  const broad = hours !== null && hours > LONG_RUN_HOURS
+
   return (
     <div className="flex max-w-[68ch] flex-col gap-6">
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-2xl leading-tight font-semibold text-balance">
-          Ad-hoc-Thema anlegen
+          Neues Thema
         </h1>
         <p className="text-sm text-muted-foreground">
-          Ein neues Thema ohne Neutraining: Du beschreibst es, das Sprachmodell
-          schlägt Stichwörter vor, du prüfst sie. Danach sucht das System
-          Kandidaten im ganzen Bestand und lässt sie vom Modell gegen deine
-          Beschreibung prüfen.
+          Nenne ein Thema, zum Beispiel «Covid-19». Das System sucht passende
+          Geschäfte im ganzen Bestand und lässt sie vom Sprachmodell prüfen,
+          ohne Training.
         </p>
       </div>
 
-      <section aria-labelledby="step1" className="flex flex-col gap-3">
-        <h2 id="step1" className="font-heading text-lg font-medium">
-          1 Thema beschreiben
-        </h2>
+      <section aria-label="Thema nennen" className="flex flex-col gap-3">
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          Name
+          Thema
           <Input
             value={title}
             maxLength={120}
-            placeholder="z. B. Velowege"
-            onChange={(event) => setTitle(event.target.value)}
+            placeholder="z. B. Covid-19"
+            onChange={(event) => {
+              setTitle(event.target.value)
+              setTexts(null)
+              setPreview(undefined)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && titleOk && busy === null) start()
+            }}
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          Beschreibung (was gehört dazu, was nicht?)
-          <textarea
-            className={TEXTAREA}
-            value={description}
-            maxLength={2000}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </label>
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer py-1 underline-offset-2 hover:underline">
+            Genauer beschreiben (optional)
+          </summary>
+          <label className="mt-2 flex flex-col gap-1">
+            Was gehört dazu, was nicht? Das verbessert die Treffer.
+            <textarea
+              className={TEXTAREA}
+              value={description}
+              maxLength={2000}
+              onChange={(event) => {
+                setDescription(event.target.value)
+                setTexts(null)
+                setPreview(undefined)
+              }}
+            />
+          </label>
+        </details>
         <div>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!nameOk || !descriptionOk || busy !== null}
-            onClick={suggest}
-          >
-            {busy === "keywords"
-              ? "Stichwörter werden vorgeschlagen …"
-              : "Stichwörter vorschlagen"}
+          <Button disabled={!titleOk || busy !== null} onClick={start}>
+            {busy === "preview" && !texts
+              ? "Treffer werden gesucht …"
+              : "Treffer ansehen"}
           </Button>
         </div>
       </section>
 
-      <section aria-labelledby="step2" className="flex flex-col gap-3">
-        <h2 id="step2" className="font-heading text-lg font-medium">
-          2 Stichwörter prüfen
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          Ein Stichwort pro Zeile, Mehrwortbegriffe gelten als Phrase. Du kannst
-          die Vorschläge ändern oder selbst eintragen.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {LANGUAGES.map((language) => (
-            <label
-              key={language.key}
-              className="flex flex-col gap-1 text-xs text-muted-foreground"
-            >
-              {language.label}
-              <textarea
-                className={TEXTAREA}
-                value={texts[language.key]}
-                onChange={(event) => {
-                  setTexts({ ...texts, [language.key]: event.target.value })
-                  setPreview(undefined)
-                }}
-              />
-            </label>
-          ))}
-        </div>
-        <label className="flex max-w-xs flex-col gap-1 text-xs text-muted-foreground">
-          Nur Geschäfte ab Datum (optional)
-          <Input
-            type="date"
-            value={since}
-            onChange={(event) => {
-              setSince(event.target.value)
-              setPreview(undefined)
-            }}
-          />
-        </label>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={terms === 0 || busy !== null}
-            onClick={estimate}
-          >
-            {busy === "preview" ? "Wird gezählt …" : "Treffer abschätzen"}
-          </Button>
-          <span className="text-xs text-muted-foreground">
-            Zählt nur, legt nichts an.
-          </span>
-        </div>
-        {preview && (
-          <div role="status" className="flex flex-col gap-2 text-sm">
-            <p>
-              <span className="tabular font-semibold">
-                {preview.candidates}
+      {preview && keywords && texts && (
+        <section aria-label="Treffer" className="flex flex-col gap-3">
+          <div role="status" className="flex flex-col gap-2">
+            <p className="text-sm">
+              <span className="tabular text-2xl font-semibold">
+                {number.format(candidates)}
               </span>{" "}
-              Geschäfte treffen die Stichwörter, dazu eine Stichprobe von{" "}
-              <span className="tabular font-semibold">{preview.sample}</span>{" "}
-              zur Kontrolle.
+              Geschäfte treffen die Stichwörter
+              {preview.sample > 0 && (
+                <span className="text-muted-foreground">
+                  , dazu {number.format(preview.sample)} zur Kontrolle
+                </span>
+              )}
+              .
             </p>
             {preview.examples.length > 0 && (
               <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -286,57 +269,88 @@ export function AdhocNewPage() {
                 ))}
               </ul>
             )}
-            {preview.candidates + preview.sample > LARGE_RUN && (
-              <p className="text-xs text-level-medium">
-                Das sind {preview.candidates + preview.sample} Prüfungen mit dem
-                Sprachmodell und dauert entsprechend lange. Mit engeren
-                Stichwörtern oder einem Datum wird der Lauf kleiner.
+            {hours !== null && candidates > 0 && (
+              <p
+                className={
+                  broad
+                    ? "text-xs text-level-medium"
+                    : "text-xs text-muted-foreground"
+                }
+              >
+                Das sind {number.format(checks)} Prüfungen mit dem Sprachmodell,
+                bei dem aktuellen Tempo {formatHours(hours)}.
+                {broad &&
+                  " Mit engeren Stichwörtern oder einem Datum wird der Lauf kleiner."}
               </p>
             )}
-            {preview.candidates === 0 && (
+            {candidates === 0 && (
               <p className="text-xs text-muted-foreground">
-                Keine Treffer: Die Stichwörter sind wohl zu eng oder zu selten.
+                Keine Treffer: Die Stichwörter sind wohl zu eng. Passe sie an.
               </p>
             )}
           </div>
-        )}
-      </section>
 
-      <section aria-labelledby="step3" className="flex flex-col gap-3">
-        <h2 id="step3" className="font-heading text-lg font-medium">
-          3 Anlegen
-        </h2>
-        <label className="flex max-w-xs flex-col gap-1 text-xs text-muted-foreground">
-          Verlinkt aus Kapitel (optional)
-          <select
-            value={broader}
-            onChange={(event) => setBroader(event.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-          >
-            <option value="">Keinem Kapitel zugeordnet</option>
-            {chapters.map((chapter) => (
-              <option key={chapter.page_id} value={chapter.page_id}>
-                {chapter.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="text-xs text-muted-foreground">
-          Das Anlegen startet Läufe mit dem Sprachmodell. Das Thema bleibt
-          «vorläufig», bis es jemand freischaltet. Gespeichert wird mit dem
-          Namen «{name.trim() || "Admin"}».
-        </p>
-        <div>
-          <Button
-            disabled={!nameOk || !descriptionOk || terms === 0 || busy !== null}
-            onClick={create}
-          >
-            {busy === "create"
-              ? "Thema wird angelegt …"
-              : "Thema anlegen und auswerten"}
-          </Button>
-        </div>
-      </section>
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer py-1 underline-offset-2 hover:underline">
+              Stichwörter anpassen ({termCount(keywords)})
+            </summary>
+            <div className="mt-2 flex flex-col gap-3">
+              <p>
+                Ein Stichwort pro Zeile, Mehrwortbegriffe gelten als Phrase.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {LANGUAGES.map((language) => (
+                  <label key={language.key} className="flex flex-col gap-1">
+                    {language.label}
+                    <textarea
+                      className={TEXTAREA}
+                      value={texts[language.key]}
+                      onChange={(event) =>
+                        setTexts({ ...texts, [language.key]: event.target.value })
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+              <label className="flex max-w-xs flex-col gap-1">
+                Nur Geschäfte ab Datum (optional)
+                <Input
+                  type="date"
+                  value={since}
+                  onChange={(event) => setSince(event.target.value)}
+                />
+              </label>
+              <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={termCount(keywords) === 0 || busy !== null}
+                  onClick={recount}
+                >
+                  {busy === "preview" ? "Wird gezählt …" : "Neu zählen"}
+                </Button>
+              </div>
+            </div>
+          </details>
+
+          <div className="flex flex-col gap-2 border-t border-border pt-4">
+            <p className="text-xs text-muted-foreground">
+              Das Thema bleibt «vorläufig», bis es jemand freischaltet. Es
+              startet Läufe mit dem Sprachmodell.
+            </p>
+            <div>
+              <Button
+                disabled={candidates === 0 || busy !== null}
+                onClick={create}
+              >
+                {busy === "create"
+                  ? "Thema wird angelegt …"
+                  : "Thema anlegen und auswerten"}
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {error && (
         <p role="alert" className="text-sm text-destructive">
