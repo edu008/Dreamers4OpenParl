@@ -5,6 +5,7 @@ import { HomePage } from "@/pages/home"
 import { AffairPage } from "@/pages/affair"
 import { AffairFactsPage } from "@/pages/affair-facts"
 import { AdminPage } from "@/pages/admin"
+import { AdhocNewPage } from "@/pages/adhoc-new"
 import { ReviewPage } from "@/pages/review"
 import { GraphPage } from "@/pages/graph"
 import { HelpPage } from "@/pages/help"
@@ -23,6 +24,7 @@ export function App() {
         <Route path="geschaefte/:affairId" element={<AffairFactsPage />} />
         <Route path="hilfe" element={<HelpPage />} />
         <Route path="admin" element={<AdminPage />} />
+        <Route path="admin/thema-neu" element={<AdhocNewPage />} />
         <Route path="admin/review" element={<ReviewPage />} />
         <Route
           path="admin/review/geschaefte/:affairId"

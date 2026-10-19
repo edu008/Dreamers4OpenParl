@@ -1,6 +1,7 @@
 import { Fragment } from "react"
 import { Link, useParams } from "react-router"
 
+import { AdhocStatus } from "@/components/adhoc-status"
 import { PageRow } from "@/components/page-tree"
 import { TopicAffairs } from "@/components/topic-affairs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -100,6 +101,7 @@ export function TagPage() {
           {page.title}
         </h1>
       </div>
+      {page.kind === "querschnitt" && <AdhocStatus tagId={page.page_id} />}
       <TopicAffairs page={page} />
       <PageList
         title="Unterseiten"
