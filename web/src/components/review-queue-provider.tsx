@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react"
+import { useLocation } from "react-router"
 
 import {
   ReviewQueueContext,
@@ -6,6 +13,7 @@ import {
 } from "@/hooks/use-review-queue"
 import { fetchJson, type PageTree, type ReviewQueue } from "@/lib/api"
 import { ancestorsOf } from "@/lib/tree"
+import { isAdminPath } from "@/lib/review"
 import { toCandidate, type ReviewCandidate } from "@/lib/review-queue"
 
 const PAGE = 500
@@ -56,8 +64,11 @@ export function ReviewQueueProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [version, setVersion] = useState(0)
   const reload = useCallback(() => setVersion((current) => current + 1), [])
+  // Nur der Admin-Bereich braucht die Warteschlange; öffentliche Seiten laden sie nicht.
+  const admin = isAdminPath(useLocation().pathname)
 
   useEffect(() => {
+    if (!admin) return
     const controller = new AbortController()
     fetchJson<PageTree>("/v1/pages", controller.signal)
       .then((tree) => {
@@ -68,26 +79,26 @@ export function ReviewQueueProvider({ children }: { children: ReactNode }) {
         ])
       })
       .then(
-      ([open, done]) =>
-        setLoaded({
-          open: open.rows,
-          done: done.rows,
-          threshold: open.threshold,
-          error: undefined,
-        }),
-      (error: unknown) => {
-        if (!controller.signal.aborted) {
+        ([open, done]) =>
           setLoaded({
-            open: [],
-            done: [],
-            threshold: null,
-            error: error instanceof Error ? error.message : String(error),
-          })
+            open: open.rows,
+            done: done.rows,
+            threshold: open.threshold,
+            error: undefined,
+          }),
+        (error: unknown) => {
+          if (!controller.signal.aborted) {
+            setLoaded({
+              open: [],
+              done: [],
+              threshold: null,
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
         }
-      }
-    )
+      )
     return () => controller.abort()
-  }, [version])
+  }, [version, admin])
 
   // Beim Neuladen bleibt die alte Liste stehen, bis die neue da ist.
   const value = useMemo<ReviewQueueState>(

@@ -146,6 +146,13 @@ export interface AffairTopics {
   text: string | null
   language: string | null
   summary_de: string | null
+  /** ID beim Parlament, z. B. «E 3265». */
+  external_id?: string | null
+  title_long?: string | null
+  /** Typ, wie ihn das Parlament nennt (type_de ist der harmonisierte). */
+  type_name?: string | null
+  state?: string | null
+  end_date?: string | null
   labels: LabelOut[]
 }
 
@@ -171,10 +178,7 @@ export interface BodyOut {
 
 /** Grund, warum ein Label in der Warteschlange steht (Codes der API, Text in lib/label-state.ts). */
 export type ReviewReason =
-  | "low_confidence"
-  | "no_evidence"
-  | "evidence_unverified"
-  | "sample"
+  "low_confidence" | "no_evidence" | "evidence_unverified" | "sample"
 
 /** Kopf eines Geschäfts, wie ihn Listen der API tragen. */
 export interface AffairHead {
@@ -225,14 +229,16 @@ export interface HitTopic {
 }
 
 export interface SearchHit extends AffairHead {
-  rank: number
-  /** Ausschnitt als HTML: alles maskiert, nur Treffer in <mark>. Nie ungeprüft einfügen. */
-  headline: string
+  /** null ohne Suchbegriff (neueste Geschäfte). */
+  rank: number | null
+  /** Ausschnitt als HTML: alles maskiert, nur Treffer in <mark>. Nie ungeprüft einfügen. null ohne q. */
+  headline: string | null
   topics: HitTopic[]
 }
 
 export interface SearchResult {
-  q: string
+  /** null: Liste der neuesten Geschäfte statt einer Suche. */
+  q: string | null
   total: number
   limit: number
   offset: number

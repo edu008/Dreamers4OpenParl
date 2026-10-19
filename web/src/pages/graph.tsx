@@ -85,7 +85,7 @@ export function GraphPage() {
       setHovered(null)
       setExpanded(node.id)
     } else {
-      navigate(`/tags/${node.id}`)
+      navigate(`/admin/themen/${node.id}`)
     }
   }
   const showLabel = (node: GraphNode) =>
@@ -170,7 +170,7 @@ export function GraphPage() {
                   Zurück zur Übersicht
                 </Button>
                 <Link
-                  to={`/tags/${expanded}`}
+                  to={`/admin/themen/${expanded}`}
                   className="py-2 text-sm underline underline-offset-2"
                 >
                   Seite des Bereichs öffnen
@@ -358,14 +358,14 @@ export function GraphPage() {
                 {strongestLinks.map((edge) => (
                   <li key={`${edge.a}|${edge.b}`}>
                     <Link
-                      to={`/tags/${edge.a}`}
+                      to={`/admin/themen/${edge.a}`}
                       className="underline underline-offset-2"
                     >
                       {byId.get(edge.a)?.label}
                     </Link>
                     {" – "}
                     <Link
-                      to={`/tags/${edge.b}`}
+                      to={`/admin/themen/${edge.b}`}
                       className="underline underline-offset-2"
                     >
                       {byId.get(edge.b)?.label}

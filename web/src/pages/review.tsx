@@ -248,7 +248,7 @@ function Progress({ done, total }: { done: number; total: number }) {
         aria-valuenow={done}
         className="h-1 w-24 bg-border"
       >
-        <div className="h-full bg-primary" style={{ width: `${share}%` }} />
+        <div className="h-full bg-chart-1" style={{ width: `${share}%` }} />
       </div>
       <span>
         <span className="tabular font-medium text-foreground">

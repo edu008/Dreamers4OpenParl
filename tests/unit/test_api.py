@@ -63,7 +63,8 @@ def test_swagger_ui_is_served_from_the_package(built):
 
 
 def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
-    paths = client_for(tmp_path).get("/v1/openapi.json").json()["paths"]
+    schema = client_for(tmp_path).get("/v1/openapi.json").json()
+    paths = schema["paths"]
     assert {
         "/healthz",
         "/v1/pages",
@@ -98,6 +99,10 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
     parameters = paths["/v1/search"]["get"]["parameters"]
     names = {"q", "topic", "body_key", "level", "from", "to", "limit", "offset"}
     assert names <= {p["name"] for p in parameters}
+    (q,) = [p for p in parameters if p["name"] == "q"]
+    assert not q.get("required", False)  # ohne q: die neuesten Geschäfte
+    facts = {"external_id", "title_long", "type_name", "state", "end_date"}
+    assert facts <= set(schema["components"]["schemas"]["AffairTopics"]["properties"])
 
 
 def test_database_endpoints_answer_503_without_database(tmp_path):
@@ -140,7 +145,7 @@ def test_without_build_a_hint_page_without_external_urls(tmp_path):
 
 def test_spa_routes_return_index_and_files_are_served(built):
     client = client_for(built)
-    for route in ("/", "/tags/aps:6.1.9", "/suche", "/geschaefte/70435"):
+    for route in ("/", "/admin/themen/aps:6.1.9", "/admin", "/geschaefte/70435"):
         response = client.get(route)
         assert response.status_code == 200, route
         assert 'id="root"' in response.text or "id=root" in response.text

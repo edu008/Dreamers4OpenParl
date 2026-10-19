@@ -66,6 +66,8 @@ def test_endpoints_read_labels_topics_and_jobs(conn, repo_root, api_settings):
             TEXT,
         )
         assert (affair["body_name"], affair["body_level"]) == ("Schweiz", "country")
+        facts = ("external_id", "title_long", "type_name", "state", "end_date")
+        assert [affair[key] for key in facts] == [None] * 5  # raw ohne diese Angaben
         labels = [(item["tag_id"], item["status"], item["confidence"]) for item in affair["labels"]]
         assert labels == [("aps:6.1.9", "active", 0.86), ("aps:2.4.1", "superseded", 0.4)]
         assert client.get("/v1/affairs/1/topics").status_code == 404
@@ -262,6 +264,16 @@ def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
         assert found("numériser", language="fr") == (1, [70437])
         assert found("digitalisieren", language="fr") == (0, [])
         assert client.get("/v1/search", params={"q": "a"}).status_code == 422
+
+        def newest(**params):  # ohne q: alle mit Klassifikationstext, neueste zuerst
+            return client.get("/v1/search", params=params).json()
+
+        result = newest()
+        assert (result["q"], result["total"]) == (None, 3)
+        assert [item["affair_id"] for item in result["items"]] == [70435, 70437, 80003]
+        assert {(item["rank"], item["headline"]) for item in result["items"]} == {(None, None)}
+        assert [item["affair_id"] for item in newest(body_key="ZH")["items"]] == [80003]
+        assert [item["affair_id"] for item in newest(topic="aps:6.1.9")["items"]] == [70435]
 
 
 def test_topic_graph_by_area_and_related_topics(conn, repo_root, api_settings):

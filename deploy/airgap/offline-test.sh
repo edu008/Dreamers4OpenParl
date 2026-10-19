@@ -42,7 +42,7 @@ assets = re.findall(r'(?:src|href)="(/assets/[^"]+)"', html)
 assert assets, "index.html verweist auf keine Assets"
 for asset in assets:
     get(asset)
-assert 'id="root"' in get("/tags/aps:6.1.9"), "SPA-Fallback für /tags/... fehlt"
+assert 'id="root"' in get("/admin/themen/aps:6.1.9"), "SPA-Fallback für /admin/themen/... fehlt"
 assert json.loads(get("/v1/pages"))["pages"][0]["page_id"] == "heart"
 print(f"ok: SPA mit {len(assets)} Assets, Fallback und Seitenbaum")
 PY

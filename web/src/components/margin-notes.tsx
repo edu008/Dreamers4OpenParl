@@ -1,3 +1,5 @@
+import { Link } from "react-router"
+
 import { Confidence } from "@/components/confidence"
 import { Button } from "@/components/ui/button"
 import { useReview } from "@/hooks/use-review"
@@ -61,11 +63,9 @@ export function MarginNotes({
   return (
     <aside
       aria-label="Labels dieses Geschäfts"
-      className="flex flex-col gap-4 bg-margin-tint px-4 py-4 text-xs lg:border-l lg:border-border"
+      className="flex flex-col gap-4 bg-muted p-5 text-xs"
     >
-      <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        Labels
-      </h2>
+      <h2 className="text-base font-semibold">Themen</h2>
       {labels.length === 0 && (
         <p className="text-muted-foreground">Noch kein Label vergeben.</p>
       )}
@@ -83,7 +83,17 @@ export function MarginNotes({
                     : "text-sm font-semibold text-foreground"
                 }
               >
-                {label.name}
+                {mode === "public" && !rejected ? (
+                  // Öffentlich führt ein Thema zur Suche mit diesem Thema als Filter.
+                  <Link
+                    to={`/?thema=${encodeURIComponent(label.tagId)}`}
+                    className="underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-foreground"
+                  >
+                    {label.name}
+                  </Link>
+                ) : (
+                  label.name
+                )}
               </p>
               <Confidence value={label.confidence} labelled />
               {label.evidence === null ? (

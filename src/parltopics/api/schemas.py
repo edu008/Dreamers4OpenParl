@@ -171,6 +171,17 @@ class AffairTopics(AffairHead):
     )
     language: str | None = Field(examples=["de"])
     summary_de: str | None = Field(description="Kurzzusammenfassung in einem Satz")
+    external_id: str | None = Field(
+        default=None, description="ID beim Parlament", examples=["E 3265"]
+    )
+    title_long: str | None = Field(default=None, description="langer Titel, erste Sprache")
+    type_name: str | None = Field(
+        default=None, description="Typ, wie ihn das Parlament nennt", examples=["Election"]
+    )
+    state: str | None = Field(
+        default=None, description="Stand des Geschäfts (harmonisiert, deutsch)"
+    )
+    end_date: date | None = Field(default=None, description="Abschluss, falls bekannt")
     labels: list[LabelOut] = Field(description="Aktive Labels zuerst, danach der Verlauf")
 
 
@@ -254,22 +265,24 @@ class ReviewQueue(BaseModel):
 
 class SearchHit(AffairHead):
     language: str | None = Field(description="Sprache des Klassifikationstexts", examples=["de"])
-    rank: float = Field(description="ts_rank_cd; ein Treffer im Titel zählt mehr als im Text")
-    headline: str = Field(
+    rank: float | None = Field(
+        description="ts_rank_cd; ein Treffer im Titel zählt mehr als im Text; null ohne q"
+    )
+    headline: str | None = Field(
         description="Ausschnitte aus dem Klassifikationstext als HTML: alles maskiert,"
-        " nur die Treffer stehen in <mark>",
+        " nur die Treffer stehen in <mark>; null ohne q",
         examples=["Der Bundesrat soll die Verwaltung <mark>digitalisieren</mark>."],
     )
     topics: list[HitTopic] = Field(description="aktive Themen, höchste Konfidenz zuerst")
 
 
 class SearchResult(BaseModel):
-    q: str
+    q: str | None = Field(description="Suchbegriffe; null listet die neuesten Geschäfte")
     total: int = Field(description="Treffer insgesamt, unabhängig von limit und offset")
     limit: int
     offset: int
     duration_ms: int = Field(description="Dauer der Abfragen in der API")
-    items: list[SearchHit] = Field(description="nach Rang, dann neueste zuerst")
+    items: list[SearchHit] = Field(description="nach Rang, dann neueste zuerst; ohne q neueste")
 
 
 class CalibrationBand(BaseModel):

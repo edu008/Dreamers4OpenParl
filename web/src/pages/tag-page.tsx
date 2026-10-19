@@ -63,7 +63,7 @@ export function TagPage() {
         <AlertTitle>Seite nicht gefunden</AlertTitle>
         <AlertDescription>
           Zu „{tagId}“ gibt es keine aktive Seite.{" "}
-          <Link to="/">Zum Seitenbaum</Link>
+          <Link to="/admin/themen">Zum Seitenbaum</Link>
         </AlertDescription>
       </Alert>
     )

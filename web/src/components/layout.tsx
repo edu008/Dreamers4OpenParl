@@ -1,42 +1,29 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
-import { SearchForm } from "@/components/search-form"
 import { ThemeSwitch } from "@/components/theme-switch"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { usePageTitle } from "@/hooks/use-page-title"
 import { useReview } from "@/hooks/use-review"
 import { useReviewQueue } from "@/hooks/use-review-queue"
 
+// Die Startseite und Seiten mit eigenem Titel (Geschäft, Thema) setzen ihn selbst.
 const STATIC_TITLES: Record<string, string> = {
-  "/": "Themen",
   "/admin": "Admin",
   "/admin/review": "Review",
-  "/graph": "Graph",
+  "/admin/themen": "Themen",
+  "/admin/graph": "Graph",
   "/hilfe": "So funktioniert's",
-  "/suche": "Suche",
 }
 
-// Öffentliche Seite und Admin-Bereich haben je eine eigene Navigation, ohne Links in den anderen Bereich
-// ausser «Öffentliche Seite» im Admin.
-const PUBLIC_NAV = [
-  { to: "/", label: "Themen" },
-  { to: "/graph", label: "Graph" },
-  { to: "/hilfe", label: "So funktioniert's" },
-]
+// Die öffentliche Seite hat eine Aufgabe (Geschäfte finden) und darum kein Menü (Hick's Law).
+// Der Admin-Bereich hat seine eigene Navigation und einen Weg zurück zur öffentlichen Seite.
 const ADMIN_NAV = [
   { to: "/admin", label: "Übersicht" },
   { to: "/admin/review", label: "Review" },
+  { to: "/admin/themen", label: "Themen" },
+  { to: "/admin/graph", label: "Graph" },
 ]
 
 function isActive(pathname: string, to: string): boolean {
-  if (to === "/") {
-    return (
-      pathname === "/" ||
-      pathname.startsWith("/tags/") ||
-      pathname.startsWith("/geschaefte/")
-    )
-  }
   if (to === "/admin") return pathname === to
   return pathname === to || pathname.startsWith(`${to}/`)
 }
@@ -44,72 +31,76 @@ function isActive(pathname: string, to: string): boolean {
 export function Layout() {
   const { pathname } = useLocation()
   const { isAdmin } = useReview()
-  // Seiten mit eigenem Titel (Geschäft, Thema) setzen ihn selbst.
   usePageTitle(STATIC_TITLES[pathname])
   const queue = useReviewQueue()
   const openReviews = queue.open.length
-  const nav = isAdmin ? ADMIN_NAV : PUBLIC_NAV
+  // Ein Raster für Kopf, Inhalt und Fuss: alle beginnen an derselben linken Kante.
+  const frame = `mx-auto w-full px-4 sm:px-8 ${pathname === "/admin/review" ? "max-w-6xl" : "max-w-5xl"}`
 
   return (
     <div className="flex min-h-svh flex-col">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-4 focus:z-50 focus:rounded-sm focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:underline"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-4 focus:z-50 focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:outline-2 focus:outline-ring"
       >
         Zum Inhalt springen
       </a>
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
-        <Link
-          to={isAdmin ? "/admin" : "/"}
-          className="font-heading text-base font-medium"
+      {/* Kopfband in Schweizer Rot über die ganze Breite, Inhalt im Raster. */}
+      <header className="bg-primary text-primary-foreground">
+        <div
+          className={`${frame} flex flex-wrap items-center gap-x-8 gap-y-2 py-4`}
         >
-          {isAdmin ? "ParlTopics Admin" : "ParlTopics"}
-        </Link>
-        <nav aria-label="Hauptnavigation" className="flex flex-wrap gap-1">
-          {nav.map((item) => (
-            <Button
-              key={item.to}
-              size="sm"
-              variant={isActive(pathname, item.to) ? "secondary" : "ghost"}
-              nativeButton={false}
-              render={
-                <NavLink
-                  to={item.to}
-                  end={item.to === "/" || item.to === "/admin"}
-                />
-              }
-            >
-              {item.to === "/admin/review" && openReviews > 0
-                ? `${item.label} (${openReviews})`
-                : item.label}
-            </Button>
-          ))}
-        </nav>
-        {/* Auf schmalen Fenstern in eine eigene Zeile, das Suchfeld nimmt den freien Platz. */}
-        <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 lg:ml-auto lg:w-auto lg:flex-nowrap">
-          {isAdmin ? (
-            <Link
-              to="/"
-              className="py-2 text-xs text-muted-foreground underline underline-offset-2"
-            >
-              Öffentliche Seite
-            </Link>
-          ) : (
-            pathname !== "/" &&
-            !pathname.startsWith("/suche") && <SearchForm compact />
+          <Link
+            to={isAdmin ? "/admin" : "/"}
+            className="font-heading text-xl font-bold tracking-tight focus-visible:outline-primary-foreground"
+          >
+            ParlTopics
+            {isAdmin && <span className="font-normal"> Admin</span>}
+          </Link>
+          {isAdmin && (
+            <>
+              <nav aria-label="Admin-Navigation" className="flex flex-wrap">
+                {ADMIN_NAV.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === "/admin"}
+                    className={`px-3 py-2 text-sm font-medium focus-visible:outline-primary-foreground ${
+                      isActive(pathname, item.to)
+                        ? "bg-primary-foreground text-primary"
+                        : "hover:bg-primary-hover"
+                    }`}
+                  >
+                    {item.to === "/admin/review" && openReviews > 0
+                      ? `${item.label} (${openReviews})`
+                      : item.label}
+                  </NavLink>
+                ))}
+              </nav>
+              <Link
+                to="/"
+                className="py-2 text-sm underline-offset-4 hover:underline focus-visible:outline-primary-foreground sm:ml-auto"
+              >
+                Öffentliche Seite
+              </Link>
+            </>
           )}
         </div>
       </header>
-      <Separator />
       <main
         id="main"
         tabIndex={-1}
-        className={`mx-auto flex w-full flex-1 flex-col gap-6 px-6 py-8 outline-none ${pathname === "/admin/review" ? "max-w-6xl" : "max-w-4xl"}`}
+        className={`${frame} flex flex-1 flex-col gap-10 py-10 outline-none`}
       >
         <Outlet />
       </main>
-      <footer className="border-t border-border px-6 py-3 text-xs">
-        <ThemeSwitch />
+      <footer className={`${frame} mt-16`}>
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t-2 border-foreground py-6 text-sm">
+          <Link to="/hilfe" className="underline-offset-4 hover:underline">
+            So funktioniert's
+          </Link>
+          <ThemeSwitch />
+        </div>
       </footer>
     </div>
   )
