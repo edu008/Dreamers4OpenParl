@@ -102,6 +102,15 @@ export function AgentAnswer({
 }) {
   const [params] = useQuery()
   const { result, error } = asked
+  const section = useRef<HTMLElement>(null)
+  // Auch aus dem Leerzustand unter der Liste gefragt: die Antwort steht oben, also hinscrollen.
+  useEffect(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    section.current?.scrollIntoView({
+      block: "nearest",
+      behavior: reduce ? "auto" : "smooth",
+    })
+  }, [asked.question])
   const order = result?.cited_affair_ids ?? []
   const hits = new Map(result?.hits.map((hit) => [hit.affair_id, hit]))
   const note = result && STATUS_NOTE[result.status]
@@ -114,8 +123,9 @@ export function AgentAnswer({
 
   return (
     <section
+      ref={section}
       aria-labelledby="answer-heading"
-      className="flex flex-col gap-5 border-l-4 border-foreground bg-muted p-5 sm:p-7"
+      className="flex scroll-mt-4 flex-col gap-5 border-l-4 border-foreground bg-muted p-5 sm:p-7"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">

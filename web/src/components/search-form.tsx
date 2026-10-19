@@ -47,7 +47,7 @@ export function SearchForm({
           type="search"
           aria-label="Stichwort oder Frage"
           aria-describedby="ask-hint"
-          placeholder="Stichwort oder Frage, zum Beispiel Velowege"
+          placeholder="Stichwort oder Frage"
           value={query}
           onChange={(event) => {
             setQuery(event.target.value)
