@@ -70,7 +70,8 @@ async function errorDetail(response: Response): Promise<string> {
 }
 
 // Antworten der Sidecar-API für Geschäfte, Themen und Jobs (siehe /v1/docs).
-export type Stage = "8b" | "70b" | "human"
+/** rule: Thema per Regel aus dem Titel eines Routinegeschäfts, ohne Modell. */
+export type Stage = "8b" | "70b" | "human" | "rule"
 
 export type ReviewStatus = "confirmed" | "rejected" | "changed"
 
