@@ -15,7 +15,12 @@ export interface ReviewState {
   decide: (
     affairId: string,
     tagId: string,
-    action: Extract<ReviewAction, "confirm" | "reject" | "undo">
+    action: Extract<
+      ReviewAction,
+      "confirm" | "reject" | "undo" | "change" | "add"
+    >,
+    /** Bei «change» das neue Thema. */
+    newTagId?: string
   ) => Promise<AffairTopics>
 }
 
