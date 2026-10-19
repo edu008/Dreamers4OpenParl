@@ -2,6 +2,7 @@ import { XIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { Link, useLocation, useNavigate } from "react-router"
 
+import { AgentAnswer, useAgent } from "@/components/agent-answer"
 import { SearchForm } from "@/components/search-form"
 import { Segmented } from "@/components/segmented"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -445,6 +446,7 @@ export function HomePage() {
   const page = Math.max(1, Number.parseInt(params.get("seite") ?? "1", 10) || 1)
   const active = FILTERS.filter((key) => valid(params, key)).length
   const [open, setOpen] = useState(active > 0)
+  const agent = useAgent()
   usePageTitle(query ? `Suche: ${query}` : "Geschäfte")
   const affairId = params.get("geschaeft")?.trim()
   const navigate = useNavigate()
@@ -474,7 +476,12 @@ export function HomePage() {
           Alle Geschäfte aus den Parlamenten von Bund, Kantonen und Gemeinden,
           nach Themen geordnet.
         </p>
-        <SearchForm key={typed} initial={typed} />
+        <SearchForm
+          key={typed}
+          initial={typed}
+          onAsk={agent.ask}
+          asking={agent.asking}
+        />
         {typed.length === 1 && (
           <p className="text-sm text-muted-foreground">
             Gib mindestens zwei Zeichen ein. Unten stehen die neuesten
@@ -482,6 +489,8 @@ export function HomePage() {
           </p>
         )}
       </section>
+
+      {agent.asked && <AgentAnswer asked={agent.asked} onClose={agent.close} />}
 
       <section aria-label="Geschäfte" className="flex flex-col gap-5">
         <div className="flex flex-wrap items-center gap-3">
