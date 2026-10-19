@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     confidence_threshold: float = Field(0.6, ge=0, le=1)
     job_timeout_seconds: int = Field(600, ge=30)
     heartbeat_seconds: int = Field(120, ge=5)
+    # Seite der DVS-Liste (F12) und des Digitalisierungsteils im Bericht (F16), mit Unterseiten
+    dvs_topic: str = "adhoc:digitalisierung-breit"
 
     registry_path: Path = Path("registry/tags.yaml")
     prompts_dir: Path = Path("prompts")

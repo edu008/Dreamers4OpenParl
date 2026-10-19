@@ -1,6 +1,6 @@
 # ADR 0004: Jobs hängen am `scheme_hash`, nicht an der `registry_version`
 
-- Status: angenommen; die Feldnamen der kanonischen Form verfeinert [ADR 0007](0007-registry-skos.md)
+- Status: angenommen; die Feldnamen der kanonischen Form verfeinert [ADR 0007](0007-registry-skos.md); die Folge «Aktive Ad-hoc-Tags laufen in Stufe 2 von `classify:aps` mit» ersetzt [ADR 0009](0009-adhoc-eigene-jobs.md)
 - Datum: 18.10.2026
 - Bezug: PRD 7.2, 7.7, F18, ARCHITEKTUR.md 3.7
 

@@ -9,12 +9,19 @@ from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
 from parltopics.api.app import create_app
-from parltopics.classify.adhoc import Keywords, activate, create, find_affairs, retire
+from parltopics.classify.adhoc import (
+    Keywords,
+    activate,
+    create,
+    find_affairs,
+    open_adhoc_jobs,
+    retire,
+)
 from parltopics.classify.queue import adhoc_task
 from parltopics.db import migrate
 from parltopics.inputs import SEARCH as INDEX
 from parltopics.registry import file_hash, load_registry
-from parltopics.registry.edit import set_status
+from parltopics.registry.edit import add_adhoc_tag, set_status
 from parltopics.registry.sync import sync_registry
 
 pytestmark = pytest.mark.integration
@@ -87,16 +94,36 @@ def test_create_proposes_the_tag_and_opens_jobs_then_activate_releases_it(conn, 
         (adhoc_task("adhoc:velowege"),),
     ).fetchall()
     assert jobs == [(101,), (102,), (150,)]
-    run = conn.execute(
-        "SELECT kind, params->'keywords'->'fr', params->>'by' FROM classification_runs"
-        " WHERE id = %s",
-        (created.run.run_id,),
-    ).fetchone()
-    assert run == ("adhoc", ["vélo"], "Mia")
+    run = "SELECT kind, params->'keywords'->'fr', params->>'by', prompt_version"
+    run += " FROM classification_runs WHERE id = %s"
+    kind, fr, by, prompt = conn.execute(run, (created.run.run_id,)).fetchone()
+    assert (kind, fr, by) == ("adhoc", ["vélo"], "Mia")
+    assert prompt.startswith("classify_adhoc_v1+")
 
-    registry = activate(conn, settings, "adhoc:velowege", by="Leo")
-    assert registry.get("adhoc:velowege").status == "active"
+    opened = activate(conn, settings, "adhoc:velowege", by="Leo")
+    assert load_registry(settings.registry_path).get("adhoc:velowege").status == "active"
     assert conn.execute(status).fetchone() == ("active",)
+    # Nachklassifizierung mit den Stichwörtern des letzten Laufs: dieselben drei Jobs, keiner neu
+    assert (opened.candidates, opened.sample, opened.run.total, opened.run.new) == (2, 1, 3, 0)
+    kind, fr, by, _ = conn.execute(run, (opened.run.run_id,)).fetchone()
+    assert (kind, fr, by) == ("reclassify", ["vélo"], "Leo")
+
+
+def test_open_adhoc_jobs_takes_the_labels_or_the_whole_scope(conn, settings):
+    """Ohne Lauf und Stichwörter suchen die Bezeichnungen des Tags; all öffnet jedes Geschäft."""
+    tag_id, registry = add_adhoc_tag(settings.registry_path, **TOPIC, by="Mia")
+    sync_registry(conn, registry, file_hash(settings.registry_path))
+    opened = open_adhoc_jobs(conn, settings, registry, tag_id, kind="reclassify", by="Leo")
+    assert (opened.candidates, opened.sample) == (1, 1)  # «Velowege» trifft 101, Stichprobe 150
+    keywords = "SELECT params->'keywords'->'de' FROM classification_runs WHERE id = %s"
+    assert conn.execute(keywords, (opened.run.run_id,)).fetchone() == (["Velowege"],)
+
+    everything = open_adhoc_jobs(
+        conn, settings, registry, tag_id, kind="full", by="Leo", scope="all", bodies=["CHE"]
+    )
+    assert (everything.candidates, everything.sample, everything.run.total) == (0, 0, 3)
+    scope = "SELECT params->>'scope' FROM classification_runs WHERE id = %s"
+    assert conn.execute(scope, (everything.run.run_id,)).fetchone() == ("all",)
 
 
 def test_retire_closes_the_jobs_and_supersedes_the_labels_and_create_reopens_them(conn, settings):

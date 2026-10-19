@@ -815,19 +815,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def adhoc_activate(
         tag_id: str, conn: Conn, body: AdhocActivateIn | None = None
     ) -> AdhocActivated:
-        """Setzt ein bewährtes Thema von proposed auf active. Ab dann bietet Stufe 2 von
-        classify:aps es allen Geschäften an, und es bekommt eine Querschnittsseite. Name und
-        Zeit stehen im Tag (changes); ohne user_name steht dort «api». Rückweg:
-        /v1/adhoc/{tag_id}/retire."""
+        """Setzt ein bewährtes Thema von proposed auf active und öffnet die Nachklassifizierung:
+        ein Lauf mit Ja/Nein-Jobs für Kandidaten und Stichprobe (ADR 0009), den ein Worker
+        abarbeitet. Das Thema bekommt eine Querschnittsseite. Name und Zeit stehen im Tag
+        (changes); ohne user_name steht dort «api». Rückweg: /v1/adhoc/{tag_id}/retire."""
         by = body.user_name if body and body.user_name else "api"
         try:
-            registry = adhoc.activate(conn, settings, tag_id, by=by)
+            opened = adhoc.activate(conn, settings, tag_id, by=by)
         except NotAdhoc as error:
             raise HTTPException(404, str(error)) from error
         except WrongStatus as error:
             raise HTTPException(409, str(error)) from error
         return AdhocActivated(
-            tag_id=tag_id, status="active", registry_version=registry.registry_version
+            tag_id=tag_id,
+            status="active",
+            registry_version=opened.registry_version,
+            run_id=opened.run.run_id,
+            jobs=opened.run.total,
         )
 
     @api.post(

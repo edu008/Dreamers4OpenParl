@@ -272,7 +272,7 @@
       "dot": "cyan",
       "title": "Täglicher Lauf",
       "items": [
-        "parltopics daily verkettet Ingest, Input, Registry, Klassifikation, Vorschläge, Seiten, Export und Wiki",
+        "parltopics daily verkettet Ingest, Input, Registry, Klassifikation (APS, dann je aktivem Ad-hoc-Tag ein Ja/Nein-Lauf), Vorschläge, Seiten, Export und Wiki",
         "Nur neue oder geänderte Geschäfte, erkannt über input_hash und scheme_hash",
         "Seitenlauf: nur offene Seiten, von den Tag-Seiten bis Heart"
       ]
@@ -290,7 +290,7 @@
       "title": "Mensch entscheidet",
       "items": [
         "Vorschläge werden nach dem Lauf gruppiert und erst im Review aktiv",
-        "Freigaben schreiben registry/tags.yaml und öffnen nur reclassify-Jobs",
+        "Freigaben schreiben registry/tags.yaml und öffnen nur die Ja/Nein-Jobs dieses Tags",
         "Labels sind sofort sichtbar; Review bestätigt oder korrigiert sie"
       ]
     }

@@ -75,7 +75,7 @@ async def test_two_stages_offer_only_the_topics_of_the_chosen_chapter(settings, 
     assert len(requests) == 2
     stage2 = requests[1]["messages"][0]["content"]
     assert "aps:2.4.1 |" in stage2
-    assert "adhoc:digitalisierung-breit |" in stage2
+    assert "adhoc:digitalisierung-breit |" not in stage2  # prüft ein eigener Job (ADR 0009)
     assert "aps:6.1.9 |" not in stage2
 
 
@@ -237,7 +237,9 @@ async def test_a_second_paraphrase_keeps_the_first_answer(settings, classifier):
     assert len(requests) == 3
 
 
-async def test_no_matching_chapter_offers_only_adhoc_tags(settings, classifier):
+async def test_no_matching_chapter_skips_stage_2_and_asks_70b(settings, classifier):
+    """Ohne Kapitel gibt es nichts zur Auswahl; Ad-hoc-Themen prüft ein eigener Job (ADR 0009)."""
+
     def answer(body):
         data = json.loads(fake_completion(body["messages"]))
         if "chapters" in data:
@@ -246,13 +248,12 @@ async def test_no_matching_chapter_offers_only_adhoc_tags(settings, classifier):
 
     client, requests = mock_llm(settings, answer)
     async with client:
-        result, _ = await classify_affair(
+        result, reasons = await classify_affair(
             classifier, client, job(), threshold=0.6, verify=verified, escalate=nothing
         )
-    stage2 = requests[1]["messages"][0]["content"]
-    assert "adhoc:digitalisierung-breit |" in stage2
-    assert "aps:2.4.1 |" not in stage2
-    assert [label.tag_id for label in result.passes[-1].labels] == ["adhoc:digitalisierung-breit"]
+    assert reasons == ["keine_themen"]
+    assert [body["model"] for body in requests] == ["test-8b", "test-70b"]  # nur Stufe 1
+    assert result.passes[-1].labels == []
 
 
 ADHOC = "classify:adhoc:ki-verwaltung"  # in der Test-Registry vorgeschlagen, nicht aktiv
@@ -262,34 +263,48 @@ def adhoc_job(affair_id=7, language="de"):
     return Job(affair_id, ADHOC, 1, 1, TEXT, "h", language)
 
 
-async def test_adhoc_job_offers_only_its_tag_and_skips_the_chapters(settings, classifier):
+async def test_adhoc_job_asks_70b_once_about_its_one_tag(settings, classifier):
     client, requests = mock_llm(settings)
     async with client:
         result, reasons = await classify_affair(
             classifier, client, adhoc_job(), threshold=0.6, verify=verified, escalate=nothing
         )
-    assert (reasons, len(requests)) == ([], 1)  # nur Stufe 2
+    assert (reasons, [body["model"] for body in requests]) == ([], ["test-70b"])
     system = requests[0]["messages"][0]["content"]
     assert "adhoc:ki-verwaltung |" in system
     assert "aps:2.4.1 |" not in system
     assert "adhoc:digitalisierung-breit |" not in system
+    assert "summary_de" not in system and "proposed_tags" not in system  # nur ja oder nein
     (only,) = result.passes
-    assert [label.tag_id for label in only.labels] == ["adhoc:ki-verwaltung"]
-    assert result.prompt_version.startswith("classify_topics_v2+")
+    assert (only.stage, [label.tag_id for label in only.labels]) == ("70b", ["adhoc:ki-verwaltung"])
+    assert result.prompt_version.startswith("classify_adhoc_v1+")
     assert " " not in result.prompt_version
     assert result.scheme_hash == tag_hash(classifier.known["adhoc:ki-verwaltung"])
     assert result.proposals == []
 
 
-@pytest.mark.parametrize(("change", "expected"), [(None, []), (low_confidence, ["konfidenz"])])
-async def test_adhoc_escalates_only_on_low_confidence(settings, classifier, change, expected):
-    client, _ = mock_llm(settings, changing_8b(change))
+@pytest.mark.parametrize(
+    ("tags", "expected"),
+    [
+        ([], []),  # nein
+        ([("adhoc:ki-verwaltung", 0.0)], []),  # «ja» mit 0.0 meint nein (Test vom 19.10.2026)
+        ([("KI in der Verwaltung", 0.7)], ["adhoc:ki-verwaltung"]),  # Name statt ID gilt
+    ],
+)
+async def test_adhoc_answers_yes_or_no_without_escalation(settings, classifier, tags, expected):
+    def answer(body):
+        data = json.loads(fake_completion(body["messages"]))
+        data["tags"] = [{"tag_id": t, "confidence": c, "evidence": TEXT[:40]} for t, c in tags]
+        return json.dumps(data)
+
+    client, requests = mock_llm(settings, answer)
     job = adhoc_job(affair_id=100, language="other")  # Stichprobe und Sprache zählen hier nicht
     async with client:
-        _, reasons = await classify_affair(
+        result, reasons = await classify_affair(
             classifier, client, job, threshold=0.6, verify=verified, escalate=nothing
         )
-    assert reasons == expected
+    assert (reasons, len(requests)) == ([], 1)
+    assert [label.tag_id for label in result.passes[-1].labels] == expected
 
 
 def test_worker_takes_aps_and_proposed_or_active_adhoc_tasks(classifier):
@@ -356,14 +371,10 @@ async def test_single_stage_asks_70b_once_with_all_topics(single):
     # Themen aus mehreren Kapiteln, mit Kurznamen statt Zahlencodes
     assert "\narbeitsmarkt | Arbeitsmarkt" in system and "\ndigitalisierung |" in system
     assert "aps:2.4.1" not in system and "aps:6.1.9" not in system
-    assert "adhoc:digitalisierung-breit |" in system
+    assert "adhoc:digitalisierung-breit" not in system  # prüft ein eigener Job (ADR 0009)
     (only,) = result.passes
     assert only.stage == "70b"
-    assert [label.tag_id for label in only.labels] == [
-        "aps:2.4.1",
-        "adhoc:digitalisierung-breit",
-        "aps:6.1.9",
-    ]
+    assert [label.tag_id for label in only.labels] == ["aps:2.4.1", "aps:6.1.9"]
     assert result.prompt_version.startswith("classify_single_v3+")
 
 
@@ -454,7 +465,7 @@ def test_unique_names_and_synonyms_resolve_too(single, settings, tmp_path):
 def test_repository_registry_has_unique_short_names(settings):
     """Jedes angebotene Thema hat einen eigenen Kurznamen, sonst bricht der Worker beim Start ab."""
     classifier = load_classifier(settings.model_copy(update={"classify_mode": "single_70b"}))
-    offered = [t for tags in classifier.topics.values() for t in tags] + classifier.adhoc
+    offered = [t for tags in classifier.topics.values() for t in tags]
     assert len(offered) > 100
     assert {classifier.keys[short_key(t.prompt_id)] for t in offered} == {t.tag_id for t in offered}
 

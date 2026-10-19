@@ -470,6 +470,8 @@ class AdhocActivated(BaseModel):
     tag_id: str
     status: Literal["active"]
     registry_version: str
+    run_id: int  # Nachklassifizierung (kind reclassify), ein Worker arbeitet sie ab
+    jobs: int  # Jobs im Lauf, auch die schon erledigten
 
 
 class AdhocRetired(BaseModel):

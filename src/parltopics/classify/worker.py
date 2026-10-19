@@ -4,6 +4,7 @@ Ablauf je Job nach ARCHITEKTUR 3.2: Stufe 1 wählt APS-Kapitel, Stufe 2 Themen m
 und Kurzzusammenfassung. Eine ungültige Antwort wird einmal mit Fehlerhinweis wiederholt. Tiefe
 Konfidenz, Tag-Vorschläge, Texte ohne erkannte Sprache und eine feste Stichprobe von 2 % gehen im
 selben Job an 70B (ARCHITEKTUR 3.4). Registry und Prompts werden beim Start eingefroren.
+Ad-hoc-Themen prüft je Thema ein eigener Ja/Nein-Job mit 70B (classify:adhoc:<tag>, ADR 0009).
 """
 
 import asyncio
@@ -65,8 +66,11 @@ log = logging.getLogger("parltopics.worker")
 
 STAGE_PROMPTS = ("classify_chapters_v2", "classify_topics_v2")
 SINGLE_PROMPT = "classify_single_v3"
+ADHOC_PROMPT = "classify_adhoc_v1"  # ein Thema, ja oder nein (ADR 0009)
+# Ein «ja» unter dem tiefsten Anker des Prompts (Nebenaspekt) meint nein: 70B gab 5 von 40 Mal
+# «ja» mit 0.0 und unpassendem Beleg (Test vom 19.10.2026).
+ADHOC_MIN_CONFIDENCE = 0.5
 INSTITUTIONS = "aps:1.2"  # Kapitel Institutionen: eigene Liste B in classify_single_v3
-ADHOC_HEADING = "Ad-hoc-Themen"
 SAMPLE_EVERY = 50  # Stichprobe von 2 % nach affair_id: reproduzierbar, ohne Zufall
 IDLE_SECONDS = 5
 INVALID = (JSONExtractionError, OutputError, ValidationError)
@@ -83,11 +87,11 @@ class Classifier:
 
     chapters: list[Tag]
     topics: dict[str, list[Tag]]
-    adhoc: list[Tag]
     registry_version: str
     scheme_hash: str
     stage1: Prompt
     stage2: Prompt
+    adhoc_prompt: Prompt
     known: dict[str, Tag]  # alle Tags der Registry, für Ad-hoc-Jobs auch vorgeschlagene
     single: Prompt | None = None  # gesetzt: APS-Jobs einstufig mit 70B (CLASSIFY_MODE)
     keys: dict[str, str] = field(default_factory=dict)  # einstufig: Kurzname im Prompt → tag_id
@@ -111,11 +115,11 @@ class Classifier:
         return [TASK_APS, *adhoc]
 
     def versions(self, job: Job) -> tuple[str, str]:
-        """prompt_version und scheme_hash eines Jobs; Ad-hoc nutzt nur Stufe 2 und ein Tag."""
+        """prompt_version und scheme_hash eines Jobs; Ad-hoc: der Ja/Nein-Prompt und ein Tag."""
         tag_id = task_tag(job.task)
         if tag_id is None:
             return self.prompt_version, self.scheme_hash
-        return self.stage2.version, tag_hash(self.known[tag_id])
+        return self.adhoc_prompt.version, tag_hash(self.known[tag_id])
 
 
 def short_keys(tags: list[Tag]) -> dict[str, str]:
@@ -156,7 +160,6 @@ def load_classifier(settings: Settings) -> Classifier:
         chapter.tag_id: [t for t in registry.narrower(chapter.tag_id) if t.scheme == "aps"]
         for chapter in chapters
     }
-    adhoc = registry.active("adhoc")
     single = (
         load_prompt(settings.prompts_dir, SINGLE_PROMPT)
         if settings.classify_mode == "single_70b"
@@ -165,15 +168,15 @@ def load_classifier(settings: Settings) -> Classifier:
     return Classifier(
         chapters=chapters,
         topics=topics,
-        adhoc=adhoc,
         registry_version=registry.registry_version,
         scheme_hash=scheme_hash(registry, "aps"),
         stage1=load_prompt(settings.prompts_dir, STAGE_PROMPTS[0]),
         stage2=load_prompt(settings.prompts_dir, STAGE_PROMPTS[1]),
+        adhoc_prompt=load_prompt(settings.prompts_dir, ADHOC_PROMPT),
         known={tag.tag_id: tag for tag in registry.tags},
         single=single,
         keys=_with_chapters(
-            short_keys([*(t for tags in topics.values() for t in tags), *adhoc]), chapters, topics
+            short_keys([t for tags in topics.values() for t in tags]), chapters, topics
         )
         if single
         else {},
@@ -238,14 +241,18 @@ async def _pass(
     large: bool,
     verify: Callable[[str, list[str]], Awaitable[list[bool]]],
 ) -> tuple[Pass, Stage2Output]:
-    """Beide Stufen mit 8B oder 70B, danach die Belegprüfung. Ein Ad-hoc-Job braucht keine
-    Kapitel: Stufe 2 bietet nur sein Tag an. Einstufig bietet ein Prompt alle Themen an."""
+    """Beide Stufen mit 8B oder 70B, danach die Belegprüfung. Einstufig bietet ein Prompt alle
+    APS-Themen an. Ein Ad-hoc-Job fragt nur, ob sein eines Thema passt (ADR 0009): Ad-hoc-Themen
+    stehen nicht im APS-Prompt, dort verdrängte sie das ähnlichste APS-Thema."""
     user = {"affair_id": job.affair_id, "text": job.text}
     stage = "70b" if large else "8b"
     adhoc_id = task_tag(job.task)
     prompt = c.stage2
+    keys: dict[str, str] = {}
     if adhoc_id is not None:
+        prompt = c.adhoc_prompt
         offered = {adhoc_id: c.known[adhoc_id]}
+        keys = short_keys(list(offered.values()))  # auch Name oder Synonym statt der ID
     elif c.single is not None:
         prompt = c.single
         institutions = {tag.tag_id: tag for tag in c.topics.get(INSTITUTIONS, [])}
@@ -254,8 +261,6 @@ async def _pass(
             for chapter in c.chapters
             if chapter.tag_id != INSTITUTIONS
         ]
-        if c.adhoc:
-            groups.append({"name": ADHOC_HEADING, "tags": c.adhoc})
         offered = {tag.tag_id: tag for group in groups for tag in group["tags"]}
     else:
         chapter_ids = {chapter.tag_id for chapter in c.chapters}
@@ -268,8 +273,7 @@ async def _pass(
         offered = {
             tag.tag_id: tag for choice in stage1.chapters for tag in c.topics[choice.chapter_id]
         }
-        offered |= {tag.tag_id: tag for tag in c.adhoc}
-        if not offered:  # kein Kapitel und kein aktives Ad-hoc-Tag: nichts zur Auswahl
+        if not offered:  # kein Kapitel: nichts zur Auswahl
             empty = Stage2Output(affair_id=job.affair_id, language=stage1.language)
             settings = client.settings
             model = settings.llm_name_large if large else settings.llm_name
@@ -287,7 +291,11 @@ async def _pass(
                 keys=c.keys,
             )
         else:
-            output, rejected = parse_stage2(data, affair_id=job.affair_id, offered=set(offered))
+            known = keys or set(offered)
+            output, rejected = parse_stage2(data, affair_id=job.affair_id, offered=known)
+            if adhoc_id is not None:
+                yes = [t for t in output.tags if t.confidence >= ADHOC_MIN_CONFIDENCE]
+                output = output.model_copy(update={"tags": yes})
         dropped.extend(rejected)
         return output
 
@@ -430,11 +438,7 @@ async def _requote(
 def escalation_reasons(
     job: Job, labels: list[Label], output: Stage2Output, threshold: float
 ) -> list[str]:
-    """Wann 70B übernimmt (ARCHITEKTUR 3.4). Ad-hoc-Jobs nur bei tiefer Konfidenz: ihre
-    Stichprobe hat meist kein Thema, und ohne Kapitelwahl gibt es keine Vorschläge zu prüfen."""
-    if task_tag(job.task) is not None:
-        low = any(label.confidence < threshold for label in labels)
-        return ["konfidenz"] if low else []
+    """Wann 70B übernimmt (ARCHITEKTUR 3.4), zweistufig für classify:aps."""
     checks = {
         "konfidenz": any(label.confidence < threshold for label in labels),
         "keine_themen": not labels,  # auch wenn 8B kein passendes Kapitel fand
@@ -469,8 +473,9 @@ async def classify_affair(
         return _result(c, job, [Pass("rule", RULES_VERSION, [label])], empty), [
             f"regel:{rule.rule}"
         ]
-    if c.single is not None and task_tag(job.task) is None:
-        # Einstufig: ein 70B-Durchlauf, keine Eskalation. Ungültig auch nach der Wiederholung:
+    if c.single is not None or task_tag(job.task) is not None:
+        # Einstufig und Ad-hoc: ein 70B-Durchlauf, keine Eskalation. 8B lieferte beim Ja/Nein-Test
+        # in 34 von 40 Fällen kein gültiges JSON (19.10.2026). Ungültig auch nach der Wiederholung:
         # OutputFailure, der Job ist dauerhaft failed.
         final, output = await _pass(c, client, job, large=True, verify=verify)
         return _result(c, job, [final], output), []

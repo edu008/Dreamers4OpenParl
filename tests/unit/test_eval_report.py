@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from parltopics.classify.adhoc import tag_keywords
 from parltopics.cli import app
 from parltopics.evaluation.report import (
     DVS,
     POLITMONITOR,
     GoldFileError,
-    keywords,
     load_ids,
     read_gold_dir,
 )
@@ -54,7 +54,7 @@ def test_eval_stops_with_the_found_columns_before_touching_the_database(tmp_path
 
 def test_baseline_keywords_are_the_labels_of_a_topic():
     tag = load_registry(REGISTRY).get("aps:6.1.9")
-    terms = keywords(tag)
+    terms = tag_keywords(tag)
     assert terms.de == [
         "Digitalisierung",
         "E-Government",

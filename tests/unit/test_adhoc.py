@@ -1,11 +1,27 @@
 """Ad-hoc-Themen: Stichwörter und Suchausdruck (PRD 7.4, F8)."""
 
 import json
+from pathlib import Path
 
 import httpx
 
-from parltopics.classify.adhoc import MAX_TERMS, Keywords, suggest_keywords, websearch
+from parltopics.classify.adhoc import (
+    MAX_TERMS,
+    Keywords,
+    suggest_keywords,
+    tag_keywords,
+    websearch,
+)
+from parltopics.registry import load_registry
 from tests.mock_llm.app import completion, fake_completion
+
+FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tags_example.yaml"
+
+
+def test_tag_keywords_also_take_a_name_without_its_bracket():
+    """«Digitalisierung (breit)» als Phrase trifft kaum; der Name ohne Zusatz trifft."""
+    tag = load_registry(FIXTURE).get("adhoc:digitalisierung-breit")
+    assert tag_keywords(tag).de[:2] == ["Digitalisierung (breit)", "Digitalisierung"]
 
 
 def test_websearch_quotes_phrases_and_drops_operators():
