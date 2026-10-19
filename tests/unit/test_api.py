@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from parltopics import __version__
 from parltopics.api.app import create_app
+from parltopics.api.queries import nest_languages
 from parltopics.api.schemas import ReviewIn
 from parltopics.config import Settings
 
@@ -86,10 +87,23 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
         "/v1/adhoc/preview",
         "/v1/adhoc",
         "/v1/adhoc/{tag_id}/activate",
+        "/v1/adhoc/{tag_id}/retire",
         "/v1/proposals",
         "/v1/proposals/{proposal_id}/decision",
         "/v1/search/navigate",
+        "/v1/affairs/{affair_id}",
+        "/v1/affairs/{affair_id}/docs",
+        "/v1/docs/{doc_id}",
+        "/v1/bodies/{body_key}",
+        "/v1/graph/topics/{tag_id}",
+        "/v1/graph/affairs/{affair_id}",
+        "/v1/reviews/summary",
+        "/v1/pages/{page_id}/affairs/summary",
+        "/v1/pages/{page_id}/affairs.csv",
+        "/v1/agent/search",
     } <= set(paths)
+    parameters = paths["/v1/reviews/queue"]["get"]["parameters"]
+    assert {"state", "tag_id", "body_key", "page_id", "reason"} <= {p["name"] for p in parameters}
     parameters = paths["/v1/topics/{tag_id}/affairs"]["get"]["parameters"]
     names = {parameter["name"] for parameter in parameters}
     assert {"tag_id", "body_key", "from", "to", "min_confidence", "limit", "offset"} <= names
@@ -98,6 +112,8 @@ def test_openapi_lists_the_endpoints_for_the_frontend(tmp_path):
     parameters = paths["/v1/search"]["get"]["parameters"]
     names = {"q", "topic", "body_key", "level", "from", "to", "limit", "offset"}
     assert names <= {p["name"] for p in parameters}
+    (q,) = [p for p in parameters if p["name"] == "q"]
+    assert not q.get("required", False)  # ohne q: die neuesten Geschäfte
 
 
 def test_database_endpoints_answer_503_without_database(tmp_path):
@@ -105,7 +121,29 @@ def test_database_endpoints_answer_503_without_database(tmp_path):
     paths = ("/v1/jobs/summary", "/v1/topics", "/v1/affairs/1/topics", "/v1/reviews/queue")
     for path in (*paths, "/v1/bodies", "/v1/stats", "/v1/eval/calibration", "/v1/eval/gold"):
         assert client.get(path).status_code == 503
+    for path in ("/v1/affairs/1", "/v1/affairs/1/docs", "/v1/docs/1", "/v1/bodies/GE"):
+        assert client.get(path).status_code == 503
     assert client.get("/healthz").status_code == 200
+
+
+def test_language_fields_are_nested_like_openparldata():
+    record = {
+        "id": 257,
+        "name": "Genf",  # flach und geschachtelt: die geschachtelte Form gilt
+        "name_de": "Genf",
+        "name_fr": "Genève",
+        "state_name_de": None,
+        "state_name_fr": None,
+        "type_harmonized_id": 6,
+        "end_date": None,
+    }
+    assert nest_languages(record) == {
+        "id": 257,
+        "type_harmonized_id": 6,
+        "end_date": None,
+        "name": {"de": "Genf", "fr": "Genève"},
+        "state_name": {},
+    }
 
 
 def test_reviews_need_no_token_only_the_database(tmp_path):
@@ -140,7 +178,7 @@ def test_without_build_a_hint_page_without_external_urls(tmp_path):
 
 def test_spa_routes_return_index_and_files_are_served(built):
     client = client_for(built)
-    for route in ("/", "/tags/aps:6.1.9", "/suche", "/geschaefte/70435"):
+    for route in ("/", "/admin/themen/aps:6.1.9", "/admin", "/geschaefte/70435"):
         response = client.get(route)
         assert response.status_code == 200, route
         assert 'id="root"' in response.text or "id=root" in response.text

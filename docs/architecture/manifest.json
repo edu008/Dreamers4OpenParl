@@ -10,14 +10,14 @@
     "02-pipeline": {
       "type": "workflow",
       "quality": "showcase",
-      "source_sha256": "b44dcf8b49628ebe86bc9b2866e39071dbd05b7612d0c13fa2ce0e0abd9d339c",
-      "html_sha256": "fd7ed8f053126f219f5d7a09a6323dbcfc7a43ee12030c664489018724103ec2"
+      "source_sha256": "db86ce6e34a6f8bcbef10ee59544687a0b6fd7ee761e017a1a145af2a263eb1b",
+      "html_sha256": "3107267eef6f662c4a8a8b04102b36aed006373db63e72f5ca760385d0a17e78"
     },
     "03-job-lifecycle": {
       "type": "lifecycle",
       "quality": "showcase",
-      "source_sha256": "c1ae4865bfbfa94d9f60bba9ee5639d14aec7802c43e89301449f96bea28a9a5",
-      "html_sha256": "d70f0c010e69b354c1bc33900bcd799a592c4369fb2c18a0542c006645162c91"
+      "source_sha256": "433e6090ac186e61759288173e095e485e017a775a399263c9d906d45a535c18",
+      "html_sha256": "df17f3671e582f8f5f8bbf0b2f3b330751ebacff14fee90aa7d2506f72b78cb2"
     },
     "04-worker-sequenz": {
       "type": "sequence",
@@ -28,14 +28,14 @@
     "05-agent-suche": {
       "type": "sequence",
       "quality": "showcase",
-      "source_sha256": "fb4c8958265dac25f9614c5d598e498ba8d0178381159f375c5d52c21cb8f931",
-      "html_sha256": "a495e41b7df5a1c9efe9d75691c666e71737e290a4fff4403c63677c453fc2e0"
+      "source_sha256": "7a1c8e43c2b1e61471056d1a46cf8383d67109b2935437b620b625d72f2e0833",
+      "html_sha256": "3b93a1b000f42492f146a6aae04091de7c9f83c90e6c918d9ce9e35044917784"
     },
     "06-adhoc-thema": {
       "type": "workflow",
       "quality": "showcase",
-      "source_sha256": "2c6433d796e852b7c9931e4805ebe7e7fec4c249eefd3a2e49986315eae86851",
-      "html_sha256": "cf13fff438190aa81888514a1722a2451637b44f73a4c311773e1e44ac10d6af"
+      "source_sha256": "e07e521ce07a7be715ebca8786b15085e2f691d9108b0fe162c09faab7452843",
+      "html_sha256": "cd9e8e5a29ba1e88526aa378d950ac4fe3cd471f50dba76742be726fdf43ea16"
     },
     "07-datenmodell": {
       "type": "erd",
@@ -52,8 +52,8 @@
     "09-wiki-hierarchie": {
       "type": "tree",
       "quality": "showcase",
-      "source_sha256": "996fe04a50abbe25058d99a013acc5d2a331f272180cba58f5a06e14a613bf92",
-      "html_sha256": "1817cf9b9478fac3da13cfdc5fa07eb59eeb086c3b84c3fb7e6fae4ea5e3be4d"
+      "source_sha256": "0ca5d9e8bdc02b8176ee903c632bc1e70d4cc0a83e893ad094ff1715efc2cffd",
+      "html_sha256": "eccb7d7accbe5e5f636d9ea2b0a2ac0b1c3c432cc929fd0c97377ab32dbecf3b"
     },
     "10-navigationssuche": {
       "type": "workflow",

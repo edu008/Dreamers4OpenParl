@@ -10,6 +10,7 @@ OpenAPI-Schema steht unter /v1/openapi.json.
 """
 
 import asyncio
+import re
 import time
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
@@ -22,22 +23,34 @@ import openai
 import psycopg
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from psycopg_pool import ConnectionPool, PoolClosed, PoolTimeout
 from pydantic import ValidationError
 
 from parltopics import __version__
+from parltopics.agent import loop as agent_loop
 from parltopics.api import navigate, queries, reviews
 from parltopics.api.schemas import (
     AdhocActivated,
+    AdhocActivateIn,
     AdhocCreated,
     AdhocIn,
     AdhocPreview,
+    AdhocRetired,
     AdhocScope,
+    AdhocStepIn,
+    AffairRecord,
+    AffairsSummary,
+    AffairStar,
     AffairTopics,
+    AgentIn,
+    AgentOut,
+    BodyDetail,
     BodyOut,
     Calibration,
+    DocDetail,
+    DocList,
     GoldLabel,
     GraphNode,
     JobCounts,
@@ -53,22 +66,26 @@ from parltopics.api.schemas import (
     ProposalDecisionIn,
     ProposalDecisionOut,
     ProposalList,
+    Reason,
     RelatedTopic,
     ReviewIn,
     ReviewQueue,
+    ReviewSummary,
     SearchResult,
     Stats,
     TopicAffairs,
     TopicGraph,
     TopicName,
     TopicOut,
+    TopicStar,
 )
 from parltopics.classify import adhoc, proposals
 from parltopics.classify.queue import summary as job_summary
 from parltopics.config import Settings, get_settings
+from parltopics.export import affairs_csv
 from parltopics.llm import JSONExtractionError
 from parltopics.registry import Registry, RegistryError, load_registry
-from parltopics.registry.edit import TagExists
+from parltopics.registry.edit import NotAdhoc, TagExists, WrongStatus
 from parltopics.wiki.tree import (
     Page,
     TreeError,
@@ -77,26 +94,42 @@ from parltopics.wiki.tree import (
     children,
     linked_querschnitt,
     page_ids,
+    subtree_tag_ids,
 )
 
 ASSET_CACHE = "public, max-age=31536000, immutable"  # Dateinamen in assets/ tragen einen Hash
 SWAGGER = Path(__file__).parent / "static" / "swagger"  # swagger-ui-dist, Apache-2.0
 
 DESCRIPTION = """Sidecar-API von ParlTopics (PRD F10): Themen zu Geschäften aus OpenParlData,
-klassifiziert mit Apertus. Geschäfts-IDs sind OpenParlData-IDs. Alle Endpunkte lesen nur, ausser
-POST /v1/reviews für Review-Entscheide. Im Hack-MVP gibt es dafür keine Anmeldung und keine Rollen;
-an jedem Entscheid stehen Name und Zeit.
+klassifiziert mit Apertus, dazu die gespeicherten OpenParlData-Daten (Geschäfte, Texte, Dokumente,
+Parlamente). Geschäfts-IDs sind OpenParlData-IDs. Schreibend sind nur POST /v1/reviews,
+POST /v1/proposals/{proposal_id}/decision, POST /v1/adhoc, POST /v1/adhoc/{tag_id}/activate und
+POST /v1/adhoc/{tag_id}/retire; im Hack-MVP ohne Anmeldung und Rollen, an jedem Schritt stehen
+Name und Zeit. Jeder schreibende Aufruf hat einen Rückweg: Reviews und Vorschlagsentscheide mit
+undo, ein Ad-hoc-Thema mit retire, retire mit erneutem POST /v1/adhoc; gelöscht wird nichts.
+POST /v1/search/navigate und POST /v1/agent/search fragen Apertus und protokollieren jede Suche.
 
 Ohne Datenbank antworten die Endpunkte unter Geschäfte, Themen, Review und Jobs mit 503;
 /healthz und die Seiten unter /v1/pages funktionieren weiter."""
 
 TAGS = [
-    {"name": "Geschäfte", "description": "Ein Geschäft mit seinen Themen, Belegen und Versionen."},
+    {
+        "name": "Geschäfte",
+        "description": "Ein Geschäft mit Themen, Belegen und Versionen und seinen gespeicherten"
+        " OpenParlData-Daten.",
+    },
     {"name": "Themen", "description": "Tags der Registry (APS und Ad-hoc) und ihre Geschäfte."},
     {"name": "Review", "description": "Entscheide von Menschen zu Labels, mit Name und Zeit."},
-    {"name": "Suche", "description": "Volltext über Titel und Texte (de, fr, it), ohne LLM."},
+    {
+        "name": "Suche",
+        "description": "Volltext ohne Modell; Navigationssuche und Agent mit Apertus.",
+    },
     {"name": "Evaluation", "description": "Kalibrierung und Gold-Set aus den Entscheiden."},
-    {"name": "Ad-hoc", "description": "Neue Themen ohne Training: Stichwörter, Kandidaten, Jobs."},
+    {
+        "name": "Ad-hoc",
+        "description": "Neue Themen ohne Training: Stichwörter, Kandidaten, Jobs, freischalten"
+        " und zurückziehen.",
+    },
     {"name": "Jobs", "description": "Stand der Klassifikation je Aufgabe."},
     {"name": "Seiten", "description": "Seitenbaum des ParlWiki."},
     {"name": "System", "description": "Betrieb."},
@@ -129,9 +162,9 @@ NO_BUILD_PAGE = """<!doctype html>
 """
 
 LangQuery = Annotated[Lang, Query(description="Sprache der Titel, sonst Deutsch")]
-# shortcut: höchstens zwei Suchen mit Modell gleichzeitig je API-Prozess; mit mehreren Prozessen
-# oder vielen Nutzern ein Limit je Nutzer und Minute (PRD F10, Rate-Limit).
-NAVIGATE_PARALLEL = 2
+# shortcut: höchstens zwei Suchen mit Modell (Navigation und Agent) gleichzeitig je API-Prozess;
+# mit mehreren Prozessen oder vielen Nutzern ein Limit je Nutzer und Minute (PRD F10, Rate-Limit).
+LLM_SEARCH_PARALLEL = 2
 
 
 def page_out(page: Page, lang: Lang) -> PageOut:
@@ -220,7 +253,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     Conn = Annotated[psycopg.Connection, Depends(connection)]
     no_database = {503: {"description": "Datenbank nicht erreichbar"}}
     no_registry = {503: {"description": "Registry nicht lesbar"}}
-    navigations = asyncio.Semaphore(NAVIGATE_PARALLEL)
+    llm_searches = asyncio.Semaphore(LLM_SEARCH_PARALLEL)
 
     @app.get("/healthz", tags=["System"], summary="Lebenszeichen der API")
     def healthz() -> dict[str, str]:
@@ -267,6 +300,69 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(404, f"Geschäft {affair_id} unbekannt")
         return AffairTopics(**affair)
 
+    @api.get(
+        "/affairs/{affair_id}",
+        tags=["Geschäfte"],
+        summary="Gespeicherte Daten eines Geschäfts",
+        responses={404: {"description": "Geschäft unbekannt"}, **no_database},
+    )
+    def affair_record(affair_id: int, conn: Conn) -> AffairRecord:
+        """Das Geschäft, wie es aus OpenParlData in der Datenbank liegt: alle Felder von
+        affairs.raw, Sprachfelder geschachtelt wie bei OpenParlData ({"de": …, "fr": …}), dazu
+        das Parlament, alle Texte und die ersten 20 Dokumente. Nicht gespeichert und darum nicht
+        dabei: Events, Contributors, Votings, Speeches, Agendas, Meetings und externe Links."""
+        record = queries.affair_record(conn, affair_id)
+        if record is None:
+            raise HTTPException(404, f"Geschäft {affair_id} unbekannt")
+        return AffairRecord(**record)
+
+    @api.get(
+        "/affairs/{affair_id}/docs",
+        tags=["Geschäfte"],
+        summary="Dokumente eines Geschäfts",
+        responses={404: {"description": "Geschäft unbekannt"}, **no_database},
+    )
+    def affair_docs(
+        affair_id: int,
+        conn: Conn,
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> DocList:
+        """Alle Dokumente des Geschäfts seitenweise, nach Datum, ohne ihren Text."""
+        total, items = queries.affair_docs(conn, affair_id, limit=limit, offset=offset)
+        if total == 0 and not queries.affair_exists(conn, affair_id):
+            raise HTTPException(404, f"Geschäft {affair_id} unbekannt")
+        return DocList(total=total, limit=limit, offset=offset, items=items)
+
+    @api.get(
+        "/docs/{doc_id}",
+        tags=["Geschäfte"],
+        summary="Ein Dokument mit Text",
+        responses={404: {"description": "Dokument unbekannt"}, **no_database},
+    )
+    def doc_detail(doc_id: int, conn: Conn) -> DocDetail:
+        """Ein Dokument mit dem Text, der aus der Datei extrahiert wurde; er kann sehr lang sein.
+        Nicht verwechseln: Die API-Dokumentation liegt unter /v1/docs."""
+        found = queries.doc(conn, doc_id)
+        if found is None:
+            raise HTTPException(404, f"Dokument {doc_id} unbekannt")
+        return DocDetail(**found)
+
+    @api.get(
+        "/bodies/{body_key}",
+        tags=["Geschäfte"],
+        summary="Gespeicherte Daten eines Parlaments",
+        responses={404: {"description": "Parlament unbekannt"}, **no_database},
+    )
+    def body_detail(body_key: str, conn: Conn) -> BodyDetail:
+        """Das Parlament, wie es in bodies.raw liegt (Namen, Typ, Sprachen, Sitze, Wappen), mit
+        der Zahl seiner Geschäfte und der klassifizierten. GET /v1/bodies listet nur Parlamente
+        mit Labels."""
+        found = queries.body_record(conn, body_key)
+        if found is None:
+            raise HTTPException(404, f"Parlament {body_key} unbekannt")
+        return BodyDetail(**found)
+
     @api.get("/topics", tags=["Themen"], summary="Alle Themen", responses=no_database)
     def topics(
         conn: Conn,
@@ -308,8 +404,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         return TopicAffairs(total=total, limit=limit, offset=offset, items=items)
 
+    PageFilter = Annotated[
+        str | None, Query(description="nur Themen dieser Seite und der Seiten darunter")
+    ]
+
+    def subtree(page_id: str) -> list[str]:
+        """Tags der Seite und ihrer Unterseiten; 404, wenn es die Seite nicht gibt."""
+        _, tree = load()
+        if page_id not in tree:
+            raise HTTPException(404, f"Seite {page_id} gibt es nicht")
+        return subtree_tag_ids(tree, page_id)
+
     @api.get(
-        "/reviews/queue", tags=["Review"], summary="Labels mit Prüfbedarf", responses=no_database
+        "/reviews/queue",
+        tags=["Review"],
+        summary="Labels mit Prüfbedarf",
+        responses={404: {"description": "Seite unbekannt"}, **no_database},
     )
     def review_queue(
         conn: Conn,
@@ -319,12 +429,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ] = "open",
         tag_id: Annotated[str | None, Query(description="nur dieses Thema")] = None,
         body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
+        page_id: PageFilter = None,
+        reason: Annotated[
+            list[Reason] | None,
+            Query(description="nur Labels mit einem dieser Gründe; mehrfach möglich"),
+        ] = None,
         limit: Annotated[int, Query(ge=1, le=500)] = 50,
         offset: Annotated[int, Query(ge=0)] = 0,
     ) -> ReviewQueue:
         """Warteschlange der Review-Seite (F9). Offen sind aktive Labels ohne Entscheid mit
         mindestens einem Grund: Konfidenz unter `threshold`, kein oder kein gefundener Beleg,
-        Stichprobe. Erledigt sind Labels mit Entscheid, auch verworfene."""
+        Stichprobe. Erledigt sind Labels mit Entscheid, auch verworfene. Der Filter «Beleg» der
+        Web-App ist reason=no_evidence&reason=evidence_unverified."""
         total, rows = queries.review_queue(
             conn,
             state=state,
@@ -333,6 +449,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             threshold=settings.confidence_threshold,
             limit=limit,
             offset=offset,
+            tag_ids=subtree(page_id) if page_id else None,
+            reasons=reason,
         )
         return ReviewQueue(
             threshold=settings.confidence_threshold,
@@ -340,6 +458,44 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             limit=limit,
             offset=offset,
             items=[{**row, "label": row} for row in rows],
+        )
+
+    @api.get(
+        "/reviews/summary",
+        tags=["Review"],
+        summary="Zähler der Warteschlange",
+        responses={404: {"description": "Seite unbekannt"}, **no_database},
+    )
+    def review_summary(
+        conn: Conn,
+        body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
+        page_id: PageFilter = None,
+    ) -> ReviewSummary:
+        """Wie viele Labels offen und erledigt sind, und die offenen je Grund, Bereich,
+        Parlament und Thema: für Filter, Zähler und `threshold`, ohne die Warteschlange zu
+        laden. Die Zähler folgen body_key und page_id."""
+        _, tree = load()
+        summary = queries.review_summary(
+            conn,
+            body_key=body_key,
+            tag_ids=subtree(page_id) if page_id else None,
+            threshold=settings.confidence_threshold,
+        )
+        return ReviewSummary(
+            threshold=settings.confidence_threshold,
+            open=summary["open"],
+            done=summary["done"],
+            by_reason=summary["reason"],
+            by_area=[
+                {
+                    "page_id": row["key"],
+                    "title": tree[row["key"]].title if row["key"] in tree else row["key"],
+                    "count": row["count"],
+                }
+                for row in summary["area"]
+            ],
+            by_body=summary["body"],
+            by_topic=summary["topic"],
         )
 
     @api.get(
@@ -387,17 +543,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         conn: Conn,
         area: Annotated[
             str | None,
-            Query(description="APS-Bereich, z. B. aps:6; ohne: ein Knoten je Bereich"),
+            Query(
+                description="Bereich wie aps:6, all für alle Themen; ohne: ein Knoten je Bereich"
+            ),
         ] = None,
         min_weight: Annotated[int, Query(ge=1, description="nur Kanten ab so vielen")] = 1,
         limit: Annotated[int, Query(ge=1, le=500, description="höchstens so viele Kanten")] = 60,
         lang: LangQuery = "de",
     ) -> TopicGraph:
-        """Themen untereinander (F20): Ohne area ein Knoten je APS-Bereich, mit area die Themen
-        dieses Bereichs. Kantengewicht = Zahl der Geschäfte, die beide Knoten tragen. Das
-        Layout rechnet die Web-App."""
+        """Themen untereinander (F20, Sicht 3): Ohne area ein Knoten je APS-Bereich, mit area
+        die Themen dieses Bereichs, mit area=all jedes freigegebene Thema (APS und Ad-hoc).
+        Kantengewicht = Zahl der Geschäfte, die beide Knoten tragen. Das Layout rechnet die
+        Web-App."""
         _, tree = load()
-        if area is not None and (area not in tree or tree[area].kind != "bereich"):
+        if area not in (None, "all") and (area not in tree or tree[area].kind != "bereich"):
             raise HTTPException(404, f"Bereich {area} gibt es nicht")
         nodes, edges, hidden = queries.topic_graph(
             conn, area=area, min_weight=min_weight, limit=limit
@@ -412,13 +571,60 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     else node["node"],
                     kind=tree[node["node"]].kind if node["node"] in tree else "tag",
                     count=node["count"],
-                    group=node["node"].split(".")[0],
+                    group=node["node"].split(".")[0]
+                    if node["node"].startswith("aps:")
+                    else "adhoc",
                 )
                 for node in nodes
             ],
             edges=edges,
             hidden=hidden,
         )
+
+    @api.get(
+        "/graph/topics/{tag_id}",
+        tags=["Themen"],
+        summary="Graph: ein Thema und seine Geschäfte",
+        responses={404: {"description": "Thema unbekannt"}, **no_database},
+    )
+    def graph_topic(
+        tag_id: str,
+        conn: Conn,
+        min_confidence: Annotated[float, Query(ge=0, le=1)] = 0.0,
+        limit: Annotated[int, Query(ge=1, le=200)] = 200,
+    ) -> TopicStar:
+        """Sicht 1 (PRD 7.5): das Thema in der Mitte, seine Geschäfte darum, nach Konfidenz und
+        höchstens 200. Dieselben Zeilen wie GET /v1/topics/{tag_id}/affairs."""
+        name = queries.tag_name(conn, tag_id)
+        if name is None:
+            raise HTTPException(404, f"Thema {tag_id} unbekannt")
+        total, items = queries.topic_affairs(
+            conn,
+            [tag_id],
+            body_key=None,
+            date_from=None,
+            date_to=None,
+            min_confidence=min_confidence,
+            limit=limit,
+            offset=0,
+        )
+        return TopicStar(center=TopicName(tag_id=tag_id, name_de=name), total=total, nodes=items)
+
+    @api.get(
+        "/graph/affairs/{affair_id}",
+        tags=["Geschäfte"],
+        summary="Graph: ein Geschäft und seine Nachbarn",
+        responses={404: {"description": "Geschäft unbekannt"}, **no_database},
+    )
+    def graph_affair(
+        affair_id: int, conn: Conn, limit: Annotated[int, Query(ge=1, le=50)] = 50
+    ) -> AffairStar:
+        """Sicht 2 (PRD 7.5): das Geschäft mit seinen aktiven Themen und die Geschäfte, die
+        Themen mit ihm teilen, höchstens 50. Ohne aktives Thema keine Nachbarn."""
+        center = queries.hits(conn, [affair_id])
+        if not center:
+            raise HTTPException(404, f"Geschäft {affair_id} unbekannt")
+        return AffairStar(center=center[0], neighbours=queries.neighbours(conn, affair_id, limit))
 
     @api.get("/proposals", tags=["Review"], summary="Tag-Vorschläge", responses=no_database)
     def proposal_list(
@@ -440,7 +646,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         summary="Entscheid zu einem Tag-Vorschlag",
         responses={
             404: {"description": "Vorschlag unbekannt"},
-            409: {"description": "Schon entschieden, oder das Tag gibt es schon"},
+            409: {
+                "description": "Schon entschieden, bei undo noch nicht entschieden, oder das Tag"
+                " gibt es schon"
+            },
             422: {"description": "merged ohne Tag oder ungültiges Tag"},
             **no_database,
         },
@@ -450,7 +659,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> ProposalDecisionOut:
         """accepted legt ein Ad-hoc-Thema mit Status proposed an und öffnet Jobs für die
         betroffenen Geschäfte; ein Mensch schaltet es später frei (/v1/adhoc/{tag_id}/activate).
-        merged und rejected halten den Entscheid mit Name und Zeit fest."""
+        merged und rejected halten den Entscheid mit Name und Zeit fest.
+
+        undo nimmt den Entscheid zurück: Der Vorschlag ist wieder offen, decided_by und
+        decided_at nennen, wer zurückgenommen hat. Hat accepted ein Thema angelegt, wird es
+        zurückgezogen wie mit /v1/adhoc/{tag_id}/retire (tag_id in der Antwort). Ein neuer
+        Entscheid ist danach möglich; accepted holt das Thema zurück."""
         try:
             decided = proposals.decide(
                 conn,
@@ -465,7 +679,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         except proposals.ProposalNotFound as error:
             raise HTTPException(404, str(error)) from error
-        except (proposals.ProposalDecided, TagExists) as error:
+        except (proposals.ProposalDecided, proposals.ProposalOpen, TagExists) as error:
             raise HTTPException(409, str(error)) from error
         except (ValueError, RegistryError) as error:
             raise HTTPException(422, str(error)) from error
@@ -482,7 +696,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         summary="Entscheid zum Label eines Themas",
         responses={
             404: {"description": "Kein passendes Label, Thema unbekannt oder Geschäft ohne Text"},
-            409: {"description": "Für das Thema gibt es schon ein aktives Label"},
+            409: {
+                "description": "Für das Thema gibt es schon ein aktives Label, oder undo auf"
+                " einem zurückgezogenen Thema"
+            },
             503: {"description": "Datenbank nicht erreichbar oder Migration 0004 fehlt (undo)"},
         },
     )
@@ -550,7 +767,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Legt das Thema mit Status proposed in der Registry an und öffnet Jobs
         classify:adhoc:<name> für Kandidaten und Stichprobe. Die Worker prüfen sie mit
         Apertus; die Treffer erscheinen sofort als vorläufig (tag_status proposed). Ohne
-        Anmeldung im Hack-MVP; user_name steht im Tag (created.by) und im Lauf."""
+        Anmeldung im Hack-MVP; user_name steht im Tag (created.by) und im Lauf.
+
+        Rückweg: /v1/adhoc/{tag_id}/retire. Ein zurückgezogenes Thema gleichen Namens kommt
+        hier mit dem neuen Inhalt als proposed zurück, seine geschlossenen Jobs öffnen wieder."""
         try:
             created = adhoc.create(
                 conn,
@@ -582,22 +802,57 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         summary="Ad-hoc-Thema freischalten",
         responses={
             404: {"description": "Kein Ad-hoc-Thema der Registry"},
-            409: {"description": "Schon aktiv"},
+            409: {"description": "Nicht proposed: schon aktiv oder zurückgezogen"},
             **no_database,
         },
     )
-    def adhoc_activate(tag_id: str, conn: Conn) -> AdhocActivated:
+    def adhoc_activate(
+        tag_id: str, conn: Conn, body: AdhocActivateIn | None = None
+    ) -> AdhocActivated:
         """Setzt ein bewährtes Thema von proposed auf active. Ab dann bietet Stufe 2 von
-        classify:aps es allen Geschäften an, und es bekommt eine Querschnittsseite."""
-        registry, _ = load()
-        tag = next((tag for tag in registry.tags if tag.tag_id == tag_id), None)
-        if tag is None or tag.scheme != "adhoc":
-            raise HTTPException(404, f"{tag_id} ist kein Ad-hoc-Thema der Registry")
-        if tag.status == "active":
-            raise HTTPException(409, f"{tag_id} ist schon aktiv")
-        registry = adhoc.activate(conn, settings, tag_id)
+        classify:aps es allen Geschäften an, und es bekommt eine Querschnittsseite. Name und
+        Zeit stehen im Tag (changes); ohne user_name steht dort «api». Rückweg:
+        /v1/adhoc/{tag_id}/retire."""
+        by = body.user_name if body and body.user_name else "api"
+        try:
+            registry = adhoc.activate(conn, settings, tag_id, by=by)
+        except NotAdhoc as error:
+            raise HTTPException(404, str(error)) from error
+        except WrongStatus as error:
+            raise HTTPException(409, str(error)) from error
         return AdhocActivated(
             tag_id=tag_id, status="active", registry_version=registry.registry_version
+        )
+
+    @api.post(
+        "/adhoc/{tag_id}/retire",
+        tags=["Ad-hoc"],
+        summary="Ad-hoc-Thema zurückziehen",
+        responses={
+            404: {"description": "Kein Ad-hoc-Thema der Registry"},
+            409: {"description": "Schon zurückgezogen"},
+            **no_database,
+        },
+    )
+    def adhoc_retire(tag_id: str, body: AdhocStepIn, conn: Conn) -> AdhocRetired:
+        """Rückweg zu POST /v1/adhoc und zum Freischalten: setzt das Thema auf retired, schliesst
+        alle seine Jobs (failed, Grund retired) und setzt seine Labels ohne menschlichen
+        Entscheid auf superseded; bestätigte und von Hand gesetzte bleiben. Gelöscht wird nichts;
+        Name und Zeit stehen im Tag (changes). Schlug ein Aufruf halb fehl, holt ein zweiter den
+        Rest nach. POST /v1/adhoc mit demselben Namen holt das Thema als proposed zurück, die
+        Worker prüfen die Geschäfte dann neu."""
+        try:
+            retired = adhoc.retire(conn, settings, tag_id, by=body.user_name)
+        except NotAdhoc as error:
+            raise HTTPException(404, str(error)) from error
+        except WrongStatus as error:
+            raise HTTPException(409, str(error)) from error
+        return AdhocRetired(
+            tag_id=tag_id,
+            status="retired",
+            registry_version=retired.registry_version,
+            jobs=retired.jobs,
+            labels=retired.labels,
         )
 
     @api.get(
@@ -629,14 +884,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def search(
         conn: Conn,
         q: Annotated[
-            str,
+            str | None,
             Query(
                 min_length=2,
                 max_length=200,
                 description='Suchbegriffe; "…" für eine Wortfolge, -wort schliesst aus,'
-                " or für oder",
+                " or für oder; ohne q die neuesten Geschäfte",
             ),
-        ],
+        ] = None,
         topic: Annotated[str | None, Query(description="nur mit diesem aktiven Thema")] = None,
         body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
         level: Annotated[
@@ -654,7 +909,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Volltextsuche über die Klassifikationstexte (Titel und Texte), ohne Sprachangabe: Die
         Begriffe werden deutsch, französisch und italienisch auf ihren Stamm zurückgeführt. Rang
         nach ts_rank_cd, Treffer im Titel zählen mehr. Je Treffer ein Ausschnitt mit markierten
-        Begriffen und die aktiven Themen."""
+        Begriffen und die aktiven Themen. Ohne q: alle Geschäfte mit Klassifikationstext,
+        neueste zuerst, ohne Rang und Ausschnitt; die Filter gelten gleich."""
         start = time.perf_counter()
         total, items = queries.search(
             conn,
@@ -688,11 +944,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         Geschäfte und antwortet in belegten Aussagen. Findet der Baum nichts, liefert die
         Volltextsuche die Kandidaten. Ohne Treffer keine Antwort. Dauert einige Sekunden; jede
         Suche steht in search_runs."""
-        if navigations.locked():
+        if llm_searches.locked():
             raise HTTPException(429, "Zu viele Suchen gleichzeitig, bitte gleich nochmals")
         registry, tree = load()
         start = time.perf_counter()
-        async with navigations:
+        async with llm_searches:
             try:
                 searched = await navigate.search(settings, conn, registry, tree, body.query)
             except openai.APIError as error:
@@ -732,11 +988,51 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             search_run_id=searched.run_id,
         )
 
+    @api.post(
+        "/agent/search",
+        tags=["Suche"],
+        summary="Agent: Frage mit Werkzeugen beantworten",
+        responses={
+            429: {"description": "Zu viele Suchen gleichzeitig"},
+            503: {"description": "LLM, Registry oder Datenbank nicht erreichbar"},
+        },
+    )
+    async def agent_search(body: AgentIn, conn: Conn) -> AgentOut:
+        """Agent (F21, ARCHITEKTUR 4): Apertus 70B beantwortet die Frage mit höchstens sechs
+        lesenden Werkzeugen (Volltext, Tags, Geschäft, Zählung, Navigationssuche, Seite,
+        Stichwörter, Entwurf eines Ad-hoc-Themas) und zitiert nur Geschäfte, die ein Werkzeug
+        geliefert hat. Dauert bis zu einer Minute; jede Sitzung steht in agent_runs. Ein
+        Entwurf in proposal legt nichts an: Erst POST /v1/adhoc durch einen Menschen tut das."""
+        if llm_searches.locked():
+            raise HTTPException(429, "Zu viele Suchen gleichzeitig, bitte gleich nochmals")
+        registry, tree = load()
+        start = time.perf_counter()
+        async with llm_searches:
+            try:
+                ran = await agent_loop.search(settings, conn, registry, tree, body.query)
+            except openai.APIError as error:
+                elapsed = round((time.perf_counter() - start) * 1000)
+                await asyncio.to_thread(agent_loop.log_error, settings, conn, body.query, elapsed)
+                raise HTTPException(503, f"LLM nicht erreichbar: {type(error).__name__}") from error
+        outcome = ran.outcome
+        return AgentOut(
+            query=body.query,
+            answer=outcome.answer,
+            cited_affair_ids=outcome.cited_ids,
+            hits=await asyncio.to_thread(queries.hits, conn, outcome.cited_ids),
+            tool_calls=outcome.tool_calls,
+            proposal=outcome.proposal,
+            status=outcome.status,
+            steps=outcome.steps,
+            duration_ms=ran.duration_ms,
+            agent_run_id=ran.run_id,
+        )
+
     @api.get("/pages", tags=["Seiten"], summary="Seitenbaum des ParlWiki", responses=no_registry)
     def pages(lang: LangQuery = "de") -> PageTree:
         """Seitenbaum aus der Registry: Wurzel, Bereiche, Kapitel, Tag- und Querschnittsseiten.
 
-        Status, Kennzahlen und Zusammenfassungen kommen mit wiki_pages in Meilenstein M3 dazu.
+        Status, Kennzahl und Zusammenfassung einer Seite liefert GET /v1/pages/{page_id}.
         """
         registry, tree = load()
         return PageTree(
@@ -752,11 +1048,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         responses={404: {"description": "Seite unbekannt"}, **no_registry},
     )
     def page_detail(page_id: str, lang: LangQuery = "de") -> PageDetail:
-        """Eine Seite mit Vorfahren, Unterseiten und Querschnittsverweisen, ohne den ganzen Baum."""
+        """Eine Seite mit Vorfahren, Unterseiten und Querschnittsverweisen, ohne den ganzen Baum.
+        summary kommt aus dem Seitenlauf (parltopics pages): Status, Zahl der Geschäfte,
+        Kurzzusammenfassung und belegte Aussagen; ohne Lauf oder ohne Datenbank null."""
         registry, tree = load()
         page = tree.get(page_id)
         if page is None:
             raise HTTPException(404, f"Seite {page_id} gibt es nicht")
+        summary = None
+        try:
+            with pool.connection(timeout=1) as conn:
+                summary = queries.wiki_page(conn, page_id)
+        except (PoolClosed, PoolTimeout, psycopg.Error):
+            pass  # ohne Datenbank oder Seitenlauf: die Seite kommt aus der Registry
         linked = (
             [tree[other] for other in page.linked_from if other in tree]
             if page.kind == "querschnitt"
@@ -775,24 +1079,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             related=[page_out(tree[other], lang) for other in tag.related if other in tree]
             if tag
             else [],
+            summary=summary,
         )
 
-    @api.get(
-        "/pages/{page_id}/affairs",
-        tags=["Seiten"],
-        summary="Geschäfte einer Seite und ihrer Unterseiten",
-        responses={
-            404: {"description": "Seite unbekannt"},
-            503: {"description": "Registry nicht lesbar oder Datenbank nicht erreichbar"},
-        },
-    )
-    def page_affairs(
-        page_id: str,
-        conn: Conn,
+    def affair_filters(
         body_key: Annotated[str | None, Query(description="Parlament, z. B. CHE oder ZH")] = None,
         level: Annotated[
-            Literal["country", "canton", "city", "municipality"] | None,
-            Query(description="Ebene des Parlaments"),
+            list[Literal["country", "canton", "city", "municipality"]] | None,
+            Query(description="Ebene des Parlaments; mehrfach möglich, z. B. Bund und Kantone"),
         ] = None,
         affair_type: Annotated[
             str | None, Query(alias="type", description="harmonisierter Typ, z. B. Motion")
@@ -800,6 +1094,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         date_from: Annotated[date | None, Query(alias="from", description="ab Datum")] = None,
         date_to: Annotated[date | None, Query(alias="to", description="bis Datum")] = None,
         min_confidence: Annotated[float, Query(ge=0, le=1)] = 0.0,
+        running: Annotated[
+            bool,
+            Query(description="nur laufende Geschäfte: ohne Enddatum, nicht als inaktiv markiert"),
+        ] = False,
+    ) -> dict:
+        """Filter der Geschäfte einer Seite, mit den Namen von queries.topic_affairs. Die DVS-Liste
+        (F12) ist level=country&level=canton&running=true auf adhoc:digitalisierung-breit."""
+        return {
+            "body_key": body_key,
+            "level": level,
+            "affair_type": affair_type,
+            "date_from": date_from,
+            "date_to": date_to,
+            "min_confidence": min_confidence,
+            "running": running,
+        }
+
+    AffairFilters = Annotated[dict, Depends(affair_filters)]
+    page_errors = {
+        404: {"description": "Seite unbekannt"},
+        503: {"description": "Registry nicht lesbar oder Datenbank nicht erreichbar"},
+    }
+
+    @api.get(
+        "/pages/{page_id}/affairs",
+        tags=["Seiten"],
+        summary="Geschäfte einer Seite und ihrer Unterseiten",
+        responses=page_errors,
+    )
+    def page_affairs(
+        page_id: str,
+        conn: Conn,
+        filters: AffairFilters,
         limit: Annotated[int, Query(ge=1, le=500)] = 50,
         offset: Annotated[int, Query(ge=0)] = 0,
     ) -> TopicAffairs:
@@ -807,27 +1134,42 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         Tag- oder Querschnittsseite die ihres Tags, auf Kapitel, Bereich und Heart die aller
         Unterseiten. Eine Zeile je Geschäft und Thema: Ein Geschäft mit zwei Themen eines
         Kapitels erscheint zweimal. Verlinkte Querschnittsseiten zählen nicht dazu."""
-        _, tree = load()
-        if page_id not in tree:
-            raise HTTPException(404, f"Seite {page_id} gibt es nicht")
-        tag_ids = [
-            page.tag_id
-            for page in tree.values()
-            if page.tag_id and (page.page_id == page_id or page_id in ancestors(tree, page.page_id))
-        ]
         total, items = queries.topic_affairs(
-            conn,
-            tag_ids,
-            body_key=body_key,
-            level=level,
-            affair_type=affair_type,
-            date_from=date_from,
-            date_to=date_to,
-            min_confidence=min_confidence,
-            limit=limit,
-            offset=offset,
+            conn, subtree(page_id), **filters, limit=limit, offset=offset
         )
         return TopicAffairs(total=total, limit=limit, offset=offset, items=items)
+
+    @api.get(
+        "/pages/{page_id}/affairs/summary",
+        tags=["Seiten"],
+        summary="Auswertung der Geschäfte einer Seite",
+        responses=page_errors,
+    )
+    def page_affairs_summary(page_id: str, conn: Conn, filters: AffairFilters) -> AffairsSummary:
+        """Kennzahlen und Verteilungen wie die Auswertung der Web-App, über alle Geschäfte der
+        Seite statt einer geladenen Auswahl. Die Kennzahlen folgen allen Filtern; jede
+        Verteilung lässt ihren eigenen weg (by_level ohne level, by_body ohne body_key, by_year
+        ohne from und to, by_type ohne type), damit sie die Alternativen zeigt."""
+        return AffairsSummary(**queries.page_summary(conn, subtree(page_id), **filters))
+
+    @api.get(
+        "/pages/{page_id}/affairs.csv",
+        tags=["Seiten"],
+        summary="Geschäfte einer Seite als CSV",
+        response_class=StreamingResponse,
+        responses={200: {"content": {"text/csv": {}}}, **page_errors},
+    )
+    def page_affairs_csv(page_id: str, conn: Conn, filters: AffairFilters) -> StreamingResponse:
+        """Alle Zeilen wie GET /v1/pages/{page_id}/affairs, ohne Grenze, als CSV wie der Export
+        der Web-App: Semikolon, UTF-8 mit BOM, Formelzeichen entschärft. Die DVS-Liste (F12)
+        ist /v1/pages/adhoc:digitalisierung-breit/affairs.csv."""
+        rows = queries.stream_topic_affairs(conn, subtree(page_id), **filters)
+        name = re.sub(r"[^a-z0-9]+", "-", page_id, flags=re.IGNORECASE)
+        return StreamingResponse(
+            affairs_csv(rows),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{name}.csv"'},
+        )
 
     app.include_router(api)
 

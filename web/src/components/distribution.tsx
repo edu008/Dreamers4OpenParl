@@ -40,7 +40,7 @@ export function Distribution({
                 </span>
                 <span aria-hidden="true" className="h-1.5 bg-border">
                   <span
-                    className="block h-full bg-primary"
+                    className="block h-full bg-chart-1"
                     style={{ width: `${(row.count / max) * 100}%` }}
                   />
                 </span>

@@ -1,4 +1,5 @@
-"""Job-Queue in PostgreSQL: Jobs öffnen, übernehmen, Heartbeat, Aufräumen, Ergebnis schreiben.
+"""Job-Queue in PostgreSQL: Jobs öffnen und schliessen, übernehmen, Heartbeat, Aufräumen, Ergebnis
+schreiben.
 
 PRD 7.7, ARCHITEKTUR 3.2, ADR 0002. Jeder Statuswechsel steht in job_events. Ein Worker schreibt
 nur, solange sein Job noch pending ist und seine worker_id trägt (Besitzprüfung). Labels werden nie
@@ -6,6 +7,7 @@ gelöscht, nur auf superseded oder rejected gesetzt. Alle Funktionen erwarten ei
 Autocommit; was zusammengehört, läuft in einer eigenen Transaktion.
 """
 
+import re
 from dataclasses import dataclass
 from datetime import date
 
@@ -113,7 +115,8 @@ INSERT INTO job_events (affair_id, task, to_status, reason, run_id)
 SELECT affair_id, %(task)s, 'open', 'new', %(run_id)s FROM inserted
 """
 # Wieder öffnen (PRD 7.7): done mit anderem Text, Prompt oder scheme_hash; failed nur mit neuem
-# Prompt; offene Jobs früherer Läufe übernimmt der neue Lauf. pending gehört einem Worker.
+# Prompt oder nach retire (CLOSE); offene Jobs früherer Läufe übernimmt der neue Lauf. pending
+# gehört einem Worker.
 _OPEN_STALE = """
 WITH scope AS ({scope}),
 stale AS (
@@ -126,7 +129,8 @@ stale AS (
            OR (j.status = 'done' AND (j.input_hash IS DISTINCT FROM i.input_hash
                                       OR j.prompt_version IS DISTINCT FROM %(prompt_version)s
                                       OR j.scheme_hash IS DISTINCT FROM %(scheme_hash)s))
-           OR (j.status = 'failed' AND r.prompt_version IS DISTINCT FROM %(prompt_version)s))
+           OR (j.status = 'failed' AND (r.prompt_version IS DISTINCT FROM %(prompt_version)s
+                                        OR j.last_error = 'retired')))
     FOR UPDATE OF j
 ),
 reopened AS (
@@ -159,6 +163,33 @@ WHERE r.id = ANY(%s) AND r.finished_at IS NULL
   AND NOT EXISTS (
       SELECT 1 FROM classification_jobs j WHERE j.run_id = r.id AND j.status IN ('open', 'pending')
   )
+"""
+# Zurückgezogenes Tag (F10): alle Jobs seiner Aufgabe auf failed mit Grund retired, auch erledigte,
+# weil ihre Labels nicht mehr gelten. Legt man das Tag neu an, öffnet OPEN_STALE sie wieder.
+CLOSE = """
+WITH closing AS (
+    SELECT affair_id, status FROM classification_jobs
+    WHERE task = %(task)s AND status <> 'failed'
+    FOR UPDATE
+),
+closed AS (
+    UPDATE classification_jobs j
+    SET status = 'failed', worker_id = NULL, locked_at = NULL, last_error = 'retired',
+        updated_at = now()
+    FROM closing
+    WHERE j.affair_id = closing.affair_id AND j.task = %(task)s
+    RETURNING j.affair_id, closing.status AS old_status, j.run_id
+),
+logged AS (
+    INSERT INTO job_events (affair_id, task, from_status, to_status, reason, run_id)
+    SELECT affair_id, %(task)s, old_status, 'failed', 'retired', run_id FROM closed
+),
+counted AS (
+    UPDATE classification_runs r SET n_failed = r.n_failed + c.n
+    FROM (SELECT run_id, count(*) AS n FROM closed WHERE old_status <> 'done' GROUP BY run_id) c
+    WHERE r.id = c.run_id
+)
+SELECT run_id FROM closed
 """
 CLAIM = """
 WITH next AS (
@@ -342,6 +373,19 @@ def open_jobs(
     return OpenResult(run_id=run_id, total=total, new=new, reopened=reopened)
 
 
+def close_jobs(conn: psycopg.Connection, task: str) -> int:
+    """Schliesst die Jobs einer Aufgabe, deren Tag zurückgezogen ist; gibt ihre Zahl zurück.
+
+    Ein Worker, der einen davon gerade bearbeitet, verliert den Besitz und schreibt nichts.
+    """
+    with conn.transaction():
+        runs = [run_id for (run_id,) in conn.execute(CLOSE, {"task": task}).fetchall()]
+        open_runs = sorted({run_id for run_id in runs if run_id is not None})
+        if open_runs:
+            conn.execute(CLOSE_RUNS, (open_runs,))
+    return len(runs)
+
+
 def claim(
     conn: psycopg.Connection,
     worker_id: str,
@@ -389,16 +433,40 @@ def release_stale(conn: psycopg.Connection, timeout_seconds: int) -> list[tuple[
     return [(affair_id, task, status) for affair_id, task, status, _ in released]
 
 
+# Typografische Zeichen schreibt das Modell oft anders als der Text («» statt „“, – statt -).
+_TYPO = str.maketrans(
+    {c: '"' for c in "„“”«»"} | {c: "'" for c in "‹›‘’‚"} | {c: "-" for c in "–—‑"}
+)
+_GAP = re.compile(r"\s*(?:…|\.\.\.)\s*")
+EVIDENCE_PART_MIN = 12  # kürzere Teile eines Belegs mit … zählen nicht, sie passen fast überall
+
+
+def evidence_parts(evidence: str) -> list[str]:
+    """Ein Beleg mit Auslassung (…) wird Teil für Teil geprüft; jeder Teil muss im Text stehen.
+
+    shortcut: die Reihenfolge der Teile wird nicht geprüft, erst bei Missbrauch nachrüsten.
+    """
+    normal = evidence.translate(_TYPO)
+    parts = [part for part in _GAP.split(normal) if len(part) >= EVIDENCE_PART_MIN]
+    return parts or [normal]
+
+
 def verify_evidence(conn: psycopg.Connection, text: str, evidences: list[str]) -> list[bool]:
     """Belegprüfung mit pg_trgm (PRD 7.3): steht der Beleg unscharf wörtlich im Text?"""
     if not evidences:
         return []
+    numbered = [(n, part) for n, e in enumerate(evidences) for part in evidence_parts(e)]
     rows = conn.execute(
-        "SELECT word_similarity(e, %s) >= %s"
-        " FROM unnest(%s::text[]) WITH ORDINALITY AS u(e, n) ORDER BY n",
-        (text, EVIDENCE_SIMILARITY, evidences),
+        "SELECT n, bool_and(word_similarity(e, %s) >= %s)"
+        " FROM unnest(%s::int[], %s::text[]) AS u(n, e) GROUP BY n ORDER BY n",
+        (
+            text.translate(_TYPO),
+            EVIDENCE_SIMILARITY,
+            [n for n, _ in numbered],
+            [part for _, part in numbered],
+        ),
     ).fetchall()
-    return [verified for (verified,) in rows]
+    return [verified for _, verified in rows]
 
 
 def finish(conn: psycopg.Connection, job: Job, worker_id: str, result: Result) -> bool:

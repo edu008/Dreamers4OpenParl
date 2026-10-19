@@ -182,7 +182,7 @@ aps:1.2.1:
 aps:1.2.2:
   en: "Public administration"
   it: "Amministrazione"
-  de: Öffentliche Verwaltung, Verwaltungsreform, Personal und Löhne des öffentlichen Dienstes, Behördenorganisation, E-Government-Organisation, Beschaffungswesen.
+  de: Öffentliche Verwaltung, Verwaltungsreform, Personal und Löhne des öffentlichen Dienstes, Behördenorganisation, E-Government-Organisation, Beschaffungswesen. Nicht, nur weil eine Verwaltung, ein Departement oder eine Regierung etwas umsetzen, prüfen oder beantworten soll.
   alt: {de: [Staatspersonal, Bundespersonal, öffentliche Beschaffung, Submission, Verwaltungsreform], fr: [administration publique, personnel de l'Etat, marchés publics], it: [amministrazione pubblica, personale dello Stato, appalti pubblici]}
 aps:1.2.3:
   en: "Concordance"
@@ -247,8 +247,8 @@ aps:2.1.2:
 aps:2.1.3:
   en: "Popular initiative"
   it: "Iniziativa popolare"
-  de: Volksinitiativen und Gemeindeinitiativen — Gültigkeit, Behandlung, Gegenvorschläge.
-  alt: {de: [Initiative, Gegenvorschlag, Einzelinitiative, Gemeindeinitiative], fr: [initiative populaire, contre-projet], it: [iniziativa popolare, controprogetto]}
+  de: Volksinitiativen und Gemeindeinitiativen — Gültigkeit, Behandlung, Gegenvorschläge. Nicht für parlamentarische Initiativen, Standesinitiativen oder Vorstösse von Ratsmitgliedern; dort zählt ihr Sachthema.
+  alt: {de: [Volksinitiative, Gegenvorschlag, Einzelinitiative, Gemeindeinitiative], fr: [initiative populaire, contre-projet], it: [iniziativa popolare, controprogetto]}
 aps:2.1.4:
   en: "Landsgemeinde"
   it: "Landsgemeinde"
@@ -277,7 +277,7 @@ aps:2.1.8:
 aps:2.1.9:
   en: "Political finance"
   it: "Finanziamento della politica"
-  de: Finanzierung von Parteien und Kampagnen, Transparenz der Politikfinanzierung.
+  de: Finanzierung von Parteien, Wahl- und Abstimmungskampagnen, Offenlegung von Spenden. Nicht für Kosten, Kredite, Subventionen oder die Finanzierung staatlicher Aufgaben (dafür das Sachthema oder Budget).
   alt: {de: [Parteispenden, Transparenzinitiative], fr: [financement des partis, transparence], it: [finanziamento dei partiti]}
 aps:2.2.1:
   en: "National Council and Council of States elections"
@@ -363,7 +363,7 @@ aps:4.1.4:
 aps:4.1.5:
   en: "Families"
   it: "Famiglie"
-  de: Familienpolitik, Kinderbetreuung, Kitas, Familienzulagen, Vereinbarkeit von Familie und Beruf, Eltern- und Vaterschaftsurlaub.
+  de: Familienpolitik, Kinderbetreuung, Kitas, Familienzulagen, Vereinbarkeit von Familie und Beruf, Eltern- und Vaterschaftsurlaub. Nicht für Schulgesetze und Unterricht (Grundschulen).
   alt: {de: [Kita, Kinderbetreuung, Familienzulagen, Elternzeit, Vaterschaftsurlaub, Tagesstrukturen], fr: [crèche, accueil extrafamilial, allocations familiales, congé parental], it: [asilo nido, assegni familiari, congedo parentale]}
 aps:4.1.6:
   en: "Children and young people"
@@ -828,7 +828,7 @@ aps:8.1.6:
 aps:8.1.7:
   en: "Economic order"
   it: "Ordinamento economico"
-  de: Wirtschaftsordnung, Wirtschaftsfreiheit, staatliche Unternehmen und Beteiligungen, Gewerbe- und Ladenöffnung, Bürokratieabbau.
+  de: Wirtschaftsordnung, Wirtschaftsfreiheit, staatliche Unternehmen und Beteiligungen, Gewerbe- und Ladenöffnung, Bürokratieabbau. Nicht für allgemeine Kosten- oder Preisfragen eines anderen Sachthemas.
   alt: {de: [Ladenöffnungszeiten, Gewerbe, Service public, Regulierung, staatsnahe Betriebe, Bürokratieabbau], fr: [ouverture des magasins, entreprises publiques, régulation], it: [orari di apertura, aziende pubbliche]}
 aps:8.2.1:
   en: "Budget"

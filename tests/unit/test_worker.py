@@ -2,15 +2,25 @@
 
 import asyncio
 import json
+import shutil
 from pathlib import Path
 
 import httpx
 import pytest
+import yaml
 
-from parltopics.classify.queue import Job
-from parltopics.classify.worker import OutputFailure, classify_affair, fill_slots, load_classifier
+from parltopics.classify.queue import Job, adhoc_task
+from parltopics.classify.schemas import short_key
+from parltopics.classify.worker import (
+    OutputFailure,
+    classify_affair,
+    fill_slots,
+    load_classifier,
+    reloaded,
+)
 from parltopics.llm import LLMClient
-from parltopics.registry import tag_hash
+from parltopics.registry import RegistryError, tag_hash
+from parltopics.registry.edit import add_adhoc_tag
 from tests.mock_llm.app import completion, fake_completion
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tags_example.yaml"
@@ -290,6 +300,21 @@ def test_worker_takes_aps_and_proposed_or_active_adhoc_tasks(classifier):
     ]
 
 
+def test_a_running_worker_takes_the_registry_version_the_database_has(
+    settings, classifier, tmp_path
+):
+    path = tmp_path / "tags.yaml"
+    shutil.copy(FIXTURE, path)
+    _, registry = add_adhoc_tag(path, name_de="Velowege", definition_de="neu", by="Mia")
+    changed = settings.model_copy(update={"registry_path": path})
+
+    assert reloaded(classifier, changed, classifier.registry_version) is classifier
+    assert reloaded(classifier, changed, "2000-01-01.1") is classifier  # Datei passt noch nicht
+    fresh = reloaded(classifier, changed, registry.registry_version)
+    assert fresh.known["adhoc:velowege"].definition.de == "neu"
+    assert adhoc_task("adhoc:velowege") in fresh.tasks
+
+
 @pytest.fixture
 def single(settings):
     s = settings.model_copy(update={"registry_path": FIXTURE, "classify_mode": "single_70b"})
@@ -306,11 +331,11 @@ async def test_single_stage_asks_70b_once_with_all_topics(single):
             data["tags"] = [
                 {"tag_id": t, "confidence": c, "evidence": text}
                 for t, c in [
-                    ("aps:6.1.9", 0.6),
-                    ("aps:2.4.1", 0.9),
+                    ("digitalisierung", 0.6),
+                    ("Arbeitsmarkt", 0.9),  # Name statt Kurzname gilt auch
                     ("adhoc:digitalisierung-breit", 0.8),
-                    ("aps:6.1.9", 0.5),
-                    ("aps:2.4.1", 0.4),
+                    ("digitalisierung", 0.5),
+                    ("aps:2.4.1", 0.95),  # Zahlencode stand nicht im Prompt: verworfen
                 ]
             ]
         return json.dumps(data)
@@ -328,7 +353,9 @@ async def test_single_stage_asks_70b_once_with_all_topics(single):
     assert (reasons, escalations) == ([], [])
     assert [body["model"] for body in requests] == ["test-70b"]
     system = requests[0]["messages"][0]["content"]
-    assert "aps:2.4.1 |" in system and "aps:6.1.9 |" in system  # Themen aus mehreren Kapiteln
+    # Themen aus mehreren Kapiteln, mit Kurznamen statt Zahlencodes
+    assert "\narbeitsmarkt | Arbeitsmarkt" in system and "\ndigitalisierung |" in system
+    assert "aps:2.4.1" not in system and "aps:6.1.9" not in system
     assert "adhoc:digitalisierung-breit |" in system
     (only,) = result.passes
     assert only.stage == "70b"
@@ -337,7 +364,85 @@ async def test_single_stage_asks_70b_once_with_all_topics(single):
         "adhoc:digitalisierung-breit",
         "aps:6.1.9",
     ]
-    assert result.prompt_version.startswith("classify_single_v2+")
+    assert result.prompt_version.startswith("classify_single_v3+")
+
+
+async def test_single_stage_forces_short_names_by_schema(single):
+    """v3: JSON-Schema mit den Kurznamen als enum; ein Kapitelname ist erlaubt und wird verworfen,
+    die Passung kern oder neben wird zur Konfidenz."""
+    settings, classifier = single
+    chapter = classifier.chapters[0].prompt_id
+
+    def answer(body):
+        data = json.loads(fake_completion(body["messages"]))
+        if "tags" in data:
+            text = TEXT[:40]
+            data["tags"] = [
+                {"evidence": text, "tag_id": "arbeitsmarkt", "fit": "kern"},
+                {"evidence": text, "tag_id": chapter, "fit": "kern"},
+                {"evidence": text, "tag_id": "digitalisierung", "fit": "neben"},
+            ]
+        return json.dumps(data)
+
+    client, requests = mock_llm(settings, answer)
+    async with client:
+        result, _ = await classify_affair(
+            classifier, client, job(), threshold=0.6, verify=verified, escalate=nothing
+        )
+    labels = [(label.tag_id, label.confidence) for label in result.passes[-1].labels]
+    assert labels == [("aps:2.4.1", 0.9), ("aps:6.1.9", 0.6)]
+    fmt = requests[0]["response_format"]["json_schema"]
+    assert fmt["strict"] is True
+    item = fmt["schema"]["properties"]["tags"]["items"]
+    assert list(item["properties"]) == ["evidence", "tag_id", "fit"]  # Beleg zuerst
+    assert {"arbeitsmarkt", chapter} <= set(item["properties"]["tag_id"]["enum"])
+    assert fmt["schema"]["properties"]["affair_id"]["enum"] == [7]
+
+
+async def test_single_stage_asks_again_with_short_names(single):
+    """Die Nachfrage zum Beleg zeigt Kurznamen; mit Zahlencodes antwortete 70B in Zahlencodes."""
+    settings, classifier = single
+    client, requests = mock_llm(settings, paraphrasing(quote_on_retry=True))
+    async with client:
+        result, _ = await classify_affair(
+            classifier, client, job(), threshold=0.6, verify=contains, escalate=nothing
+        )
+    (label,) = result.passes[-1].labels
+    assert (label.tag_id, label.evidence_verified) == ("aps:2.4.1", True)
+    echo, hint = requests[1]["messages"][-2:]
+    assert '"tag_id":"arbeitsmarkt"' in echo["content"]
+    assert "arbeitsmarkt" in hint["content"] and "aps:" not in hint["content"]
+
+
+def test_unique_names_and_synonyms_resolve_too(single, settings, tmp_path):
+    _, classifier = single
+    assert classifier.keys["arbeitsmarkt"] == "aps:2.4.1"
+    assert classifier.keys["digitale-transformation"] == "aps:6.1.9"  # Synonym
+    data = yaml.safe_load(FIXTURE.read_text(encoding="utf-8"))
+    topic = next(t for t in data["tags"] if t["tag_id"] == "aps:2.4.1")
+    topic["alt_labels"] = {"de": ["Digitale Transformation"]}
+    path = tmp_path / "tags.yaml"
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    s = settings.model_copy(update={"registry_path": path, "classify_mode": "single_70b"})
+    assert "digitale-transformation" not in load_classifier(s).keys  # zwei Themen: mehrdeutig
+
+
+def test_repository_registry_has_unique_short_names(settings):
+    """Jedes angebotene Thema hat einen eigenen Kurznamen, sonst bricht der Worker beim Start ab."""
+    classifier = load_classifier(settings.model_copy(update={"classify_mode": "single_70b"}))
+    offered = [t for tags in classifier.topics.values() for t in tags] + classifier.adhoc
+    assert len(offered) > 100
+    assert {classifier.keys[short_key(t.prompt_id)] for t in offered} == {t.tag_id for t in offered}
+
+
+def test_doubled_short_names_stop_the_worker(settings, tmp_path):
+    data = yaml.safe_load(FIXTURE.read_text(encoding="utf-8"))
+    next(t for t in data["tags"] if t["tag_id"] == "aps:2.4.1")["slug"] = "digitalisierung"
+    path = tmp_path / "tags.yaml"
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    s = settings.model_copy(update={"registry_path": path, "classify_mode": "single_70b"})
+    with pytest.raises(RegistryError, match="nicht eindeutig: digitalisierung"):
+        load_classifier(s)
 
 
 async def test_single_stage_fails_after_two_invalid_answers(single):

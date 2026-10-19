@@ -1,7 +1,10 @@
 import { Fragment } from "react"
 import { Link, useParams } from "react-router"
 
+import { AdhocStatus } from "@/components/adhoc-status"
+import { PageSummary } from "@/components/page-summary"
 import { PageRow } from "@/components/page-tree"
+import { RelatedTopics } from "@/components/related-topics"
 import { TopicAffairs } from "@/components/topic-affairs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -63,7 +66,7 @@ export function TagPage() {
         <AlertTitle>Seite nicht gefunden</AlertTitle>
         <AlertDescription>
           Zu „{tagId}“ gibt es keine aktive Seite.{" "}
-          <Link to="/">Zum Seitenbaum</Link>
+          <Link to="/admin/themen">Zum Seitenbaum</Link>
         </AlertDescription>
       </Alert>
     )
@@ -100,7 +103,12 @@ export function TagPage() {
           {page.title}
         </h1>
       </div>
+      {page.kind === "querschnitt" && <AdhocStatus tagId={page.page_id} />}
+      <PageSummary key={page.page_id} pageId={page.page_id} pages={pages} />
       <TopicAffairs page={page} />
+      {(page.kind === "tag" || page.kind === "querschnitt") && (
+        <RelatedTopics tagId={page.page_id} />
+      )}
       <PageList
         title="Unterseiten"
         description="Diese Seite fasst ihre Unterseiten zusammen."

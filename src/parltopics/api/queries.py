@@ -1,6 +1,8 @@
 """Lesende Abfragen der Sidecar-API (PRD F10) auf einer Verbindung im Autocommit."""
 
 import html
+import re
+from collections.abc import Iterator
 from datetime import date
 
 import psycopg
@@ -41,7 +43,7 @@ TSQUERY = """(websearch_to_tsquery('german', %(q)s) || websearch_to_tsquery('fre
 SEARCH_FILTER = f"""
 FROM search_documents d JOIN affairs a ON a.id = d.affair_id
 LEFT JOIN bodies b ON b.body_key = a.body_key
-WHERE d.document @@ {TSQUERY}
+WHERE (%(q)s::text IS NULL OR d.document @@ {TSQUERY})
   AND (%(body_key)s::text IS NULL OR a.body_key = %(body_key)s::text)
   AND (%(level)s::text IS NULL OR b.level = %(level)s::text)
   AND (%(date_from)s::date IS NULL OR a.begin_date >= %(date_from)s::date)
@@ -57,13 +59,14 @@ HEADLINE = f"MaxFragments=2, MaxWords=25, MinWords=10, StartSel={MARK[0]}, StopS
 
 
 def hit_topics(affair: str) -> str:
-    """Aktive Themen eines Geschäfts als JSON-Liste mit Beleg (schemas.HitTopic)."""
+    """Aktive Themen eines Geschäfts als JSON-Liste mit Beleg (schemas.HitTopic). Ein
+    zurückgezogenes Thema fehlt, auch wo ein Mensch sein Label bestätigt hat."""
     return f"""(SELECT coalesce(json_agg(json_build_object(
                     'tag_id', l.tag_id, 'name_de', t.name_de, 'confidence', l.confidence,
                     'evidence', l.evidence, 'evidence_verified', l.evidence_verified,
                     'stage', l.stage) ORDER BY l.confidence DESC), '[]')
         FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id
-        WHERE l.affair_id = {affair} AND l.status = 'active')"""
+        WHERE l.affair_id = {affair} AND l.status = 'active' AND t.status <> 'retired')"""
 
 
 SEARCH = f"""
@@ -110,13 +113,17 @@ WHERE l.review_status IS NOT NULL AND l.status IN ('active', 'rejected')
 ORDER BY l.reviewed_at, l.id
 """
 # Graph (F20), Themen untereinander: Kantengewicht = gemeinsame Geschäfte. Ohne Bereich ein
-# Knoten je APS-Bereich (der Teil der ID vor dem ersten Punkt), mit Bereich seine Themen.
+# Knoten je APS-Bereich (der Teil der ID vor dem ersten Punkt), mit Bereich seine Themen, mit
+# all jedes freigegebene Thema (APS und Ad-hoc; vorläufige Ad-hoc-Themen fehlen).
 GRAPH_LABELLED = """
 SELECT DISTINCT affair_id,
        CASE WHEN %(area)s::text IS NULL THEN split_part(tag_id, '.', 1) ELSE tag_id END AS node
 FROM affair_tags
-WHERE status = 'active' AND scheme = 'aps'
-  AND (%(area)s::text IS NULL OR tag_id LIKE %(area)s::text || '.%%')
+WHERE status = 'active'
+  AND CASE WHEN %(area)s::text IS NULL THEN scheme = 'aps'
+           WHEN %(area)s::text = 'all'
+               THEN tag_id IN (SELECT tag_id FROM tags WHERE status = 'active')
+           ELSE tag_id LIKE %(area)s::text || '.%%' END
 """
 GRAPH_NODES = f"""
 WITH labelled AS ({GRAPH_LABELLED})
@@ -129,6 +136,16 @@ FROM labelled x JOIN labelled y ON y.affair_id = x.affair_id AND x.node < y.node
 GROUP BY x.node, y.node
 HAVING count(*) >= %(min_weight)s
 ORDER BY weight DESC, a, b
+LIMIT %(limit)s
+"""
+# Graph, Sicht 2: Geschäfte mit gemeinsamen aktiven Themen, die meisten gemeinsamen zuerst.
+NEIGHBOURS = """
+SELECT o.affair_id, array_agg(o.tag_id ORDER BY o.tag_id) AS shared, sum(o.confidence) AS score
+FROM affair_tags m
+JOIN affair_tags o ON o.tag_id = m.tag_id AND o.status = 'active' AND o.affair_id <> m.affair_id
+WHERE m.affair_id = %(affair_id)s AND m.status = 'active'
+GROUP BY o.affair_id
+ORDER BY count(*) DESC, score DESC, o.affair_id DESC
 LIMIT %(limit)s
 """
 CO_TOPICS = """
@@ -197,15 +214,19 @@ FROM tags t LEFT JOIN affair_tags l ON l.tag_id = t.tag_id AND l.status = 'activ
 WHERE %(scheme)s::text IS NULL OR t.scheme = %(scheme)s::text
 GROUP BY t.tag_id
 """
-TOPIC_FILTER = """
+# Laufend heisst: ohne Enddatum und nicht als inaktiv markiert. shortcut: Der harmonisierte Stand
+# fehlt fast überall (102 von 147'805 Geschäften seit 2018); füllt OpenParlData ihn, dort ablesen.
+RUNNING = "(a.raw->>'end_date' IS NULL AND a.raw->>'active' IS DISTINCT FROM 'false')"
+TOPIC_FILTER = f"""
 FROM affair_tags l JOIN affairs a ON a.id = l.affair_id JOIN tags t ON t.tag_id = l.tag_id
 LEFT JOIN bodies b ON b.body_key = a.body_key
 WHERE l.tag_id = ANY(%(tag_ids)s) AND l.status = 'active' AND l.confidence >= %(min_confidence)s
   AND (%(body_key)s::text IS NULL OR a.body_key = %(body_key)s::text)
-  AND (%(level)s::text IS NULL OR b.level = %(level)s::text)
+  AND (%(level)s::text[] IS NULL OR b.level = ANY(%(level)s::text[]))
   AND (%(type)s::text IS NULL OR a.type_harmonized_en = %(type)s::text)
   AND (%(date_from)s::date IS NULL OR a.begin_date >= %(date_from)s::date)
   AND (%(date_to)s::date IS NULL OR a.begin_date <= %(date_to)s::date)
+  AND (NOT %(running)s OR {RUNNING})
 """
 TOPIC_AFFAIRS = f"""
 SELECT {AFFAIR_HEAD}, l.tag_id, t.name_de, l.confidence, l.evidence, l.evidence_verified,
@@ -216,12 +237,13 @@ LIMIT %(limit)s OFFSET %(offset)s
 """
 # Warteschlange: dieselben Gründe wie in der Web-App (web/src/lib/label-state.ts) und die
 # Stichprobe des Workers. Ohne Beleg ist ein Label nie belegt (evidence_verified = false).
-REASONS = f"""array_remove(ARRAY[
+REASON_ARRAY = f"""array_remove(ARRAY[
            CASE WHEN l.confidence < %(threshold)s THEN 'low_confidence' END,
            CASE WHEN l.evidence IS NULL THEN 'no_evidence'
                 WHEN NOT l.evidence_verified THEN 'evidence_unverified' END,
            CASE WHEN l.affair_id %% {SAMPLE_EVERY} = 0 THEN 'sample' END
-       ], NULL) AS reasons"""
+       ], NULL)"""
+REASONS = f"{REASON_ARRAY} AS reasons"
 QUEUE_STATE = {
     "open": "l.status = 'active' AND l.review_status IS NULL AND (l.confidence < %(threshold)s"
     f" OR NOT l.evidence_verified OR l.affair_id %% {SAMPLE_EVERY} = 0)",
@@ -235,10 +257,22 @@ QUEUE_FROM = """
 FROM affair_tags l JOIN tags t ON t.tag_id = l.tag_id JOIN affairs a ON a.id = l.affair_id
 LEFT JOIN bodies b ON b.body_key = a.body_key
 """
-QUEUE_FILTER = """
+QUEUE_FILTER = f"""
   AND (%(tag_id)s::text IS NULL OR l.tag_id = %(tag_id)s::text)
   AND (%(body_key)s::text IS NULL OR a.body_key = %(body_key)s::text)
+  AND (%(tag_ids)s::text[] IS NULL OR l.tag_id = ANY(%(tag_ids)s::text[]))
+  AND (%(reasons)s::text[] IS NULL OR {REASON_ARRAY} && %(reasons)s::text[])
 """
+# Zähler der offenen Warteschlange je Grund, Bereich (nur APS), Parlament und Thema.
+REVIEW_COUNTS = {
+    "reason": f"SELECT key, count(*) AS count"
+    f" FROM (SELECT unnest({REASON_ARRAY}) AS key {{where}}) reasons GROUP BY key",
+    "area": "SELECT split_part(l.tag_id, '.', 1) AS key, count(*) AS count {where}"
+    " AND l.scheme = 'aps' GROUP BY 1",
+    "body": "SELECT a.body_key, b.name, count(*) AS count {where}"
+    " GROUP BY a.body_key, b.name ORDER BY b.name, a.body_key",
+    "topic": "SELECT l.tag_id, t.name_de, count(*) AS count {where} GROUP BY l.tag_id, t.name_de",
+}
 
 
 def affair_topics(conn: psycopg.Connection, affair_id: int) -> dict | None:
@@ -276,6 +310,11 @@ def tag_exists(conn: psycopg.Connection, tag_id: str) -> bool:
     return conn.execute("SELECT 1 FROM tags WHERE tag_id = %s", (tag_id,)).fetchone() is not None
 
 
+def tag_name(conn: psycopg.Connection, tag_id: str) -> str | None:
+    row = conn.execute("SELECT name_de FROM tags WHERE tag_id = %s", (tag_id,)).fetchone()
+    return row[0] if row else None
+
+
 def topic_affairs(
     conn: psycopg.Connection,
     tag_ids: list[str],
@@ -286,23 +325,24 @@ def topic_affairs(
     min_confidence: float,
     limit: int,
     offset: int,
-    level: str | None = None,
+    level: list[str] | None = None,
     affair_type: str | None = None,
+    running: bool = False,
 ) -> tuple[int, list[dict]]:
     """Geschäfte mit aktivem Label eines der Tags, eine Zeile je Geschäft und Tag:
     (Treffer insgesamt, eine Seite)."""
     cursor = conn.cursor(row_factory=dict_row)
-    params = {
-        "tag_ids": tag_ids,
-        "body_key": body_key,
-        "level": level,
-        "type": affair_type,
-        "date_from": date_from,
-        "date_to": date_to,
-        "min_confidence": min_confidence,
-        "limit": limit,
-        "offset": offset,
-    }
+    filters = _filter_params(
+        tag_ids,
+        body_key=body_key,
+        level=level,
+        affair_type=affair_type,
+        date_from=date_from,
+        date_to=date_to,
+        min_confidence=min_confidence,
+        running=running,
+    )
+    params = {**filters, "limit": limit, "offset": offset}
     total = cursor.execute(f"SELECT count(*) AS n {TOPIC_FILTER}", params).fetchone()["n"]
     return total, cursor.execute(TOPIC_AFFAIRS, params).fetchall()
 
@@ -316,8 +356,11 @@ def review_queue(
     threshold: float,
     limit: int,
     offset: int,
+    tag_ids: list[str] | None = None,
+    reasons: list[str] | None = None,
 ) -> tuple[int, list[dict]]:
     """Labels mit Prüfbedarf (open) oder mit Entscheid (done): (Treffer insgesamt, eine Seite).
+    tag_ids: nur diese Themen (Teilbaum einer Seite); reasons: mit mindestens einem dieser Gründe.
 
     shortcut: liest alle aktiven Labels ohne Entscheid; ab einigen 100'000 Labels braucht es einen
     partiellen Index auf confidence (Migration).
@@ -327,6 +370,8 @@ def review_queue(
         "threshold": threshold,
         "tag_id": tag_id,
         "body_key": body_key,
+        "tag_ids": tag_ids,
+        "reasons": reasons,
         "limit": limit,
         "offset": offset,
     }
@@ -340,10 +385,38 @@ def review_queue(
     return total, rows
 
 
+def review_summary(
+    conn: psycopg.Connection, *, body_key: str | None, tag_ids: list[str] | None, threshold: float
+) -> dict:
+    """Offene und erledigte Labels und die Zähler der offenen je Grund, Bereich, Parlament und
+    Thema; Bereiche und Themen sortiert wie der Seitenbaum."""
+    params = {
+        "threshold": threshold,
+        "tag_id": None,
+        "body_key": body_key,
+        "tag_ids": tag_ids,
+        "reasons": None,
+    }
+    where = {
+        state: f"{QUEUE_FROM} WHERE {QUEUE_STATE[state]} {QUEUE_FILTER}" for state in QUEUE_STATE
+    }
+    cursor = conn.cursor(row_factory=dict_row)
+    summary: dict = {
+        state: cursor.execute(f"SELECT count(*) AS n {where[state]}", params).fetchone()["n"]
+        for state in where
+    }
+    for group, sql in REVIEW_COUNTS.items():
+        summary[group] = cursor.execute(sql.format(where=where["open"]), params).fetchall()
+    summary["reason"] = {row["key"]: row["count"] for row in summary["reason"]}
+    summary["area"].sort(key=lambda row: sort_key(row["key"]))
+    summary["topic"].sort(key=lambda row: sort_key(row["tag_id"]))
+    return summary
+
+
 def search(
     conn: psycopg.Connection,
     *,
-    q: str,
+    q: str | None,
     topic: str | None,
     body_key: str | None,
     level: str | None,
@@ -353,10 +426,13 @@ def search(
     limit: int,
     offset: int,
 ) -> tuple[int, list[dict]]:
-    """Volltextsuche: (Treffer insgesamt, eine Seite mit Ausschnitt als sicherem HTML).
+    """Volltextsuche: (Treffer insgesamt, eine Seite mit Ausschnitt als sicherem HTML). Ohne q
+    alle Geschäfte mit Klassifikationstext, neueste zuerst, ohne Rang und Ausschnitt.
 
     shortcut: rechnet den Rang für alle Treffer; bei sehr häufigen Wörtern über 326k Geschäfte
     wird das langsam, dann Treffer vor dem Rang begrenzen.
+    shortcut: ohne q zählt und sortiert die Abfrage alle Dokumente ohne Index auf begin_date;
+    wird das zu langsam, Index affairs(begin_date DESC, id DESC) per Migration (vorher fragen).
     """
     params = {
         "q": q,
@@ -374,6 +450,8 @@ def search(
     total = cursor.execute(f"SELECT count(*) AS n {SEARCH_FILTER}", params).fetchone()["n"]
     rows = cursor.execute(SEARCH, params).fetchall()
     for row in rows:
+        if row["headline"] is None:  # ohne q gibt es keinen Ausschnitt
+            continue
         # Der Text ist frei von Tags, kann aber Zeichen wie < enthalten: erst maskieren.
         escaped = html.escape(row["headline"])
         row["headline"] = escaped.replace(MARK[0], "<mark>").replace(MARK[1], "</mark>")
@@ -427,6 +505,14 @@ def topic_graph(
     return nodes, edges, (edges[0]["qualifying"] - len(edges)) if edges else 0
 
 
+def neighbours(conn: psycopg.Connection, affair_id: int, limit: int) -> list[dict]:
+    """Köpfe der Nachbarn mit den gemeinsamen Themen und der Summe ihrer Konfidenzen darauf."""
+    params = {"affair_id": affair_id, "limit": limit}
+    rows = conn.cursor(row_factory=dict_row).execute(NEIGHBOURS, params).fetchall()
+    heads = {head["affair_id"]: head for head in affair_heads(conn, [r["affair_id"] for r in rows])}
+    return [{**heads[row["affair_id"]], **row} for row in rows]
+
+
 def co_topics(conn: psycopg.Connection, tag_id: str, limit: int) -> list[dict]:
     """Themen mit den meisten gemeinsamen Geschäften (aktive Labels)."""
     params = {"tag_id": tag_id, "limit": limit}
@@ -478,3 +564,198 @@ def hits(conn: psycopg.Connection, ids: list[int]) -> list[dict]:
               FROM affairs a LEFT JOIN bodies b ON b.body_key = a.body_key WHERE a.id = ANY(%s)"""
     rows = {row["affair_id"]: row for row in conn.cursor(row_factory=dict_row).execute(sql, (ids,))}
     return [rows[affair_id] for affair_id in ids if affair_id in rows]
+
+
+# Gespeicherte OpenParlData-Datensätze (raw), Sprachfelder geschachtelt wie bei OpenParlData.
+OPENPARLDATA = "https://api.openparldata.ch/v1"  # nur als Link in den Antworten, nie aufgerufen
+LANGUAGE_KEY = re.compile(r"(.+)_(de|fr|it|rm|en)")
+AFFAIR_RECORD = """
+SELECT a.id, a.body_key, a.raw, b.id AS body_row_id, b.raw AS body_raw
+FROM affairs a LEFT JOIN bodies b ON b.body_key = a.body_key
+WHERE a.id = %s
+"""
+BODY_RECORD = """
+SELECT b.id, b.body_key, b.raw,
+       (SELECT count(*) FROM affairs a WHERE a.body_key = b.body_key) AS n_affairs,
+       (SELECT count(DISTINCT l.affair_id) FROM affair_tags l JOIN affairs a ON a.id = l.affair_id
+        WHERE a.body_key = b.body_key AND l.status = 'active') AS n_labelled
+FROM bodies b WHERE b.body_key = %s
+"""
+DOCS_OF_AFFAIR = "FROM affair_docs WHERE parent_type = 'affair' AND parent_id = %(affair_id)s"
+# Der Text der Dokumente bleibt in der Liste weg (bis einige MB je Dokument).
+DOC_COLUMNS = "id, raw, coalesce(text, '') <> '' AS has_text"
+FIRST_DOCS = 20
+
+
+def nest_languages(record: dict) -> dict:
+    """title_de, title_fr → title {"de": …, "fr": …}. Leere Sprachen fallen weg, der Schlüssel
+    bleibt ({}); ein gleichnamiges Feld ohne Sprache (bodies: name) weicht der Schachtelung."""
+    flat: dict = {}
+    nested: dict[str, dict] = {}
+    for key, value in record.items():
+        match = LANGUAGE_KEY.fullmatch(key)
+        if match is None:
+            flat[key] = value
+            continue
+        languages = nested.setdefault(match[1], {})
+        if value is not None:
+            languages[match[2]] = value
+    return flat | nested
+
+
+def _body(body_id: int, body_key: str, raw: dict) -> dict:
+    url = f"{OPENPARLDATA}/bodies/{body_id}"
+    return {**nest_languages(raw), "id": body_id, "body_key": body_key, "url_api": url}
+
+
+def _text(row: dict) -> dict:
+    """Ein Text mit allen Sprachen: Ingest legt die erste in text ab, die übrigen bleiben in raw."""
+    raw = dict(row["raw"])
+    if row["language"]:
+        raw[f"text_{row['language']}"] = row["text"]
+    return {**nest_languages(raw), "id": row["id"]}
+
+
+def _doc(row: dict) -> dict:
+    return {**nest_languages(row.pop("raw")), **row}
+
+
+def affair_exists(conn: psycopg.Connection, affair_id: int) -> bool:
+    return conn.execute("SELECT 1 FROM affairs WHERE id = %s", (affair_id,)).fetchone() is not None
+
+
+def affair_record(conn: psycopg.Connection, affair_id: int) -> dict | None:
+    """affairs.raw mit Parlament, Texten und den ersten Dokumenten; None, wenn es fehlt."""
+    cursor = conn.cursor(row_factory=dict_row)
+    row = cursor.execute(AFFAIR_RECORD, (affair_id,)).fetchone()
+    if row is None:
+        return None
+    texts = cursor.execute(
+        "SELECT id, language, text, raw FROM affair_texts WHERE affair_id = %s ORDER BY id",
+        (affair_id,),
+    ).fetchall()
+    n_docs, docs = affair_docs(conn, affair_id, limit=FIRST_DOCS, offset=0)
+    body = row["body_row_id"]
+    return {
+        **nest_languages(row["raw"]),
+        "id": affair_id,
+        "body_key": row["body_key"],
+        "url_api": f"{OPENPARLDATA}/affairs/{affair_id}",
+        "body": _body(body, row["body_key"], row["body_raw"]) if body is not None else None,
+        "texts": [_text(text) for text in texts],
+        "docs": docs,
+        "n_docs": n_docs,
+    }
+
+
+def affair_docs(
+    conn: psycopg.Connection, affair_id: int, *, limit: int, offset: int
+) -> tuple[int, list[dict]]:
+    """Dokumente eines Geschäfts ohne Text, nach Datum: (Treffer insgesamt, eine Seite)."""
+    params = {"affair_id": affair_id, "limit": limit, "offset": offset}
+    cursor = conn.cursor(row_factory=dict_row)
+    total = cursor.execute(f"SELECT count(*) AS n {DOCS_OF_AFFAIR}", params).fetchone()["n"]
+    rows = cursor.execute(
+        f"SELECT {DOC_COLUMNS} {DOCS_OF_AFFAIR}"
+        " ORDER BY doc_date NULLS LAST, id LIMIT %(limit)s OFFSET %(offset)s",
+        params,
+    ).fetchall()
+    return total, [_doc(row) for row in rows]
+
+
+def doc(conn: psycopg.Connection, doc_id: int) -> dict | None:
+    """Ein Dokument mit extrahiertem Text, zu welchem Elternteil auch immer."""
+    sql = f"SELECT {DOC_COLUMNS}, parent_type, parent_id, text FROM affair_docs WHERE id = %s"
+    row = conn.cursor(row_factory=dict_row).execute(sql, (doc_id,)).fetchone()
+    return _doc(row) if row else None
+
+
+def body_record(conn: psycopg.Connection, body_key: str) -> dict | None:
+    row = conn.cursor(row_factory=dict_row).execute(BODY_RECORD, (body_key,)).fetchone()
+    if row is None:
+        return None
+    counts = {"n_affairs": row["n_affairs"], "n_labelled": row["n_labelled"]}
+    return {**_body(row["id"], row["body_key"], row["raw"]), **counts}
+
+
+# Auswertung einer Seite wie in der Web-App: Kennzahlen mit allen Filtern, jede Verteilung ohne
+# ihren eigenen Filter, damit sie die Alternativen zeigt. Verteilungen zählen Geschäfte.
+PAGE_TOTALS = f"""
+SELECT count(*) AS rows, count(DISTINCT a.id) AS affairs, count(DISTINCT a.body_key) AS bodies,
+       count(*) FILTER (WHERE l.evidence_verified) AS verified,
+       min(a.begin_date) AS first_date, max(a.begin_date) AS last_date
+{TOPIC_FILTER}
+"""
+PAGE_DISTRIBUTIONS = {
+    "by_level": (
+        ("level",),
+        f"SELECT b.level, count(DISTINCT a.id) AS count {TOPIC_FILTER} GROUP BY b.level"
+        " ORDER BY array_position(ARRAY['country', 'canton', 'city', 'municipality'], b.level)",
+    ),
+    "by_body": (
+        ("body_key",),
+        f"SELECT a.body_key, b.name, b.level, count(DISTINCT a.id) AS count {TOPIC_FILTER}"
+        " GROUP BY a.body_key, b.name, b.level ORDER BY count DESC, b.name, a.body_key",
+    ),
+    "by_year": (
+        ("date_from", "date_to"),
+        "SELECT extract(year FROM a.begin_date)::int AS year, count(DISTINCT a.id) AS count"
+        f" {TOPIC_FILTER} GROUP BY 1 ORDER BY 1 NULLS LAST",
+    ),
+    "by_type": (
+        ("type",),
+        "SELECT a.type_harmonized_en AS type, max(a.raw->>'type_harmonized_de') AS type_de,"
+        f" count(DISTINCT a.id) AS count {TOPIC_FILTER} GROUP BY 1 ORDER BY count DESC, 1",
+    ),
+}
+
+
+def _filter_params(
+    tag_ids: list[str],
+    *,
+    body_key: str | None = None,
+    level: list[str] | None = None,
+    affair_type: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    min_confidence: float = 0.0,
+    running: bool = False,
+) -> dict:
+    return {
+        "tag_ids": tag_ids,
+        "body_key": body_key,
+        "level": level,
+        "type": affair_type,
+        "date_from": date_from,
+        "date_to": date_to,
+        "min_confidence": min_confidence,
+        "running": running,
+    }
+
+
+def page_summary(conn: psycopg.Connection, tag_ids: list[str], **filters) -> dict:
+    """Kennzahlen und Verteilungen der Geschäfte dieser Tags; Filter wie topic_affairs."""
+    params = _filter_params(tag_ids, **filters)
+    cursor = conn.cursor(row_factory=dict_row)
+    summary = cursor.execute(PAGE_TOTALS, params).fetchone()
+    for name, (own, sql) in PAGE_DISTRIBUTIONS.items():
+        summary[name] = cursor.execute(sql, params | dict.fromkeys(own)).fetchall()
+    return summary
+
+
+def stream_topic_affairs(conn: psycopg.Connection, tag_ids: list[str], **filters) -> Iterator[dict]:
+    """Alle Zeilen wie topic_affairs, ohne Grenze, Zeile für Zeile vom Server (CSV-Export)."""
+    params = {**_filter_params(tag_ids, **filters), "limit": None, "offset": 0}  # LIMIT NULL
+    yield from conn.cursor(row_factory=dict_row).stream(TOPIC_AFFAIRS, params)
+
+
+WIKI_PAGE = """
+SELECT status AS page_status, n_affairs, summary_short, summary_long, statements, built_at,
+       window_start, window_end, model_version, prompt_version
+FROM wiki_pages WHERE page_id = %s
+"""
+
+
+def wiki_page(conn: psycopg.Connection, page_id: str) -> dict | None:
+    """Stand einer Seite aus dem Seitenlauf; None, solange kein Lauf sie angelegt hat."""
+    return conn.cursor(row_factory=dict_row).execute(WIKI_PAGE, (page_id,)).fetchone()

@@ -11,11 +11,15 @@ interface Result<T> {
 /** Lädt JSON von der eigenen API; ein Pfadwechsel bricht die alte Anfrage ab. */
 export function useApi<T>(path: string) {
   const [result, setResult] = useState<Result<T> | null>(null)
+  const [last, setLast] = useState<T>()
 
   useEffect(() => {
     const controller = new AbortController()
     fetchJson<T>(path, controller.signal).then(
-      (data) => setResult({ path, data }),
+      (data) => {
+        setResult({ path, data })
+        setLast(data)
+      },
       (error: unknown) => {
         if (!controller.signal.aborted) {
           const message = error instanceof Error ? error.message : String(error)
@@ -31,5 +35,7 @@ export function useApi<T>(path: string) {
     data: current?.data,
     error: current?.error,
     loading: current === null,
+    /** Zuletzt geladene Daten, auch von einem früheren Pfad: zum Stehenlassen beim Filtern. */
+    last,
   }
 }

@@ -6,9 +6,11 @@ auf. Für eine neue Gruppe liefert der Abgleich mit allen Bezeichnungen der Regi
 ähnlichsten Themen, und Apertus 70B empfiehlt new, duplicate_of oder child_of. Ohne brauchbare
 Antwort entscheiden die Bezeichnungen allein. Ein Mensch entscheidet: accepted legt ein
 Ad-hoc-Tag (proposed) an und öffnet Jobs für die betroffenen Geschäfte, merged und rejected halten
-nur den Entscheid fest.
+nur den Entscheid fest. undo nimmt den Entscheid zurück (F10): Der Vorschlag ist wieder offen, ein
+mit accepted angelegtes Tag wird zurückgezogen.
 """
 
+import contextlib
 import logging
 from collections import Counter
 from dataclasses import dataclass
@@ -20,13 +22,14 @@ import psycopg
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field, ValidationError
 
-from parltopics.classify.queue import OpenResult, adhoc_task, open_jobs
+from parltopics.classify.adhoc import retire
+from parltopics.classify.queue import OpenResult, adhoc_task, open_jobs, task_tag
 from parltopics.classify.worker import STAGE_PROMPTS
 from parltopics.config import Settings
 from parltopics.llm import JSONExtractionError, LLMClient, Prompt, extract_json, load_prompt
 from parltopics.registry import Registry, Tag, file_hash, load_registry, tag_hash
 from parltopics.registry.aps_import import aps_slug
-from parltopics.registry.edit import add_adhoc_tag
+from parltopics.registry.edit import WrongStatus, add_adhoc_tag
 from parltopics.registry.sync import sync_registry
 
 log = logging.getLogger("parltopics.proposals")
@@ -218,8 +221,12 @@ class ProposalDecided(ValueError):
     """Der Vorschlag ist schon entschieden."""
 
 
+class ProposalOpen(ValueError):
+    """Der Vorschlag ist nicht entschieden: Es gibt nichts zurückzunehmen."""
+
+
 PROPOSAL = """
-SELECT name_de, desc_de, recommendation, related_tag_id, status, model_version, run_id
+SELECT name_de, desc_de, recommendation, related_tag_id, status, decision, model_version, run_id
 FROM tag_proposals WHERE id = %s
 """
 DECIDE = """
@@ -228,7 +235,18 @@ SET status = 'done', decision = %(decision)s, decided_by = %(by)s, decided_at = 
     related_tag_id = coalesce(%(related)s, related_tag_id)
 WHERE id = %(id)s AND status <> 'done'
 """
+# Wieder offen; decided_by und decided_at nennen jetzt, wer den Entscheid zurückgenommen hat.
+REOPEN = """
+UPDATE tag_proposals SET status = 'open', decision = NULL, decided_by = %(by)s, decided_at = now()
+WHERE id = %(id)s AND status = 'done'
+"""
 AFFAIRS = "SELECT affair_id FROM tag_proposal_affairs WHERE proposal_id = %s ORDER BY affair_id"
+# Das Tag aus accepted: die Aufgabe des Laufs, den der Entscheid geöffnet hat (extra proposal_id),
+# und ob es noch dieses ist. Wer es seither neu angelegt hat, öffnete einen neueren Lauf.
+ACCEPTED_TASK = """
+SELECT r.task, r.id = (SELECT max(id) FROM classification_runs WHERE task = r.task)
+FROM classification_runs r WHERE r.params->>'proposal_id' = %s ORDER BY r.id DESC LIMIT 1
+"""
 
 
 @dataclass(frozen=True)
@@ -242,7 +260,7 @@ def decide(
     settings: Settings,
     proposal_id: int,
     *,
-    decision: Literal["accepted", "merged", "rejected"],
+    decision: Literal["accepted", "merged", "rejected", "undo"],
     by: str,
     name_de: str | None = None,
     definition_de: str | None = None,
@@ -256,6 +274,8 @@ def decide(
     row = conn.cursor(row_factory=dict_row).execute(PROPOSAL, (proposal_id,)).fetchone()
     if row is None:
         raise ProposalNotFound(f"Vorschlag {proposal_id} gibt es nicht")
+    if decision == "undo":
+        return _undo(conn, settings, proposal_id, row, by)
     if row["status"] == "done":
         raise ProposalDecided(f"Vorschlag {proposal_id} ist schon entschieden")
     if decision == "merged" and not (related_tag_id or row["related_tag_id"]):
@@ -296,3 +316,22 @@ def decide(
     if conn.execute(DECIDE, params).rowcount == 0:
         raise ProposalDecided(f"Vorschlag {proposal_id} ist schon entschieden")
     return Decision(tag_id, run)
+
+
+def _undo(
+    conn: psycopg.Connection, settings: Settings, proposal_id: int, row: dict, by: str
+) -> Decision:
+    """Zurück auf offen; Decision.tag_id ist das zurückgezogene Tag aus accepted, falls es seither
+    niemand neu angelegt hat."""
+    if row["status"] != "done":
+        raise ProposalOpen(f"Vorschlag {proposal_id} ist nicht entschieden")
+    tag_id = None
+    if row["decision"] == "accepted":
+        found = conn.execute(ACCEPTED_TASK, (str(proposal_id),)).fetchone()
+        if found and found[1]:
+            tag_id = task_tag(found[0])
+            with contextlib.suppress(WrongStatus):  # schon zurückgezogen
+                retire(conn, settings, tag_id, by=by)
+    if conn.execute(REOPEN, {"by": by, "id": proposal_id}).rowcount == 0:
+        raise ProposalOpen(f"Vorschlag {proposal_id} ist nicht entschieden")
+    return Decision(tag_id, None)

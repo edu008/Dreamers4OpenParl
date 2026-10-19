@@ -1,9 +1,12 @@
 """Sidecar-API gegen ein echtes PostgreSQL (PRD F10, F18)."""
 
+import csv
+import io
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from psycopg.types.json import Jsonb
 
 from parltopics.api.app import create_app
 from parltopics.db import migrate
@@ -263,6 +266,16 @@ def test_full_text_search_in_german_and_french(conn, repo_root, api_settings):
         assert found("digitalisieren", language="fr") == (0, [])
         assert client.get("/v1/search", params={"q": "a"}).status_code == 422
 
+        def newest(**params):  # ohne q: alle mit Klassifikationstext, neueste zuerst
+            return client.get("/v1/search", params=params).json()
+
+        result = newest()
+        assert (result["q"], result["total"]) == (None, 3)
+        assert [item["affair_id"] for item in result["items"]] == [70435, 70437, 80003]
+        assert {(item["rank"], item["headline"]) for item in result["items"]} == {(None, None)}
+        assert [item["affair_id"] for item in newest(body_key="ZH")["items"]] == [80003]
+        assert [item["affair_id"] for item in newest(topic="aps:6.1.9")["items"]] == [70435]
+
 
 def test_topic_graph_by_area_and_related_topics(conn, repo_root, api_settings):
     migrate(conn, repo_root / "migrations")
@@ -311,6 +324,41 @@ def test_topic_graph_by_area_and_related_topics(conn, repo_root, api_settings):
         ]
         assert related[0]["name_de"] == "Digitalisierung (breit)"
         assert client.get("/v1/topics/aps:9.9/related").status_code == 404
+
+        # Alle Themen: jedes freigegebene Thema ein Knoten; das vorläufige Ad-hoc-Thema fehlt.
+        conn.execute(label, (70437, "adhoc:ki-verwaltung", "adhoc:ki-verwaltung"))
+        everything = client.get("/v1/graph/topics", params={"area": "all", "limit": 2}).json()
+        nodes = [(n["id"], n["kind"], n["count"], n["group"]) for n in everything["nodes"]]
+        assert nodes == [
+            ("aps:2.4.1", "tag", 2, "aps:2"),
+            ("aps:6.1", "kapitel", 1, "aps:6"),
+            ("aps:6.1.9", "tag", 3, "aps:6"),
+            ("adhoc:digitalisierung-breit", "querschnitt", 1, "adhoc"),
+        ]
+        assert everything["edges"] == [
+            {"a": "aps:2.4.1", "b": "aps:6.1.9", "weight": 2},
+            {"a": "adhoc:digitalisierung-breit", "b": "aps:6.1.9", "weight": 1},
+        ]
+        assert (everything["area"], everything["hidden"]) == ("all", 2)
+
+        star = client.get("/v1/graph/topics/aps:6.1.9").json()
+        assert (star["center"], star["total"]) == (
+            {"tag_id": "aps:6.1.9", "name_de": "Digitalisierung"},
+            3,
+        )
+        assert [node["affair_id"] for node in star["nodes"]] == [70435, 70437, 70436]
+        params = {"limit": 1, "min_confidence": 0.85}
+        assert client.get("/v1/graph/topics/aps:6.1.9", params=params).json()["total"] == 1
+        assert client.get("/v1/graph/topics/aps:9.9").status_code == 404
+
+        around = client.get("/v1/graph/affairs/70435").json()
+        assert around["center"]["topics"][0]["tag_id"] == "aps:6.1.9"
+        assert [(n["affair_id"], n["shared"], n["score"]) for n in around["neighbours"]] == [
+            (70436, ["aps:2.4.1", "aps:6.1.9"], 1.6),
+            (70437, ["aps:6.1.9"], 0.8),
+        ]
+        assert len(client.get("/v1/graph/affairs/70435?limit=1").json()["neighbours"]) == 1
+        assert client.get("/v1/graph/affairs/1").status_code == 404
 
 
 def test_navigation_search_walks_back_falls_back_and_logs(
@@ -387,4 +435,260 @@ def test_navigation_search_walks_back_falls_back_and_logs(
         ("ok", True, [70435]),
         ("no_results", True, []),
         ("error", False, []),
+    ]
+
+
+# Ausschnitte der Datensätze, wie sie in der geteilten Datenbank liegen (Genf, Geschäft 341579).
+GENEVA = {
+    "id": 257,
+    "body_key": "GE",
+    "type": "canton",
+    "name": "Genf",
+    "name_de": "Genf",
+    "name_fr": "Genève",
+    "legislative_name": "Grand Conseil du canton de Genève",
+    "legislative_name_de": "Grosser Rat",
+    "legislative_seats": 100,
+    "languages": "FR",
+}
+ELECTION = {
+    "id": 341579,
+    "body_key": "GE",
+    "number": "E 3265",
+    "title_de": None,
+    "title_fr": "Election d'une juge assesseure",
+    "state_name_de": None,
+    "type_harmonized_de": "Wahl",
+    "type_harmonized_id": 6,
+    "url_external_fr": "https://ge.ch/grandconseil/search?search=E+3265",
+    "end_date": None,
+}
+
+
+def test_stored_records_of_affairs_bodies_texts_and_docs(conn, repo_root, api_settings):
+    migrate(conn, repo_root / "migrations")
+    conn.execute(
+        "INSERT INTO bodies (id, body_key, name, level, raw)"
+        " VALUES (257, 'GE', 'Genf', 'canton', %s)",
+        (Jsonb(GENEVA),),
+    )
+    conn.execute(
+        "INSERT INTO affairs (id, body_key, title_fr, raw) VALUES"
+        " (341579, 'GE', 'Election', %s), (341580, 'ZZ', 'Ohne Parlament', '{}')",
+        (Jsonb(ELECTION),),
+    )
+    # Wie ingest.text_row: die erste Sprache in text, die übrigen in raw.
+    raw = {"type_fr": "Exposé des motifs", "type_de": None, "text_it": "Elezione", "text_rm": None}
+    conn.execute(
+        "INSERT INTO affair_texts (id, affair_id, text_type, language, format, text, raw) VALUES"
+        " (11, 341579, 'Exposé des motifs', 'fr', 'html', '<p>Election</p>', %s),"
+        " (12, 341579, NULL, NULL, NULL, NULL, '{}')",
+        (Jsonb(raw),),
+    )
+    doc = (
+        "INSERT INTO affair_docs (id, parent_type, parent_id, name, doc_date, text, raw)"
+        " VALUES (%s, %s, 341579, %s, %s, %s, %s)"
+    )
+    conn.execute(doc, (21, "affair", "Rapport", None, None, Jsonb({"category_fr": "Rapport"})))
+    conn.execute(doc, (22, "affair", "Projet", "2026-10-01", "Texte du projet", Jsonb({})))
+    conn.execute(doc, (23, "agenda", "Ordre du jour", "2026-10-29", None, Jsonb({})))
+    with TestClient(create_app(api_settings)) as client:
+        record = client.get("/v1/affairs/341579").json()
+        assert (record["title"], record["state_name"], record["type_harmonized"]) == (
+            {"fr": "Election d'une juge assesseure"},
+            {},
+            {"de": "Wahl"},
+        )
+        assert (record["number"], record["type_harmonized_id"], record["end_date"]) == (
+            "E 3265",
+            6,
+            None,
+        )
+        assert record["url_external"] == {"fr": "https://ge.ch/grandconseil/search?search=E+3265"}
+        assert record["url_api"] == "https://api.openparldata.ch/v1/affairs/341579"
+        body = record["body"]
+        assert (body["name"], body["legislative_name"], body["legislative_seats"]) == (
+            {"de": "Genf", "fr": "Genève"},
+            {"de": "Grosser Rat"},
+            100,
+        )
+        first, empty = record["texts"]
+        assert (first["text"], first["type"]) == (
+            {"fr": "<p>Election</p>", "it": "Elezione"},
+            {"fr": "Exposé des motifs"},
+        )
+        assert (empty["id"], empty["text"]) == (12, {})
+        # Nach Datum, ohne Datum zuletzt; das Dokument der Agenda gehört nicht zum Geschäft.
+        assert record["n_docs"] == 2
+        assert [(item["id"], item["has_text"]) for item in record["docs"]] == [
+            (22, True),
+            (21, False),
+        ]
+        assert record["docs"][1]["category"] == {"fr": "Rapport"}
+        lonely = client.get("/v1/affairs/341580").json()
+        assert (lonely["body"], lonely["texts"], lonely["n_docs"]) == (None, [], 0)
+
+        page = client.get("/v1/affairs/341579/docs", params={"limit": 1, "offset": 1}).json()
+        assert (page["total"], [item["id"] for item in page["items"]]) == (2, [21])
+        assert client.get("/v1/affairs/341580/docs").json()["items"] == []
+        found = client.get("/v1/docs/22").json()
+        assert (found["text"], found["parent_type"], found["parent_id"]) == (
+            "Texte du projet",
+            "affair",
+            341579,
+        )
+        assert client.get("/v1/docs/23").json()["parent_type"] == "agenda"
+        geneva = client.get("/v1/bodies/GE").json()
+        assert (geneva["n_affairs"], geneva["n_labelled"], geneva["url_api"]) == (
+            1,
+            0,
+            "https://api.openparldata.ch/v1/bodies/257",
+        )
+        for path in ("/v1/affairs/1", "/v1/affairs/1/docs", "/v1/docs/1", "/v1/bodies/XX"):
+            assert client.get(path).status_code == 404, path
+
+
+def test_page_summary_and_csv_export(conn, repo_root, api_settings):
+    migrate(conn, repo_root / "migrations")
+    sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
+    seed(conn)  # 70435: CHE, Motion, 2026-03-01, aps:6.1.9 mit 0.86 und gefundenem Beleg
+    conn.execute(
+        "INSERT INTO bodies (id, body_key, name, level, raw)"
+        " VALUES (2, 'ZH', 'Zürich', 'canton', '{}')"
+    )
+    postulate = Jsonb({"type_harmonized_de": "Postulat"})
+    conn.execute(
+        "INSERT INTO affairs (id, body_key, number, title_de, type_harmonized_en, begin_date, raw)"
+        " VALUES (80001, 'ZH', '=1+1', 'Velo; \"schnell\"', 'Postulate', '2025-05-01', %s),"
+        " (80002, 'ZH', NULL, 'Ohne Datum', 'Postulate', NULL, %s)",
+        (postulate, postulate),
+    )
+    label = (
+        "INSERT INTO affair_tags (affair_id, tag_id, scheme, confidence, evidence,"
+        " evidence_verified, task, stage, model_version, prompt_version, registry_version,"
+        " input_hash) VALUES (%s, 'aps:6.1.9', 'aps', %s, %s, false, 'classify:aps', '8b',"
+        " 'm', 'p', 'v', 'h')"
+    )
+    conn.execute(label, (80001, 0.7, "-steht da"))
+    conn.execute(label, (80002, 0.65, None))
+
+    with TestClient(create_app(api_settings)) as client:
+        path = "/v1/pages/aps:6.1.9/affairs"
+        summary = client.get(f"{path}/summary").json()
+        totals = {key: summary[key] for key in ("rows", "affairs", "bodies", "verified")}
+        assert totals == {"rows": 3, "affairs": 3, "bodies": 2, "verified": 1}
+        assert (summary["first_date"], summary["last_date"]) == ("2025-05-01", "2026-03-01")
+        assert summary["by_level"] == [
+            {"level": "country", "count": 1},
+            {"level": "canton", "count": 2},
+        ]
+        assert summary["by_body"] == [
+            {"body_key": "ZH", "name": "Zürich", "level": "canton", "count": 2},
+            {"body_key": "CHE", "name": "Schweiz", "level": "country", "count": 1},
+        ]
+        assert summary["by_year"] == [
+            {"year": 2025, "count": 1},
+            {"year": 2026, "count": 1},
+            {"year": None, "count": 1},
+        ]
+        assert summary["by_type"] == [
+            {"type": "Postulate", "type_de": "Postulat", "count": 2},
+            {"type": "Motion", "type_de": None, "count": 1},
+        ]
+        # Jede Verteilung ohne ihren eigenen Filter: by_body zeigt weiter beide Parlamente.
+        zurich = client.get(f"{path}/summary", params={"body_key": "ZH"}).json()
+        assert (zurich["rows"], len(zurich["by_body"]), zurich["by_level"]) == (
+            2,
+            2,
+            [{"level": "canton", "count": 2}],
+        )
+        recent = client.get(f"{path}/summary", params={"from": "2026-01-01"}).json()
+        assert (recent["rows"], len(recent["by_year"])) == (1, 3)
+
+        response = client.get(f"{path}.csv")
+        assert response.headers["content-type"] == "text/csv; charset=utf-8"
+        assert 'filename="aps-6-1-9.csv"' in response.headers["content-disposition"]
+        assert response.text.startswith("﻿OpenParlData-ID;Nummer;Titel;")
+        assert response.text.endswith("\r\n")
+        rows = list(csv.reader(io.StringIO(response.text[1:], newline=""), delimiter=";"))
+        assert rows[1:] == [
+            ["70435", "24.3456", "Digitale Verwaltung", "Motion", "Schweiz", "Bund",
+             "2026-03-01", "Digitalisierung", "0.86", "ja", "die Verwaltung digitalisieren",
+             "70b"],
+            ["80001", "'=1+1", 'Velo; "schnell"', "Postulat", "Zürich", "Kanton", "2025-05-01",
+             "Digitalisierung", "0.70", "nein", "'-steht da", "8b"],
+            ["80002", "", "Ohne Datum", "Postulat", "Zürich", "Kanton", "", "Digitalisierung",
+             "0.65", "nein", "", "8b"],
+        ]  # fmt: skip
+        filtered = client.get(f"{path}.csv", params={"body_key": "ZH"}).text
+        assert filtered.count("\r\n") == 3  # Kopf und zwei Zeilen
+        for unknown in ("/v1/pages/aps:9/affairs.csv", "/v1/pages/aps:9/affairs/summary"):
+            assert client.get(unknown).status_code == 404
+
+
+def test_agent_search_cites_only_tool_results_and_logs(conn, repo_root, api_settings, monkeypatch):
+    import json
+
+    import httpx
+
+    from parltopics.llm import LLMClient
+    from tests.mock_llm.app import completion, fake_completion
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        return httpx.Response(
+            200, json=completion(fake_completion(body["messages"]), body["model"])
+        )
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("kein LLM")
+
+    def use(handler):
+        mock = httpx.MockTransport(handler)
+        monkeypatch.setattr(
+            "parltopics.agent.loop.LLMClient",
+            lambda settings, transport=None: LLMClient(settings, transport=mock),
+        )
+
+    migrate(conn, repo_root / "migrations")
+    sync_registry(conn, load_registry(FIXTURE), file_hash(FIXTURE))
+    seed(conn)  # 70435: «Der Bundesrat soll die Verwaltung digitalisieren.», aktiv aps:6.1.9
+    conn.execute(INDEX, ([70435],))
+    use(answer)  # der Mock ruft search_affairs mit der Frage auf und zitiert den ersten Treffer
+    with TestClient(create_app(api_settings)) as client:
+        found = client.post("/v1/agent/search", json={"query": "Verwaltung digitalisieren"})
+        result = found.json()
+        assert (result["status"], result["cited_affair_ids"], result["steps"]) == (
+            "ok",
+            [70435],
+            2,
+        )
+        assert result["answer"] == "Geschäft [70435] passt zur Frage (Mock)."
+        (hit,) = result["hits"]
+        assert (hit["affair_id"], hit["topics"][0]["tag_id"]) == (70435, "aps:6.1.9")
+        (call,) = result["tool_calls"]
+        assert (call["name"], call["args"], call["error"]) == (
+            "search_affairs",
+            {"query": "Verwaltung digitalisieren"},
+            None,
+        )
+        assert (call["result_size"] > 0, result["proposal"]) == (True, None)
+
+        nothing = client.post("/v1/agent/search", json={"query": "Raumfahrt"}).json()
+        assert (nothing["status"], nothing["cited_affair_ids"], nothing["hits"]) == (
+            "no_results",
+            [],
+            [],
+        )
+        use(unreachable)
+        assert client.post("/v1/agent/search", json={"query": "Raumfahrt"}).status_code == 503
+        assert client.post("/v1/agent/search", json={"query": "ab"}).status_code == 422
+    runs = conn.execute(
+        "SELECT kind, status, cited_affair_ids, jsonb_array_length(tool_calls)"
+        " FROM agent_runs ORDER BY id"
+    ).fetchall()
+    assert runs == [
+        ("search", "ok", [70435], 1),
+        ("search", "no_results", [], 1),
+        ("search", "error", [], 0),
     ]

@@ -1,9 +1,4 @@
-"""Kommandozeile `parltopics` (PRD 10.4).
-
-Funktionsfähig: version, db migrate, registry validate/sync/import-aps, llm check, download,
-ingest, inputs, classify, worker, jobs summary. Die übrigen Kommandos zeigen ihre geplante
-Schnittstelle und nennen ihren Meilenstein.
-"""
+"""Kommandozeile `parltopics` (PRD 10.4)."""
 
 import asyncio
 import contextlib
@@ -16,7 +11,6 @@ import typer
 from parltopics import __version__
 from parltopics.config import Settings, get_settings
 
-NOT_IMPLEMENTED_EXIT = 3
 DATE = ["%Y-%m-%d"]
 
 app = typer.Typer(
@@ -32,15 +26,6 @@ app.add_typer(registry_app, name="registry")
 app.add_typer(llm_app, name="llm")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(proposals_app, name="proposals")
-
-
-def _planned(milestone: str, reference: str) -> None:
-    typer.secho(
-        f"Noch nicht umgesetzt: Meilenstein {milestone}, PRD {reference}.",
-        fg=typer.colors.YELLOW,
-        err=True,
-    )
-    raise typer.Exit(code=NOT_IMPLEMENTED_EXIT)
 
 
 @app.command()
@@ -112,6 +97,7 @@ def registry_sync() -> None:
 @registry_app.command("activate")
 def registry_activate(
     tag_id: Annotated[str, typer.Argument(help="Ad-hoc-Tag, z. B. adhoc:velowege")],
+    by: Annotated[str, typer.Option(help="wer freischaltet")] = "cli",
 ) -> None:
     """Ad-hoc-Thema freischalten: proposed → active, danach in Stufe 2 von classify:aps."""
     from parltopics.classify.adhoc import activate
@@ -121,7 +107,7 @@ def registry_activate(
     settings = get_settings()
     try:
         with connect(settings.database_url, autocommit=True) as conn:
-            registry = activate(conn, settings, tag_id)
+            registry = activate(conn, settings, tag_id, by=by)
     except RegistryError as error:
         typer.secho(str(error), fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from error
@@ -429,52 +415,201 @@ def adhoc(
 
 
 @app.command()
+def daily(
+    bundle: Annotated[Path, typer.Option(help="Import-Bündel")] = Path("data/import"),
+    body: Annotated[
+        list[str] | None, typer.Option(help="nur diese Parlamente klassifizieren")
+    ] = None,
+    since: Annotated[
+        datetime | None, typer.Option(formats=DATE, help="nur Geschäfte ab Datum klassifizieren")
+    ] = None,
+) -> None:
+    """Täglicher Lauf (F17): Ingest, Input, Registry, Klassifikation, Vorschläge, Seiten, Export
+    und Wiki, ohne Review (ARCHITEKTUR 2, Schritte 2 bis 10).
+
+    Klassifiziert nur neue oder geänderte Geschäfte, protokolliert in classification_runs. Bricht
+    beim ersten fehlgeschlagenen Schritt ab. Den Download macht vorher `parltopics download`
+    (online) oder das Einspielen des Bündels (Air-Gap).
+    """
+    import time
+
+    steps = [
+        ("Ingest", lambda: ingest(bundle=bundle)),
+        ("Input", lambda: inputs(body=body, since=since)),
+        ("Registry", registry_sync),
+        ("Klassifikation", lambda: classify(task="classify:aps", body=body, since=since)),
+        ("Vorschläge", proposals_group),
+        ("Seiten", pages),
+        ("Export", export),
+        ("Wiki", wiki),
+    ]
+    started = time.perf_counter()
+    for name, step in steps:
+        typer.secho(f"== {name}", bold=True)
+        step()
+    typer.echo(f"Täglicher Lauf fertig nach {(time.perf_counter() - started) / 60:.1f} min")
+
+
+@app.command()
 def export(
     out: Annotated[Path, typer.Option(help="Zielverzeichnis")] = Path("dist/export"),
+    dvs_topic: Annotated[
+        str, typer.Option(help="Seite der DVS-Liste, mit allen Themen darunter")
+    ] = "adhoc:digitalisierung-breit",
 ) -> None:
-    """affair_topics.ndjson.gz und DVS-Liste schreiben (F11, F12)."""
-    _planned("M3", "F11, F12")
+    """affair_topics.ndjson.gz mit index.json und die DVS-Liste dvs_liste.csv schreiben (F11, F12).
+
+    Die DVS-Liste enthält die laufenden Geschäfte von Bund und Kantonen mit aktivem Label.
+    """
+    from parltopics.db import connect
+    from parltopics.export import write_affair_topics, write_dvs_list
+    from parltopics.registry import load_registry
+    from parltopics.wiki.tree import build_tree, subtree_tag_ids
+
+    settings = get_settings()
+    tree = build_tree(load_registry(settings.registry_path))
+    if dvs_topic not in tree:
+        typer.secho(f"Seite {dvs_topic} gibt es nicht", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=2)
+    with connect(settings.database_url, autocommit=True) as conn:
+        labels = write_affair_topics(conn, out)
+        dvs = write_dvs_list(conn, out, subtree_tag_ids(tree, dvs_topic))
+    typer.echo(
+        f"{out}: affair_topics.ndjson.gz mit {labels} Labels, dvs_liste.csv mit {dvs} Zeilen"
+    )
 
 
 @app.command()
 def pages() -> None:
-    """Seitenlauf: offene Seiten von den Tag-Seiten bis Heart zusammenfassen (F23–F25)."""
-    _planned("M3", "F23–F25")
+    """Seitenlauf: offene Seiten von den Tag-Seiten bis Heart zusammenfassen (F23–F25).
+
+    Alle Seiten mit 70B (ARCHITEKTUR 5.1); Kennzahlen für alle Seiten bei jedem Lauf. Bei gleichem
+    Input keine neue Zusammenfassung.
+    """
+    from collections import Counter
+
+    from parltopics.classify.queue import acquire_run_lock
+    from parltopics.db import connect
+    from parltopics.registry import load_registry
+    from parltopics.registry.sync import synced_version
+    from parltopics.wiki.run import run
+    from parltopics.wiki.tree import build_tree
+
+    settings = get_settings()
+    registry = load_registry(settings.registry_path)
+    tree = build_tree(registry)
+    with connect(settings.database_url, autocommit=True) as conn:
+        if synced_version(conn) != registry.registry_version:
+            typer.secho(
+                "Registry nicht synchronisiert: zuerst `parltopics registry sync`.",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        if not acquire_run_lock(conn, "pages"):
+            typer.secho("Ein Seitenlauf läuft bereits.", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1)
+        page_run = asyncio.run(run(settings, conn, registry, tree))
+    counts = Counter(page_run.outcomes.values())
+    typer.echo(
+        f"Seitenlauf {page_run.run_key}: {len(page_run.outcomes)} von {len(tree)} Seiten gebaut,"
+        f" {counts['changed']} geändert, {counts['unchanged']} unverändert,"
+        f" {counts['failed']} fehlgeschlagen"
+    )
+    for page_id, outcome in sorted(page_run.outcomes.items()):
+        if outcome == "failed":
+            error = page_run.result.states[page_id].last_error
+            typer.secho(f"  {page_id}: {error}", fg=typer.colors.RED, err=True)
 
 
 @app.command()
 def wiki(
     out: Annotated[Path, typer.Option(help="Zielverzeichnis")] = Path("wiki"),
     affair: Annotated[int | None, typer.Option(help="nur dieses Geschäft exportieren")] = None,
+    web_url: Annotated[
+        str, typer.Option(help="Adresse der Web-App für die Links auf Geschäfte")
+    ] = "http://127.0.0.1:8000",
 ) -> None:
-    """Markdown-Export: Heart, Bereiche, Kapitel, Tag-Seiten, Querschnitt, Parlamente (F14)."""
-    _planned("M3", "F14")
+    """Markdown-Export: Heart, Bereiche, Kapitel, Tag-Seiten, Querschnitt, Parlamente (F14).
+
+    Keine Datei je Geschäft; Geschäfte verlinken auf die Web-App und OpenParlData. Liest die
+    Datenbank nur und schreibt nur geänderte Dateien.
+    """
+    import datetime as dt
+
+    from parltopics.db import connect
+    from parltopics.registry import load_registry
+    from parltopics.wiki.markdown import export_affair, export_wiki
+    from parltopics.wiki.tree import build_tree
+
+    settings = get_settings()
+    registry = load_registry(settings.registry_path)
+    tree = build_tree(registry)
+    with connect(settings.database_url, autocommit=True) as conn:
+        if affair is not None:
+            path = export_affair(conn, tree, out, affair, web_url=web_url)
+            if path is None:
+                typer.secho(f"Geschäft {affair} gibt es nicht", fg=typer.colors.RED, err=True)
+                raise typer.Exit(code=1)
+            typer.echo(f"Geschäft {affair}: {path}")
+            return
+        files, changed = export_wiki(
+            conn,
+            registry,
+            tree,
+            out,
+            web_url=web_url,
+            window_months=settings.page_window_months,
+            today=dt.datetime.now(dt.UTC).date(),
+        )
+    typer.echo(f"Wiki in {out}: {files} Dateien, {changed} geändert")
 
 
 @app.command("eval")
 def evaluate(
-    gold: Annotated[Path, typer.Option(help="Gold-Set-Verzeichnis")] = Path("data/gold"),
+    gold: Annotated[
+        Path,
+        typer.Option(help="Gold-Verzeichnis mit politmonitor_ und dvs_digitalisierung.csv"),
+    ] = Path("data/gold"),
+    out: Annotated[Path, typer.Option(help="Markdown-Bericht")] = Path("data/eval/report.md"),
     curia: Annotated[
         Path | None,
         typer.Option(help="che_affairs_keywords.csv: aktive APS-Labels gegen Curia Vista prüfen"),
     ] = None,
     since: Annotated[
-        datetime, typer.Option(formats=DATE, help="nur Bundesgeschäfte ab Datum")
+        datetime, typer.Option(formats=DATE, help="mit --curia: nur Bundesgeschäfte ab Datum")
     ] = datetime(2024, 1, 1),
-    run: Annotated[list[int] | None, typer.Option(help="nur Labels dieser Läufe")] = None,
+    run: Annotated[
+        list[int] | None, typer.Option(help="mit --curia: nur Labels dieser Läufe")
+    ] = None,
 ) -> None:
     """Präzision, Recall, Baseline und Konfidenzbänder als Markdown-Bericht (F16).
 
-    Mit --curia: grobe Kontrolle der APS-Labels gegen die Curia-Vista-Sachbereiche (PRD 13).
+    Mit --curia statt des Berichts: grobe Kontrolle der APS-Labels gegen die
+    Curia-Vista-Sachbereiche (PRD 13). Liest die Datenbank nur.
     """
-    if curia is None:
-        _planned("M2", "F16")
     from parltopics.db import connect
-    from parltopics.evaluation.curia import TARGET, load_curia, score, tag_areas
     from parltopics.registry import load_registry
 
     settings = get_settings()
     registry = load_registry(settings.registry_path)
+    if curia is None:
+        from parltopics.evaluation.report import GoldFileError, build, read_gold_dir
+
+        try:
+            files = read_gold_dir(gold)
+        except GoldFileError as error:
+            typer.secho(str(error), fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1) from error
+        with connect(settings.database_url) as conn:
+            conn.read_only = True
+            report = build(conn, registry, settings, gold, files)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(report + "\n", encoding="utf-8")
+        typer.echo(f"Bericht geschrieben: {out}")
+        return
+    from parltopics.evaluation.curia import TARGET, load_curia, score, tag_areas
+
     with connect(settings.database_url) as conn:
         rows = conn.execute(
             "SELECT l.affair_id, l.tag_id, l.confidence::float FROM affair_tags l"

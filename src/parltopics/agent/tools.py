@@ -1,7 +1,7 @@
 """Werkzeuge des Agenten: Argument-Modelle und Tool-Definitionen (PRD 7.8, ARCHITEKTUR 4.3).
 
 Alle Werkzeuge lesen nur. `propose_adhoc_topic` liefert einen Entwurf; angelegt wird ein Thema
-erst, wenn ein Mensch in der Web-App bestätigt (POST /v1/adhoc). Die Implementierungen folgen in M4.
+erst, wenn ein Mensch in der Web-App bestätigt (POST /v1/adhoc). Umgesetzt sind sie in `execute`.
 """
 
 import json
@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 MAX_TOOL_CALLS = 6
 TIMEOUT_SECONDS = 60
+TAGS = "Tag-IDs aus list_tags, z. B. aps:6.1.9; nur Geschäfte mit einem dieser Themen"
+BODIES = "CHE = Bund, Kantone als Kürzel wie BS, GE oder TI, Gemeinden als BFS-Nummer"
 
 
 class ToolArgs(BaseModel):
@@ -22,10 +24,8 @@ class SearchAffairsArgs(ToolArgs):
     """Volltextsuche über Titel und Klassifikationstext mit Filtern; liefert IDs und Ausschnitte."""
 
     query: str = Field(min_length=1, max_length=300, description="Suchbegriffe in DE, FR oder IT")
-    tags: list[str] = Field(default_factory=list, max_length=10, description="Tag-IDs")
-    body_keys: list[str] = Field(
-        default_factory=list, max_length=30, description="Parlamente, z. B. CHE, ZH oder 261"
-    )
+    tags: list[str] = Field(default_factory=list, max_length=10, description=TAGS)
+    body_keys: list[str] = Field(default_factory=list, max_length=30, description=BODIES)
     year_from: int | None = Field(None, ge=1990, le=2100)
     year_to: int | None = Field(None, ge=1990, le=2100)
     affair_type: str | None = Field(None, max_length=60, description="harmonisierter Typ")
@@ -49,11 +49,16 @@ class GetAffairArgs(ToolArgs):
 class CountAffairsArgs(ToolArgs):
     """Geschäfte zählen, gruppiert nach Parlament, Ebene oder Jahr."""
 
-    group_by: Literal["body_key", "level", "year"]
-    tags: list[str] = Field(default_factory=list, max_length=10)
-    body_keys: list[str] = Field(default_factory=list, max_length=30)
+    group_by: Literal["body_key", "level", "year"] = Field(
+        description="je Parlament (body_key), je Ebene Bund/Kanton/Gemeinde (level), je Jahr (year)"
+    )
+    tags: list[str] = Field(default_factory=list, max_length=10, description=TAGS)
+    body_keys: list[str] = Field(default_factory=list, max_length=30, description=BODIES)
     year_from: int | None = Field(None, ge=1990, le=2100)
     year_to: int | None = Field(None, ge=1990, le=2100)
+    all_affairs: bool = Field(
+        False, description="true zählt alle Geschäfte ohne Thema; nur wenn die Frage keines nennt"
+    )
 
 
 class GenerateKeywordsArgs(ToolArgs):
@@ -104,6 +109,10 @@ TOOLS: tuple[ToolSpec, ...] = (
 
 class UnknownToolError(ValueError):
     """Das Modell hat ein Werkzeug verlangt, das es nicht gibt."""
+
+
+class ToolError(ValueError):
+    """Ein Werkzeug lehnt die Argumente ab; die Meldung geht an das Modell zurück."""
 
 
 def tool_definitions() -> list[dict[str, Any]]:

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useParams } from "react-router"
+import { Link, useLocation, useParams } from "react-router"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { EvidenceText, isEvidenceFound } from "@/components/evidence-text"
@@ -10,9 +10,8 @@ import { useApi } from "@/hooks/use-api"
 import { usePageTitle } from "@/hooks/use-page-title"
 import { useReview } from "@/hooks/use-review"
 import { useReviewQueue } from "@/hooks/use-review-queue"
-import type { AffairTopics } from "@/lib/api"
+import type { AffairTopics, ReviewQueue, TopicOut } from "@/lib/api"
 import { reviewReasons } from "@/lib/label-state"
-import { nextOpen } from "@/lib/review-queue"
 
 const LANGUAGE_NAME: Record<string, string> = {
   de: "Deutsch",
@@ -28,7 +27,7 @@ function formatDate(iso: string | null): string {
 }
 
 /** Der Klassifikationstext beginnt mit dem Titel, danach folgen die Absätze (durch \n getrennt). */
-function paragraphsOf(text: string | null): string[] {
+export function paragraphsOf(text: string | null): string[] {
   const lines = (text ?? "")
     .split("\n")
     .map((line) => line.trim())
@@ -50,26 +49,48 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
   )
   const review = useReview()
   const queue = useReviewQueue()
-  const next = nextOpen(queue.open, affairId)
+  // Nächstes offenes Label in einem anderen Geschäft; lädt nach jedem Entscheid neu.
+  // shortcut: sucht in den ersten 20 offenen Labels; genügt, solange kein Geschäft 20 offene hat.
+  const head = useApi<ReviewQueue>(
+    `/v1/reviews/queue?limit=20&v=${queue.version}`
+  )
+  const next = (head.data ?? head.last)?.items.find(
+    (item) => String(item.affair_id) !== affairId
+  )
+  // Die Trefferliste gibt ihre Suche mit, damit «Geschäfte» zur gleichen Liste zurückführt.
+  const fromSearch = (useLocation().state as { search?: string } | null)?.search
+  const back = { pathname: "/", search: fromSearch ?? "" }
   // Nach einem Entscheid liefert POST /v1/reviews das Geschäft mit den neuen Labels.
   const [saved, setSaved] = useState<AffairTopics | null>(null)
   const [pendingId, setPendingId] = useState<number | null>(null)
   const [saveError, setSaveError] = useState<string>()
 
-  async function onDecide(
-    label: MarginLabel,
-    action: "confirm" | "reject" | "undo"
-  ) {
-    setPendingId(label.id)
+  // Alle Themen der Registry, nur für «Ersetzen» und «Thema ergänzen» in der Prüfansicht.
+  const topics = useApi<TopicOut[]>("/v1/topics")
+
+  async function save(pending: number, run: () => Promise<AffairTopics>) {
+    setPendingId(pending)
     setSaveError(undefined)
     try {
-      setSaved(await review.decide(affairId, label.tagId, action))
+      setSaved(await run())
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : String(error))
     } finally {
       setPendingId(null)
     }
   }
+
+  const onDecide = (
+    label: MarginLabel,
+    action: "confirm" | "reject" | "undo"
+  ) => save(label.id, () => review.decide(affairId, label.tagId, action))
+  const onChange = (label: MarginLabel, newTagId: string) =>
+    save(label.id, () =>
+      review.decide(affairId, label.tagId, "change", newTagId)
+    )
+  // Ein ergänztes Thema hat noch kein Label; die Sperre gilt dem ganzen Geschäft.
+  const onAdd = (tagId: string) =>
+    save(-1, () => review.decide(affairId, tagId, "add"))
 
   if (found.loading) {
     return (
@@ -85,7 +106,7 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
       <Alert variant="destructive">
         <AlertTitle>Geschäft nicht geladen</AlertTitle>
         <AlertDescription>
-          {found.error} <Link to="/">Zur Themenübersicht</Link>
+          {found.error} <Link to={back}>Zur Suche</Link>
         </AlertDescription>
       </Alert>
     )
@@ -146,8 +167,8 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
             Review
           </Link>
         ) : (
-          <Link to="/" className="underline underline-offset-2">
-            Themen
+          <Link to={back} className="underline underline-offset-2">
+            Geschäfte
           </Link>
         )}{" "}
         / Geschäft {affair.number ?? affair.affair_id}
@@ -162,7 +183,9 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
               size="sm"
               variant="outline"
               nativeButton={false}
-              render={<Link to={`/admin/review/geschaefte/${next.affairId}`} />}
+              render={
+                <Link to={`/admin/review/geschaefte/${next.affair_id}`} />
+              }
             >
               Nächstes offenes Label
             </Button>
@@ -179,9 +202,9 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
           </Link>
         </nav>
       )}
-      <div className="grid gap-0 border-t border-foreground lg:grid-cols-[minmax(0,1fr)_14rem]">
-        <div className="flex flex-col gap-4 py-5 lg:pr-8">
-          <p className="tabular text-xs text-muted-foreground">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-10">
+        <div className="flex flex-col gap-4 border-t-2 border-foreground pt-6">
+          <p className="tabular text-sm text-muted-foreground">
             {[
               affair.number,
               affair.type_de ?? affair.type,
@@ -193,7 +216,7 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
           </p>
           <h1
             lang={language}
-            className="font-heading text-2xl leading-tight font-semibold text-balance"
+            className="font-heading text-2xl leading-[1.15] font-bold tracking-tight text-balance sm:text-3xl"
           >
             {affair.title}
           </h1>
@@ -223,7 +246,7 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
             )}
           </p>
         </div>
-        <div className="lg:border-l lg:border-border">
+        <div>
           <div className="lg:sticky lg:top-6">
             <MarginNotes
               mode={mode}
@@ -232,6 +255,9 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
               pendingId={pendingId}
               error={saveError}
               onDecide={onDecide}
+              topics={mode === "review" ? topics.data : undefined}
+              onChange={onChange}
+              onAdd={onAdd}
             />
           </div>
         </div>

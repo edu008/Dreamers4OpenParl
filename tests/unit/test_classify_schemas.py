@@ -35,6 +35,35 @@ def test_a_missing_aps_prefix_is_added_when_the_id_was_offered():
     assert ([t.tag_id for t in result.tags], dropped) == (["aps:6.1.9"], [])
 
 
+KEYS = {
+    "arbeitsmarkt": "aps:2.4.1",
+    "aerzte-pflegepersonal": "aps:5.1.2",
+    "adhoc:digitalisierung-breit": "adhoc:digitalisierung-breit",
+}
+
+
+def test_short_names_map_back_to_the_tag_id_and_numeric_codes_are_dropped():
+    """classify_single_v2: Kurznamen in jeder Schreibweise; ein Zahlencode stand nicht im Prompt
+    und wird verworfen, statt ein falsches Thema zu treffen."""
+    tags = [
+        {"tag_id": tag_id, "confidence": confidence, "evidence": "x"}
+        for tag_id, confidence in [
+            ("Ärzte und Pflegepersonal", 0.9),
+            ("ARBEITSMARKT", 0.8),
+            ("digitalisierung-breit", 0.7),
+            ("aps:2.4.1", 0.95),
+            ("5.1.2", 0.6),
+        ]
+    ]
+    result, dropped = parse_stage2(stage2(tags=tags), affair_id=70435, offered=KEYS)
+    assert [t.tag_id for t in result.tags] == [
+        "aps:5.1.2",
+        "aps:2.4.1",
+        "adhoc:digitalisierung-breit",
+    ]
+    assert dropped == ["?aps:2.4.1", "?5.1.2"]
+
+
 def test_stage1_keeps_three_best_chapters():
     chapters = [{"chapter_id": f"aps:{i}.1", "confidence": i / 10} for i in range(1, 6)]
     data = {"affair_id": 1, "language": "de", "chapters": chapters}
@@ -201,3 +230,32 @@ def test_single_keeps_an_institution_when_no_topic_fits():
     }
     result, _ = parse_single(data, affair_id=1, topics={"aps:6.1.1"}, institutions={"aps:1.2.4"})
     assert [x.tag_id for x in result.tags] == ["aps:1.2.4"]
+
+
+def test_parse_single_maps_fit_and_short_names():
+    from parltopics.classify.schemas import parse_single
+
+    data = {
+        "affair_id": 1,
+        "language": "de",
+        "tags": [{"evidence": "x", "tag_id": "steuern", "fit": "neben"}],
+        "institution_tags": [{"evidence": "y", "tag_id": "parlament", "fit": "kern"}],
+    }
+    keys = {"steuern": "aps:8.2.3", "parlament": "aps:1.2.4"}
+    out, dropped = parse_single(
+        data, affair_id=1, topics={"aps:8.2.3"}, institutions={"aps:1.2.4"}, keys=keys
+    )
+    assert [(t.tag_id, t.confidence) for t in out.tags] == [("aps:8.2.3", 0.6), ("aps:1.2.4", 0.9)]
+    assert dropped == []
+
+
+def test_parse_single_rejects_unknown_fit():
+    from parltopics.classify.schemas import parse_single
+
+    data = {
+        "affair_id": 1,
+        "language": "de",
+        "tags": [{"evidence": "x", "tag_id": "a", "fit": "?"}],
+    }
+    with pytest.raises(ValidationError):
+        parse_single(data, affair_id=1, topics={"a"}, institutions=set())

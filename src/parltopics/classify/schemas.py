@@ -1,8 +1,11 @@
 """Ausgabeschemas der Klassifikation (PRD Anhang B, ARCHITEKTUR 3.4)."""
 
+from collections.abc import Mapping
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from parltopics.registry.aps_import import aps_slug
 
 Language = Literal["de", "fr", "it", "rm", "other"]
 
@@ -79,8 +82,24 @@ def _by_confidence(items: list, limit: int) -> list:
     return sorted(items, key=lambda item: item.confidence, reverse=True)[:limit]
 
 
-def _offered_id(tag_id: str, offered: set[str]) -> str:
-    """Modelle lassen das Präfix manchmal weg ("7.2" statt "aps:7.2"); eindeutig, also ergänzen."""
+def short_key(value: str) -> str:
+    """Kurzname in fester Schreibweise: Gross- und Kleinschreibung, Umlaute, Leer- und
+    Satzzeichen zählen nicht ("Ärzte und Pflegepersonal" = "aerzte-pflegepersonal")."""
+    prefix = "adhoc:" if value.startswith("adhoc:") else ""
+    return prefix + aps_slug(value.removeprefix("adhoc:").removeprefix("aps:"))
+
+
+def _offered_id(tag_id: str, offered: set[str] | Mapping[str, str]) -> str:
+    """Angebotene tag_id zur Angabe des Modells.
+
+    Mit Kurznamen (Mapping short_key → tag_id, classify_single_v2) zählt nur ein Schlüssel des
+    Mappings (Kurzname, eindeutiger Name oder Synonym), auch ohne das Präfix adhoc:; alles andere,
+    auch ein Zahlencode, bleibt unbekannt und mit ? markiert.
+    Sonst: Modelle lassen das Präfix manchmal weg ("7.2" statt "aps:7.2"); eindeutig, also ergänzen.
+    """
+    if isinstance(offered, Mapping):
+        key = short_key(tag_id)
+        return offered.get(key) or offered.get(f"adhoc:{key}") or f"?{tag_id}"
     prefixed = f"aps:{tag_id}"
     return prefixed if tag_id not in offered and prefixed in offered else tag_id
 
@@ -101,21 +120,23 @@ def parse_stage1(data: dict, *, affair_id: int, offered: set[str]) -> Stage1Outp
 
 
 def parse_stage2(
-    data: dict, *, affair_id: int, offered: set[str]
+    data: dict, *, affair_id: int, offered: set[str] | Mapping[str, str]
 ) -> tuple[Stage2Output, list[str]]:
     """Stufe 2 prüfen. Gibt die bereinigte Ausgabe und die verworfenen Tag-IDs zurück.
 
-    Nicht angebotene Tags werden verworfen; ein mehrfach genanntes Tag zählt einmal, mit seiner
+    offered: angebotene tag_ids oder, bei Kurznamen im Prompt, short_key → tag_id. Nicht
+    angebotene Tags werden verworfen; ein mehrfach genanntes Tag zählt einmal, mit seiner
     höchsten Konfidenz; behalten werden die 3 Tags mit der höchsten Konfidenz und die ersten 2
     Vorschläge.
     """
     output = Stage2Output.model_validate(data)
     if output.affair_id != affair_id:
         raise OutputError(f"Antwort für Geschäft {output.affair_id}, angefragt war {affair_id}")
+    ids = set(offered.values()) if isinstance(offered, Mapping) else offered
     tags = [t.model_copy(update={"tag_id": _offered_id(t.tag_id, offered)}) for t in output.tags]
     unique: dict[str, TagAssignment] = {}
     for tag in _by_confidence(tags, len(tags)):
-        if tag.tag_id in offered:
+        if tag.tag_id in ids:
             unique.setdefault(tag.tag_id, tag)
     best = list(unique.values())[:MAX_TAGS]
     kept = {tag.tag_id for tag in best}
@@ -129,19 +150,45 @@ def parse_stage2(
 MAX_INSTITUTIONS = 1
 
 
+# classify_single_v3: Passung statt selbst genannter Zahl. Die Zahl hielt sich an die Anker im
+# Prompt (0.9, 0.7, 0.5) und trennte richtige nicht von falschen Labels (Lauf 7).
+FIT = {"kern": 0.9, "neben": 0.6}
+
+
+def _with_fit(tags: object) -> object:
+    """fit → confidence; ein unbekannter fit bleibt stehen und scheitert an der Validierung."""
+    if not isinstance(tags, list):
+        return tags
+    return [
+        {**{k: v for k, v in t.items() if k != "fit"}, "confidence": FIT[t["fit"]]}
+        if isinstance(t, dict) and t.get("fit") in FIT
+        else t
+        for t in tags
+    ]
+
+
 def parse_single(
-    data: dict, *, affair_id: int, topics: set[str], institutions: set[str]
+    data: dict,
+    *,
+    affair_id: int,
+    topics: set[str],
+    institutions: set[str],
+    keys: Mapping[str, str] | None = None,
 ) -> tuple[Stage2Output, list[str]]:
     """Einstufig mit getrennten Listen (Vorschlag A, 19.10.2026).
 
     Sachthemen kommen zuerst, ein Institutions-Thema (Parlament, Verwaltung, Bundesrat …) höchstens
     einmal und nur dahinter; insgesamt höchstens 3. Steht ein Institutions-Thema in `tags`, wird es
     als Institution behandelt: Wer ein Geschäft einreicht oder behandelt, ist nicht sein Thema.
+    keys: Kurzname → tag_id (classify_single_v2 und v3); ein Kapitelname bleibt unbekannt.
     """
+    if isinstance(data, dict):
+        lists = ("tags", "institution_tags")
+        data = {k: _with_fit(v) if k in lists else v for k, v in data.items()}
     output = Stage2Output.model_validate(data)
     if output.affair_id != affair_id:
         raise OutputError(f"Antwort für Geschäft {output.affair_id}, angefragt war {affair_id}")
-    offered = topics | institutions
+    offered = keys if keys else topics | institutions
     given = [
         t.model_copy(update={"tag_id": _offered_id(t.tag_id, offered)})
         for t in [*output.tags, *output.institution_tags]
@@ -164,3 +211,58 @@ def parse_single(
         }
     )
     return cleaned, dropped
+
+
+def single_format(affair_id: int, topics: list[str], institutions: list[str]) -> dict:
+    """response_format für classify_single_v3: Kurznamen als enum, damit 70B keine erfindet.
+
+    Der Beleg steht vor dem Thema. topics enthält auch die Kapitelnamen: Schreibt das Modell
+    «umweltschutz», soll die Grammatik es nicht in ein falsches Thema mit diesem Anfang zwingen;
+    parse_single verwirft den Kapitelnamen danach.
+    """
+
+    def assignment(ids: list[str]) -> dict:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["evidence", "tag_id", "fit"],
+            "properties": {
+                "evidence": {"type": "string"},
+                "tag_id": {"type": "string", "enum": list(dict.fromkeys(ids))},
+                "fit": {"type": "string", "enum": list(FIT)},
+            },
+        }
+
+    text = {"type": "string"}
+    proposal = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["name_de", "description_de", "reason"],
+        "properties": {"name_de": text, "description_de": text, "reason": text},
+    }
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "affair_id",
+            "language",
+            "summary_de",
+            "tags",
+            "institution_tags",
+            "proposed_tags",
+        ],
+        "properties": {
+            "affair_id": {"type": "integer", "enum": [affair_id]},
+            "language": {"type": "string", "enum": ["de", "fr", "it", "rm", "other"]},
+            "summary_de": text,
+            "tags": {"type": "array", "items": assignment(topics), "maxItems": MAX_TAGS},
+            "institution_tags": {
+                "type": "array",
+                "items": assignment(institutions),
+                "maxItems": MAX_INSTITUTIONS,
+            },
+            "proposed_tags": {"type": "array", "items": proposal, "maxItems": MAX_PROPOSALS},
+        },
+    }
+    spec = {"name": "classify", "strict": True, "schema": schema}
+    return {"type": "json_schema", "json_schema": spec}

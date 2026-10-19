@@ -1,4 +1,10 @@
+import { Link } from "react-router"
+
+import { CalibrationPanel } from "@/components/calibration-panel"
 import { JobTable, SystemList } from "@/components/job-summary"
+import { ProposalsPanel } from "@/components/proposals-panel"
+import { RunsPanel } from "@/components/runs-panel"
+import { Button } from "@/components/ui/button"
 
 // Admin: Überblick über das System. Verwaltung (Tag-Vorschläge, Themen) folgt, sobald das Backend
 // die nötigen Endpunkte hat. Im MVP gibt es keine Zugangskontrolle: /admin ist offen.
@@ -35,16 +41,56 @@ export function AdminPage() {
       </section>
 
       <section
-        aria-labelledby="proposals-heading"
+        aria-labelledby="runs-heading"
+        className="flex flex-col gap-3 pt-2"
+      >
+        <h2 id="runs-heading" className="font-heading text-lg font-medium">
+          Durchsatz und Hochrechnung
+        </h2>
+        <RunsPanel />
+      </section>
+
+      <section
+        aria-labelledby="quality-heading"
+        className="flex flex-col gap-3 pt-2"
+      >
+        <h2 id="quality-heading" className="font-heading text-lg font-medium">
+          Qualität
+        </h2>
+        <CalibrationPanel />
+      </section>
+
+      <section
+        aria-labelledby="adhoc-heading"
         className="flex flex-col gap-2 pt-2"
       >
-        <h2 id="proposals-heading" className="font-heading text-lg font-medium">
-          Tag-Vorschläge und Themen
+        <h2 id="adhoc-heading" className="font-heading text-lg font-medium">
+          Ad-hoc-Themen
         </h2>
         <p className="max-w-[68ch] text-muted-foreground">
-          Neue Themen annehmen, zusammenlegen oder ablehnen und Ad-hoc-Themen
-          anlegen folgt. Dafür braucht das Backend noch die Endpunkte.
+          Ein Ad-hoc-Thema ist ein frei definiertes Thema neben dem festen
+          Schema, zum Beispiel «Covid-19». Es entsteht ohne Neutraining aus
+          Name, Beschreibung und Stichwörtern.
         </p>
+        <div>
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={<Link to="/admin/thema-neu" />}
+          >
+            Ad-hoc-Thema anlegen
+          </Button>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="proposals-heading"
+        className="flex flex-col gap-3 pt-2"
+      >
+        <h2 id="proposals-heading" className="font-heading text-lg font-medium">
+          Tag-Vorschläge
+        </h2>
+        <ProposalsPanel />
       </section>
     </>
   )

@@ -1,7 +1,7 @@
 """Seitenbaum des ParlWiki aus der Registry (PRD 7.9, ADR 0008).
 
 Reine Logik ohne Datenbank: Seiten, Eltern und Kinder, Dateinamen, Jahresteilung, Weitergabe
-von Änderungen nach oben und Schwellen. Speicherung und LLM-Aufrufe folgen in Meilenstein M3.
+von Änderungen nach oben und Schwellen. Speicherung und LLM-Aufrufe stehen in wiki/run.py.
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ def page_path(tag: Tag) -> str:
     return f"{FOLDERS[page_kind(tag)]}/{stem}.md"
 
 
-def year_list_path(page: Page, year: int) -> str:
+def year_list_path(page: Page, year: int | str) -> str:
     """Geschäftsliste eines Jahres; die Hub-Datei der Seite bleibt unverändert."""
     return f"{page.path.removesuffix('.md')}/{year}.md"
 
@@ -137,6 +137,15 @@ def ancestors(pages: dict[str, Page], page_id: str) -> list[str]:
         chain.append(current)
         current = pages[current].parent_id
     return chain
+
+
+def subtree_tag_ids(pages: dict[str, Page], page_id: str) -> list[str]:
+    """Tags dieser Seite und aller Seiten darunter; verlinkte Querschnittsseiten zählen nicht."""
+    return [
+        page.tag_id
+        for page in pages.values()
+        if page.tag_id and (page.page_id == page_id or page_id in ancestors(pages, page.page_id))
+    ]
 
 
 @dataclass(frozen=True)

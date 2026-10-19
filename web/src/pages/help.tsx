@@ -91,7 +91,7 @@ export function HelpPage() {
                 (aktuell <span className="tabular">{number.format(done)}</span>)
               </>
             )}
-            . Themenübersicht und Graph werden mit jedem Lauf voller.
+            . Mit jedem Lauf bekommen mehr Geschäfte ihre Themen.
           </li>
           <li>
             Die Qualität kann je nach Sprache, Ebene und Parlament
@@ -106,15 +106,9 @@ export function HelpPage() {
       </Section>
 
       <p className="max-w-[62ch] text-sm text-muted-foreground">
-        Zurück zu den{" "}
         <Link to="/" className="underline underline-offset-2">
-          Themen
-        </Link>{" "}
-        oder zum{" "}
-        <Link to="/graph" className="underline underline-offset-2">
-          Graph
+          Zurück zur Suche
         </Link>
-        .
       </p>
     </>
   )

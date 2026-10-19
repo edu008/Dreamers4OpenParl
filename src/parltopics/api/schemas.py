@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from parltopics.classify.adhoc import Keywords
 from parltopics.wiki.tree import PageKind
@@ -29,6 +29,27 @@ class PageTree(BaseModel):
     pages: list[PageOut] = Field(description="Wurzel zuerst, dann APS nach Code, dann Ad-hoc")
 
 
+class PageStatement(BaseModel):
+    text: str
+    affair_ids: list[int] = Field(description="Geschäfte, auf die sich die Aussage stützt")
+    page_ids: list[str] = Field(description="Unterseiten, auf die sich die Aussage stützt")
+
+
+class PageSummary(BaseModel):
+    """Zusammenfassung und Kennzahl einer Seite aus wiki_pages. Jede Aussage ist belegt."""
+
+    page_status: Literal["open", "pending", "done", "failed"]
+    n_affairs: int = Field(description="Geschäfte mit aktivem Label auf der Seite und darunter")
+    summary_short: str | None = Field(description="ein Satz für die Navigation")
+    summary_long: str | None = Field(description="Absatz aus den Aussagen")
+    statements: list[PageStatement]
+    built_at: datetime | None
+    window_start: date | None = Field(description="Zeitfenster der Zusammenfassung")
+    window_end: date | None
+    model_version: str | None
+    prompt_version: str | None
+
+
 class PageDetail(BaseModel):
     """Eine Seite mit Vorfahren (von der Wurzel abwärts), Unterseiten und Querschnittsverweisen."""
 
@@ -47,6 +68,10 @@ class PageDetail(BaseModel):
         examples=[["E-Government", "Digitale Transformation"]],
     )
     related: list[PageOut] = Field(description="verwandte Themen aus der Registry (related)")
+    summary: PageSummary | None = Field(
+        None,
+        description="Stand aus dem Seitenlauf (F23–F25); null ohne Lauf oder ohne Datenbank",
+    )
 
 
 class JobCounts(BaseModel):
@@ -254,22 +279,24 @@ class ReviewQueue(BaseModel):
 
 class SearchHit(AffairHead):
     language: str | None = Field(description="Sprache des Klassifikationstexts", examples=["de"])
-    rank: float = Field(description="ts_rank_cd; ein Treffer im Titel zählt mehr als im Text")
-    headline: str = Field(
+    rank: float | None = Field(
+        description="ts_rank_cd; ein Treffer im Titel zählt mehr als im Text; null ohne q"
+    )
+    headline: str | None = Field(
         description="Ausschnitte aus dem Klassifikationstext als HTML: alles maskiert,"
-        " nur die Treffer stehen in <mark>",
+        " nur die Treffer stehen in <mark>; null ohne q",
         examples=["Der Bundesrat soll die Verwaltung <mark>digitalisieren</mark>."],
     )
     topics: list[HitTopic] = Field(description="aktive Themen, höchste Konfidenz zuerst")
 
 
 class SearchResult(BaseModel):
-    q: str
+    q: str | None = Field(description="Suchbegriffe; null listet die neuesten Geschäfte")
     total: int = Field(description="Treffer insgesamt, unabhängig von limit und offset")
     limit: int
     offset: int
     duration_ms: int = Field(description="Dauer der Abfragen in der API")
-    items: list[SearchHit] = Field(description="nach Rang, dann neueste zuerst")
+    items: list[SearchHit] = Field(description="nach Rang, dann neueste zuerst; ohne q neueste")
 
 
 class CalibrationBand(BaseModel):
@@ -314,9 +341,14 @@ class GoldLabel(BaseModel):
 class GraphNode(BaseModel):
     id: str = Field(description="Seite und Tag", examples=["aps:6"])
     label: str = Field(examples=["Infrastruktur und Umwelt"])
-    kind: PageKind = Field(description="bereich in der Übersicht, sonst kapitel oder tag")
+    kind: PageKind = Field(
+        description="bereich in der Übersicht, sonst kapitel, tag oder querschnitt (Ad-hoc)"
+    )
     count: int = Field(description="Geschäfte mit aktivem Label auf diesem Knoten")
-    group: str = Field(description="APS-Bereich, zum Beispiel für die Farbe", examples=["aps:6"])
+    group: str = Field(
+        description="APS-Bereich, zum Beispiel für die Farbe; adhoc bei Ad-hoc-Themen",
+        examples=["aps:6"],
+    )
 
 
 class GraphEdge(BaseModel):
@@ -326,7 +358,9 @@ class GraphEdge(BaseModel):
 
 
 class TopicGraph(BaseModel):
-    area: str | None = Field(description="geöffneter Bereich; null in der Übersicht")
+    area: str | None = Field(
+        description="geöffneter Bereich oder all für alle Themen; null in der Übersicht"
+    )
     nodes: list[GraphNode] = Field(description="sortiert wie der Seitenbaum")
     edges: list[GraphEdge] = Field(description="stärkste zuerst, höchstens limit")
     hidden: int = Field(description="Kanten ab min_weight, die wegen limit fehlen")
@@ -377,10 +411,35 @@ class AdhocCreated(BaseModel):
     sample: int
 
 
+class AdhocStepIn(BaseModel):
+    """Zurückziehen; Name und Zeit stehen im Tag unter changes."""
+
+    user_name: UserName = Field(description="wer den Schritt macht", examples=["Mia Muster"])
+
+
+class AdhocActivateIn(BaseModel):
+    """Freischalten; der Body ist freiwillig, damit bestehende Aufrufe ohne Namen weiter gehen."""
+
+    user_name: UserName | None = Field(
+        None, description="wer freischaltet; ohne Angabe «api»", examples=["Mia Muster"]
+    )
+
+
 class AdhocActivated(BaseModel):
     tag_id: str
     status: Literal["active"]
     registry_version: str
+
+
+class AdhocRetired(BaseModel):
+    tag_id: str
+    status: Literal["retired"]
+    registry_version: str
+    jobs: int = Field(description="geschlossene Jobs (failed, Grund retired), auch erledigte")
+    labels: int = Field(
+        description="Labels ohne menschlichen Entscheid, jetzt superseded; bestätigte und von Hand"
+        " gesetzte bleiben aktiv"
+    )
 
 
 class ProposalOut(BaseModel):
@@ -398,7 +457,9 @@ class ProposalOut(BaseModel):
     affairs: list[AffairHead] = Field(description="Auswahl dieser Geschäfte, höchstens fünf")
     status: Literal["open", "pending", "done"]
     decision: Literal["accepted", "merged", "rejected"] | None
-    decided_by: str | None
+    decided_by: str | None = Field(
+        description="wer entschieden hat; bei offenem Vorschlag, wer den Entscheid zurücknahm"
+    )
     decided_at: datetime | None
     created_at: datetime
     model_version: str | None = Field(description="Modell der Empfehlung; pg_trgm ohne Modell")
@@ -412,9 +473,11 @@ class ProposalList(BaseModel):
 
 
 class ProposalDecisionIn(BaseModel):
-    decision: Literal["accepted", "merged", "rejected"] = Field(
+    decision: Literal["accepted", "merged", "rejected", "undo"] = Field(
         description="accepted: als Ad-hoc-Thema (proposed) anlegen und die betroffenen Geschäfte"
-        " prüfen lassen; merged: geht in related_tag_id auf; rejected: verwerfen"
+        " prüfen lassen; merged: geht in related_tag_id auf; rejected: verwerfen; undo: den"
+        " Entscheid zurücknehmen, der Vorschlag ist wieder offen und ein mit accepted angelegtes"
+        " Thema wird zurückgezogen"
     )
     user_name: UserName = Field(examples=["Mia Muster"])
     name_de: str | None = Field(None, min_length=2, max_length=120, description="nur accepted")
@@ -429,7 +492,9 @@ class ProposalDecisionIn(BaseModel):
 
 class ProposalDecisionOut(BaseModel):
     proposal: ProposalOut
-    tag_id: str | None = Field(description="bei accepted das neue Ad-hoc-Tag")
+    tag_id: str | None = Field(
+        description="bei accepted das neue Ad-hoc-Tag, bei undo das zurückgezogene"
+    )
     run_id: int | None
     jobs: int | None = Field(description="bei accepted: Jobs für die betroffenen Geschäfte")
 
@@ -476,3 +541,250 @@ class NavigateOut(BaseModel):
     filters: dict | None = Field(description="aus der Frage gelesene Filter")
     duration_ms: int
     search_run_id: int = Field(description="Zeile in search_runs")
+
+
+# Gespeicherte OpenParlData-Datensätze. Sprachfelder sind geschachtelt wie bei OpenParlData
+# ({"de": …, "fr": …}, ohne Werte {}); weitere gespeicherte Felder kommen unverändert mit.
+Localized = dict[str, str]
+LINK = "Link nach aussen; die Web-App lädt nichts von dort (Offline)"
+
+
+class BodyRecord(BaseModel):
+    """Ein Parlament, wie es in bodies.raw liegt, mit Sitzen, Bevölkerung und Wikidata."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: int = Field(examples=[257])
+    body_key: str = Field(examples=["GE"])
+    url_api: str = Field(description=f"derselbe Datensatz bei OpenParlData; {LINK}")
+    name: Localized = Field(default_factory=dict, examples=[{"de": "Genf", "fr": "Genève"}])
+    type: str | None = Field(None, description=LEVEL, examples=["canton"])
+    type_name: Localized = Field(default_factory=dict, examples=[{"de": "Kanton"}])
+    legislative_name: Localized = Field(default_factory=dict, examples=[{"de": "Grosser Rat"}])
+    executive_name: Localized = Field(default_factory=dict, examples=[{"de": "Staatsrat"}])
+    canton_key: str | None = Field(None, examples=["GE"])
+    languages: str | None = Field(None, description="Amtssprachen, kommagetrennt", examples=["FR"])
+    flag_image_oparl_url: str | None = Field(None, description=f"Wappen; {LINK}")
+
+
+class BodyDetail(BodyRecord):
+    n_affairs: int = Field(description="Geschäfte dieses Parlaments in der Datenbank")
+    n_labelled: int = Field(description="davon mit mindestens einem aktiven Label")
+
+
+class TextRecord(BaseModel):
+    """Ein Text des Geschäfts (affair_texts) mit allen gespeicherten Sprachen."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+    type: Localized = Field(default_factory=dict, examples=[{"de": "Eingereichter Text"}])
+    text: Localized = Field(
+        default_factory=dict,
+        description="Text je Sprache wie aus der Quelle, oft HTML und nicht bereinigt: nur als"
+        " Text anzeigen oder vorher bereinigen. Ohne HTML: GET /v1/affairs/{affair_id}/topics",
+    )
+    text_format: str | None = None
+    text_date: str | None = None
+
+
+class DocRecord(BaseModel):
+    """Ein Dokument (affair_docs) ohne seinen Text."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+    name: str | None = None
+    category: Localized = Field(default_factory=dict)
+    category_harmonized: str | None = None
+    date: str | None = Field(None, examples=["2026-10-13T00:00:00"])
+    language: str | None = None
+    format: str | None = Field(None, examples=["application/pdf"])
+    size: int | None = Field(None, description="Grösse der Datei in Bytes")
+    url: str | None = Field(None, description=f"Datei beim Parlament; {LINK}")
+    url_oparl: str | None = Field(None, description=f"Kopie bei OpenParlData; {LINK}")
+    has_text: bool = Field(description="Text extrahiert und gespeichert: GET /v1/docs/{doc_id}")
+
+
+class DocDetail(DocRecord):
+    parent_type: str | None = Field(description="affair, agenda, meeting, news oder session")
+    parent_id: int | None
+    text: str | None = Field(description="aus der Datei extrahierter Text, bis einige MB")
+
+
+class DocList(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    items: list[DocRecord] = Field(description="nach Datum, ohne Datum zuletzt")
+
+
+class AffairRecord(BaseModel):
+    """Ein Geschäft, wie es in affairs.raw liegt, mit Parlament, Texten und Dokumenten."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: int = Field(description="OpenParlData-ID", examples=[341579])
+    body_key: str = Field(examples=["GE"])
+    url_api: str = Field(description=f"derselbe Datensatz bei OpenParlData; {LINK}")
+    number: str | None = Field(None, examples=["E 3265"])
+    title: Localized = Field(default_factory=dict, examples=[{"fr": "Election d'une juge …"}])
+    title_long: Localized = Field(default_factory=dict)
+    type_name: Localized = Field(default_factory=dict, description="Typ beim Parlament")
+    type_harmonized: Localized = Field(default_factory=dict, examples=[{"de": "Wahl"}])
+    state_name: Localized = Field(default_factory=dict, description="Stand beim Parlament")
+    state_name_harmonized: Localized = Field(default_factory=dict)
+    url_external: Localized = Field(default_factory=dict, description=f"beim Parlament; {LINK}")
+    begin_date: str | None = Field(None, examples=["2026-10-29T00:00:00"])
+    end_date: str | None = None
+    body: BodyRecord | None = Field(description="null, wenn das Parlament nicht gespeichert ist")
+    texts: list[TextRecord]
+    docs: list[DocRecord] = Field(
+        description="die ersten 20 nach Datum; alle unter GET /v1/affairs/{affair_id}/docs"
+    )
+    n_docs: int = Field(description="Dokumente des Geschäfts insgesamt")
+
+
+class TopicStar(BaseModel):
+    """Graph, Sicht 1: ein Thema in der Mitte, jede Kante führt zu einem seiner Geschäfte."""
+
+    center: TopicName
+    total: int = Field(description="Geschäfte mit aktivem Label ab min_confidence")
+    nodes: list[TopicAffair] = Field(description="höchste Konfidenz zuerst, höchstens limit")
+
+
+class Neighbour(AffairHead):
+    shared: list[str] = Field(description="gemeinsame aktive Themen", examples=[["aps:6.1.9"]])
+    score: float = Field(description="Summe der Konfidenzen des Nachbarn auf diesen Themen")
+
+
+class AffairStar(BaseModel):
+    """Graph, Sicht 2: ein Geschäft mit seinen Themen und Nachbarn über gemeinsame Themen."""
+
+    center: NavigateHit
+    neighbours: list[Neighbour] = Field(
+        description="die meisten gemeinsamen Themen zuerst, dann nach score, höchstens limit"
+    )
+
+
+class ReasonCounts(BaseModel):
+    low_confidence: int = 0
+    no_evidence: int = 0
+    evidence_unverified: int = 0
+    sample: int = 0
+
+
+class AreaCount(BaseModel):
+    page_id: str = Field(examples=["aps:6"])
+    title: str = Field(examples=["Infrastruktur und Umwelt"])
+    count: int
+
+
+class BodyCount(BaseModel):
+    body_key: str = Field(examples=["CHE"])
+    name: str | None = Field(examples=["Schweiz"])
+    count: int
+
+
+class TopicCount(BaseModel):
+    tag_id: str = Field(examples=["aps:6.1.9"])
+    name_de: str
+    count: int
+
+
+class ReviewSummary(BaseModel):
+    """Zähler der Review-Warteschlange, ohne die Labels selbst zu laden."""
+
+    threshold: float = Field(description="CONFIDENCE_THRESHOLD der Klassifikation")
+    open: int = Field(description="Labels mit Prüfbedarf")
+    done: int = Field(description="Labels mit Entscheid")
+    by_reason: ReasonCounts = Field(
+        description="offene Labels je Grund; ein Label kann mehrere Gründe haben"
+    )
+    by_area: list[AreaCount] = Field(
+        description="offene Labels je APS-Bereich, wie der Seitenbaum; Ad-hoc-Themen gehören zu"
+        " keinem Bereich"
+    )
+    by_body: list[BodyCount] = Field(description="offene Labels je Parlament, nach Name")
+    by_topic: list[TopicCount] = Field(description="offene Labels je Thema, wie der Seitenbaum")
+
+
+class LevelCount(BaseModel):
+    level: str | None = Field(description=LEVEL, examples=["canton"])
+    count: int
+
+
+class PageBodyCount(BodyCount):
+    level: str | None = Field(description=LEVEL)
+
+
+class YearCount(BaseModel):
+    year: int | None = Field(description="Jahr von begin_date; null ohne Datum", examples=[2026])
+    count: int
+
+
+class TypeCount(BaseModel):
+    type: str | None = Field(description="harmonisierter Typ (englisch)", examples=["Motion"])
+    type_de: str | None = Field(examples=["Motion"])
+    count: int
+
+
+class AffairsSummary(BaseModel):
+    """Auswertung der Geschäfte einer Seite. Kennzahlen mit allen Filtern; jede Verteilung ohne
+    ihren eigenen Filter, damit sie die Alternativen zeigt (wie die Web-App)."""
+
+    rows: int = Field(description="Zeilen wie unter /affairs: eine je Geschäft und Thema")
+    affairs: int = Field(description="Geschäfte, ohne Doppelzählung")
+    bodies: int = Field(description="Parlamente")
+    verified: int = Field(description="Zeilen mit gefundenem Beleg")
+    first_date: date | None
+    last_date: date | None
+    by_level: list[LevelCount] = Field(description="Geschäfte je Ebene, ohne den Filter level")
+    by_body: list[PageBodyCount] = Field(
+        description="Geschäfte je Parlament, meiste zuerst, ohne den Filter body_key"
+    )
+    by_year: list[YearCount] = Field(description="Geschäfte je Jahr, ohne die Filter from und to")
+    by_type: list[TypeCount] = Field(description="Geschäfte je Typ, meiste zuerst, ohne type")
+
+
+class AgentIn(NavigateIn):
+    """Eine Frage an den Agenten, auch über mehrere Schritte oder für ein neues Thema."""
+
+
+class ToolCall(BaseModel):
+    name: str = Field(examples=["search_affairs"])
+    args: dict = Field(description="Argumente des Modells")
+    result_size: int = Field(description="Zeichen des Ergebnisses im Prompt")
+    ms: int
+    error: str | None = Field(None, description="ungültige Argumente oder Fehler des Werkzeugs")
+
+
+class AdhocDraft(BaseModel):
+    """Entwurf eines Ad-hoc-Themas; angelegt wird es erst mit POST /v1/adhoc."""
+
+    name_de: str
+    description_de: str
+    keywords: Keywords
+    candidates: int = Field(description="Geschäfte mit Stichworttreffer")
+    sample: int = Field(description="Stichprobe ohne Treffer")
+    examples: list[AffairHead] = Field(description="die neuesten Kandidaten, höchstens fünf")
+
+
+class AgentOut(BaseModel):
+    query: str
+    answer: str | None = Field(description="Antwort mit Belegen in eckigen Klammern, z. B. [70435]")
+    cited_affair_ids: list[int] = Field(description="zitierte Geschäfte; alle kamen aus Werkzeugen")
+    hits: list[NavigateHit] = Field(description="die zitierten Geschäfte mit ihren Themen")
+    tool_calls: list[ToolCall]
+    proposal: AdhocDraft | None = Field(
+        description="Entwurf aus propose_adhoc_topic; die Web-App zeigt ihn mit einem"
+        " Bestätigen-Knopf, der POST /v1/adhoc aufruft"
+    )
+    status: Literal["ok", "no_results", "limit_reached"] = Field(
+        description="ok: belegt mit Zitaten, Zahlen aus count_affairs oder read_page oder einem"
+        " Entwurf aus propose_adhoc_topic;"
+        " limit_reached: Antwort nach 6 Werkzeugen oder 60 s erzwungen"
+    )
+    steps: int = Field(description="Modellaufrufe des Agenten, ohne die in den Werkzeugen")
+    duration_ms: int
+    agent_run_id: int = Field(description="Zeile in agent_runs")

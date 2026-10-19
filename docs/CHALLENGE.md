@@ -70,8 +70,8 @@ All data is public (open government data from Swiss parliaments). Solutions shou
 | Vorgabe | Stand im Projekt |
 |---|---|
 | 5-Minuten-Pitch | nicht im PRD, zusätzlich zum 2-Minuten-Demo-Video des Templates einplanen |
-| Bias nach Sprache, Region **und Partei** | Sprache, Ebene, Region im PRD; Partei fehlt |
-| Neutralität | nicht ausdrücklich verankert |
+| Bias nach Sprache, Region **und Partei** | Sprache, Ebene und Kanton im Evaluationsbericht (`parltopics eval`); Partei fehlt, die Urheber sind nicht in der Datenbank |
+| Neutralität | verankert in PRD 7.9 (Regel 7) und in den Prompts: eigene Regel im Agenten (`agent_system_v2`), «sachlich, ohne Wertung politischer Positionen» in Navigationsantworten und Seitenzusammenfassungen; das Stichproben-Review prüft es |
 | Laufzeit für 300'000+ Geschäfte | Durchsatz noch nicht gemessen |
 | Prototyp klassifiziert Geschäfte «from the API» | Projekt nutzt den Bulk-Export (bewusst); API-Beispiel ergänzen |
 | Vorarbeiten (BFH, Demokratis) | als Vergleich noch nicht berücksichtigt |
