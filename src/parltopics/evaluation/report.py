@@ -32,6 +32,7 @@ FULL_RUN_SINCE = date(2018, 1, 1)  # Recall Volllauf: PolitMonitor-Positive CHE 
 FEW = 100  # Umfang des Gold-Sets nach PRD 15; darunter schwanken die Quoten stark
 LANGUAGES = ("de", "fr", "it", "rm")
 BODY_LEVELS = ("country", "canton", "city", "municipality")
+Decisions = dict[tuple[int, str], dict]  # (affair_id, tag_id) → jüngste Zeile aus queries.GOLD
 METRICS = [
     "Geschäfte",
     "Präzision Modell",
@@ -40,17 +41,26 @@ METRICS = [
     "Recall Stichwörter",
 ]
 
-# Je Geschäft die Prompt-Versionen der Läufe von classify:aps, die es fertig bearbeitet haben;
-# so zählen auch Geschäfte, bei denen eine Variante kein Thema fand.
+# Je Geschäft die Prompt-Versionen der Läufe von classify:aps, die es fertig bearbeitet haben, mit
+# dem letzten Zeitpunkt; so zählen auch Geschäfte, bei denen eine Variante kein Thema fand.
 CLASSIFIED = f"""
-SELECT DISTINCT e.affair_id, r.prompt_version
+SELECT e.affair_id, r.prompt_version, max(e.created_at)
 FROM job_events e JOIN classification_runs r ON r.id = e.run_id
 WHERE e.task = '{TASK_APS}' AND e.to_status = 'done' AND e.affair_id = ANY(%s::bigint[])
+GROUP BY 1, 2
 """
+# Nur der letzte Durchlauf eines Jobs ist sein Ergebnis. Bei einer Eskalation speichert die Queue
+# den 8B-Durchlauf als superseded unter derselben Aufgabe, demselben Lauf und derselben
+# Prompt-Version; das done-Ereignis hält die Stufe des letzten Durchlaufs (classify.queue).
+FINAL_PASS = """EXISTS (
+    SELECT 1 FROM job_events e
+    WHERE e.affair_id = l.affair_id AND e.task = l.task AND e.run_id = l.run_id
+      AND e.to_status = 'done' AND e.reason = l.stage
+)"""
 APS_LABELS = f"""
-SELECT affair_id, tag_id, prompt_version, status FROM affair_tags
-WHERE task = '{TASK_APS}' AND stage <> 'human' AND scheme = 'aps'
-  AND affair_id = ANY(%s::bigint[])
+SELECT l.affair_id, l.tag_id, l.prompt_version, l.status FROM affair_tags l
+WHERE l.task = '{TASK_APS}' AND l.stage <> 'human' AND l.scheme = 'aps'
+  AND l.affair_id = ANY(%s::bigint[]) AND {FINAL_PASS}
 """
 FACTS = """
 SELECT a.id, coalesce(i.language, 'unbekannt'), coalesce(b.level, 'unbekannt')
@@ -71,13 +81,18 @@ WITH k AS MATERIALIZED (
 SELECT d.affair_id, k.tag_id FROM search_documents d JOIN k ON d.document @@ k.query
 WHERE d.affair_id = ANY(%(ids)s::bigint[])
 """
+# Nur Läufe mit Stichwortsuche: Läufe aus angenommenen Vorschlägen (classify.proposals) prüfen
+# eine feste Liste von Geschäften und haben weder Kandidaten noch Stichprobe.
 ADHOC_RUNS = """
 SELECT DISTINCT ON (task) id, task, params FROM classification_runs
-WHERE kind = 'adhoc' ORDER BY task, id DESC
+WHERE kind = 'adhoc' AND params ? 'keywords' ORDER BY task, id DESC
 """
 # shortcut: zählt jedes Label des Kandidatenpfads, auch eines, das ein späterer Lauf nach einer
-# Textänderung ersetzt hat; genauer über job_events, falls sich Ad-hoc-Läufe oft wiederholen.
-ADHOC_LABELLED = "SELECT DISTINCT affair_id FROM affair_tags WHERE task = %s AND stage <> 'human'"
+# Textänderung ersetzt hat; genauer je Lauf, falls sich Ad-hoc-Läufe oft wiederholen.
+ADHOC_LABELLED = f"""
+SELECT DISTINCT l.affair_id FROM affair_tags l
+WHERE l.task = %s AND l.stage <> 'human' AND {FINAL_PASS}
+"""
 IN_SCOPE = f"""
 SELECT a.id FROM affairs a JOIN affair_inputs i ON i.affair_id = a.id
 WHERE a.id = ANY(%(ids)s::bigint[]) {SCOPE}
@@ -92,7 +107,11 @@ FULL_RUN_LABELLED = f"""
 SELECT DISTINCT affair_id FROM affair_tags
 WHERE tag_id = %s AND task = '{TASK_APS}' AND stage <> 'human' AND status IN ('active', 'rejected')
 """
-ACTIVE = "SELECT DISTINCT affair_id FROM affair_tags WHERE tag_id = %s AND status = 'active'"
+# DVS-Abgleich: was die Klassifikation liefert, ohne Labels, die ein Mensch gesetzt hat
+ACTIVE = """
+SELECT DISTINCT affair_id FROM affair_tags
+WHERE tag_id = %s AND status = 'active' AND stage <> 'human'
+"""
 MODEL_LABELS = """
 SELECT count(*), count(DISTINCT affair_id) FROM affair_tags
 WHERE status = 'active' AND stage <> 'human'
@@ -190,9 +209,11 @@ def build(
 ) -> str:
     """Der ganze Bericht; files aus read_gold_dir."""
     rows = queries.gold(conn)
+    # ältester Entscheid zuerst: der jüngste je Geschäft und Thema gilt
+    latest: Decisions = {(row["affair_id"], row["tag_id"]): row for row in rows}
     gold: Gold = {}
-    for row in rows:  # ältester Entscheid zuerst: der jüngste je Geschäft und Thema gilt
-        gold.setdefault(row["affair_id"], {})[row["tag_id"]] = row["belongs"]
+    for (affair_id, tag_id), row in latest.items():
+        gold.setdefault(affair_id, {})[tag_id] = row["belongs"]
     runs = adhoc_runs(conn)
     lines = [
         "# Evaluationsbericht ParlTopics",
@@ -202,9 +223,9 @@ def build(
         " Werte als Treffer/Nenner (Anteil); „–“ heisst: kein Nenner.",
         "",
         *_summary(conn, rows, gold_dir, files),
-        *_aps(conn, registry, gold),
+        *_aps(conn, registry, gold, latest),
         *_calibration(rows, settings.confidence_threshold),
-        *_adhoc(conn, runs, gold),
+        *_adhoc(conn, runs, gold, latest),
         *_digital(conn, runs, gold_dir, files),
     ]
     return "\n".join(lines)
@@ -256,14 +277,21 @@ def _by(gold: Gold, key: Callable[[int], str], order: tuple[str, ...]) -> list[t
     return [(value, {a: d for a, d in gold.items() if key(a) == value}) for value in values]
 
 
-def _aps(conn: psycopg.Connection, registry: Registry, gold: Gold) -> list[str]:
+def _aps(conn: psycopg.Connection, registry: Registry, gold: Gold, latest: Decisions) -> list[str]:
     aps = {a: {t: b for t, b in d.items() if t.startswith("aps:")} for a, d in gold.items()}
     aps = {a: d for a, d in aps.items() if d}
     ids = list(aps)
-    classified: dict[int, set[str]] = defaultdict(set)
-    for affair_id, version in conn.execute(CLASSIFIED, (ids,)):
-        classified[affair_id].add(version)
+    classified: dict[int, dict[str, datetime]] = defaultdict(dict)
+    for affair_id, version, done in conn.execute(CLASSIFIED, (ids,)):
+        classified[affair_id][version] = done
     evaluated = {a: d for a, d in aps.items() if a in classified}
+    belongs = [row for (a, t), row in latest.items() if t.startswith("aps:") and row["belongs"]]
+    kept_since: dict[int, datetime] = {}  # erster Entscheid je Geschäft, dass ein Thema dazugehört
+    for row in belongs:
+        first = kept_since.get(row["affair_id"], row["reviewed_at"])
+        kept_since[row["affair_id"]] = min(first, row["reviewed_at"])
+    judged = [row for row in belongs if row["affair_id"] in evaluated]
+    added = sum(row["decision"] == "added" for row in judged)
     current: Labels = defaultdict(set)  # was heute gilt: aktiv oder von Menschen verworfen
     by_version: dict[str, Labels] = defaultdict(lambda: defaultdict(set))
     for affair_id, tag_id, version, status in conn.execute(APS_LABELS, (ids,)):
@@ -281,6 +309,11 @@ def _aps(conn: psycopg.Connection, registry: Registry, gold: Gold) -> list[str]:
         " Stichwörter: die"
         " Volltextsuche (search_documents) mit Bezeichnung, alternativen und versteckten"
         " Bezeichnungen jedes APS-Themas in DE/FR/IT, wie die Kandidatensuche der Ad-hoc-Themen.",
+        "",
+        "Der Recall aus Review-Entscheiden ist eine Obergrenze: Bestätigte Modell-Labels sind"
+        " immer Treffer, verpassen kann das Modell nur Themen, die ein Mensch von Hand gesetzt hat."
+        f" Von Hand gesetzt: {added} der {len(judged)} Themen, die dazugehören. Beim Recall ist der"
+        " Vergleich mit den Stichwörtern darum zugunsten des Modells verzerrt.",
         "",
     ]
     if len(evaluated) < FEW:
@@ -306,7 +339,7 @@ def _aps(conn: psycopg.Connection, registry: Registry, gold: Gold) -> list[str]:
         table = [_compare(n, g, current, baseline, "thema") for n, g in _by(evaluated, key, order)]
         table.append(_compare("gesamt", evaluated, current, baseline, "thema"))
         lines += [f"### Je {title} (Thema-Stufe)", "", *_table([title, *METRICS], table)]
-    return lines + _variants(aps, classified, by_version)
+    return lines + _variants(aps, classified, by_version, kept_since)
 
 
 def _keyword_labels(conn: psycopg.Connection, registry: Registry, ids: list[int]) -> Labels:
@@ -331,10 +364,22 @@ def _variant(version: str) -> str:
 
 
 def _variants(
-    aps: Gold, classified: dict[int, set[str]], by_version: dict[str, Labels]
+    aps: Gold,
+    classified: dict[int, dict[str, datetime]],
+    by_version: dict[str, Labels],
+    kept_since: dict[int, datetime],
 ) -> list[str]:
     versions = sorted({v for vs in classified.values() for v in vs}, key=lambda v: (_variant(v), v))
-    affairs = {v: {a for a, vs in classified.items() if v in vs} for v in versions}
+
+    def before_review(affair_id: int, version: str) -> bool:
+        # Nach einem bestätigten oder gesetzten Thema übernimmt die Queue die Labels späterer Läufe
+        # dazu nicht (classify.queue.HUMAN); die Variante verlöre Treffer, die sie geliefert hat.
+        done = classified[affair_id][version]
+        return affair_id not in kept_since or done < kept_since[affair_id]
+
+    affairs = {
+        v: {a for a, vs in classified.items() if v in vs and before_review(a, v)} for v in versions
+    }
     common = set.intersection(*affairs.values()) if len(versions) > 1 else set()
     if len(versions) < 2:
         basis = "Jede Variante auf den Geschäften, die sie bearbeitet hat."
@@ -361,7 +406,9 @@ def _variants(
     return [
         "### Prompt-Varianten (einstufig und zweistufig)",
         "",
-        "Labels jeder Prompt-Version, auch später ersetzte, gegen dieselben Entscheide. " + basis,
+        "Labels jeder Prompt-Version, auch später ersetzte, gegen dieselben Entscheide. Ein"
+        " Geschäft zählt für eine Variante nur, wenn sie es bearbeitet hat, bevor ein Mensch dort"
+        " ein APS-Thema bestätigte oder setzte. " + basis,
         "",
         *_table(header, rows),
     ]
@@ -387,18 +434,22 @@ def _calibration(rows: list[dict], threshold: float) -> list[str]:
     ]
 
 
-def _adhoc(conn: psycopg.Connection, runs: list[AdhocRun], gold: Gold) -> list[str]:
+def _adhoc(
+    conn: psycopg.Connection, runs: list[AdhocRun], gold: Gold, latest: Decisions
+) -> list[str]:
     lines = ["## Ad-hoc-Themen: Kandidaten-Recall und Klassifikator-Recall", ""]
     if not runs:
-        return [*lines, "Noch kein Ad-hoc-Lauf.", ""]
-    header = ["Wahrheit", "Positive im Bereich", "Kandidaten-Recall", "Klassifikator-Recall"]
-    header.append("Recall gesamt")
+        return [*lines, "Noch kein Ad-hoc-Lauf mit Stichwortsuche.", ""]
+    header = ["Wahrheit", "Positive im Bereich", "davon Stichprobe", "davon von Hand"]
+    header += ["Kandidaten-Recall", "Klassifikator-Recall", "Recall gesamt"]
     for run in runs:
         hits, missed = len(run.candidates & run.labelled), len(run.sample & run.labelled)
         estimate = Share(hits, hits + SAMPLE_EVERY * missed)
         positives = run.in_scope(conn, {a for a, d in gold.items() if d.get(run.tag_id)})
-        recall = path_recall(positives, run.candidates, run.labelled)
-        row = ["Review-Entscheide", len(positives), recall.candidates, recall.classifier]
+        by_hand = {a for a in positives if latest[(a, run.tag_id)]["decision"] == "added"}
+        recall = path_recall(positives, run.candidates, run.labelled, run.sample, SAMPLE_EVERY)
+        row = ["Review-Entscheide", len(positives), len(positives & run.sample), len(by_hand)]
+        row += [recall.candidates, recall.classifier]
         lines += [
             f"### {run.tag_id} (Lauf {run.run_id})",
             "",
@@ -408,6 +459,11 @@ def _adhoc(conn: psycopg.Connection, runs: list[AdhocRun], gold: Gold) -> list[s
             " Labels des Klassifikators als Wahrheit.",
             "",
             *_table(header, [[*row, recall.overall]]),
+            f"Positive aus der Stichprobe zählen × {SAMPLE_EVERY}, denn die Stichprobe steht für"
+            " alle Geschäfte ohne Stichworttreffer. Aus Review-Entscheiden ist der Recall eine"
+            " Obergrenze: Bestätigte Labels sind immer Treffer, verpasst werden nur Geschäfte, bei"
+            " denen ein Mensch das Thema von Hand gesetzt hat.",
+            "",
         ]
     return lines
 
@@ -446,7 +502,7 @@ def _digital(
         known = {row[0] for row in conn.execute(KNOWN, (list(dvs),))}
         dvs_hits = Share(len(dvs & active), len(dvs))
         lines.append(
-            f"- DVS-Liste: ohne aktives Label {_ids((dvs & known) - active)},"
+            f"- DVS-Liste: ohne aktives Modell-Label {_ids((dvs & known) - active)},"
             f" nicht in der Datenbank {_ids(dvs - known)}."
         )
     run_name = f" (Lauf {run.run_id})" if run else ""
@@ -455,7 +511,7 @@ def _digital(
         [f"Recall Kandidatenpfad gesamt{run_name}", path.overall, "≥ 80 %"],
         ["Kandidaten-Recall der Stichwortsuche", path.candidates, "≥ 95 %"],
         ["Recall des Klassifikators in den Kandidaten", path.classifier, "≥ 85 %"],
-        ["DVS-Abgleich: Geschäfte mit aktivem Label", dvs_hits, "≥ 29/30"],
+        ["DVS-Abgleich: Geschäfte mit aktivem Modell-Label", dvs_hits, "≥ 29/30"],
     ]
     return [*lines, "", *_table(["Metrik", "Wert", "Ziel PRD 13"], rows)]
 

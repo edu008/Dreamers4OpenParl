@@ -66,6 +66,15 @@ def test_bands_follow_prd_13_and_show_the_precision_from_each_threshold():
     assert result[(0.9, None)].from_low == Share(1, 2)
 
 
+def test_sample_positives_stand_for_all_affairs_without_keyword_hits():
+    candidates = set(range(100))
+    positives = candidates | {1000, 1050}  # zwei Treffer in der Stichprobe ohne Stichwort
+    recall = path_recall(positives, candidates, positives, sample={1000, 1050}, weight=50)
+    assert recall.candidates == Share(100, 200)  # ungewichtet wären es 100/102
+    assert recall.classifier == Share(100, 100)
+    assert recall.overall == Share(200, 200)
+
+
 def test_the_candidate_path_splits_keyword_and_classifier_recall():
     recall = path_recall(positives={1, 2, 3, 4}, candidates={1, 2, 3, 9}, labelled={1, 2, 4})
     assert recall.candidates == Share(3, 4)  # 4 hat keinen Stichworttreffer

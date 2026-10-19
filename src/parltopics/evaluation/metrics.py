@@ -6,6 +6,7 @@ jedes Label wird geprüft. Darum zählen nur entschiedene Paare: Ein Label ohne 
 Treffer noch Fehler.
 """
 
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 
 LEVELS = ("bereich", "kapitel", "thema")
@@ -114,11 +115,22 @@ class PathRecall:
     overall: Share  # Positive mit Label, ob Kandidat oder Stichprobe
 
 
-def path_recall(positives: set[int], candidates: set[int], labelled: set[int]) -> PathRecall:
-    """positives: wahre Treffer im Bereich des Laufs (Parlamente, Datum)."""
+def path_recall(
+    positives: set[int],
+    candidates: set[int],
+    labelled: set[int],
+    sample: AbstractSet[int] = frozenset(),
+    weight: int = 1,
+) -> PathRecall:
+    """positives: wahre Treffer im Bereich des Laufs (Parlamente, Datum). Positive in sample
+    zählen weight-fach, denn die Stichprobe steht für alle Geschäfte ohne Stichworttreffer."""
+
+    def count(ids: set[int]) -> int:
+        return sum(weight if affair_id in sample else 1 for affair_id in ids)
+
     found = positives & candidates
     return PathRecall(
-        candidates=Share(len(found), len(positives)),
-        classifier=Share(len(found & labelled), len(found)),
-        overall=Share(len(positives & labelled), len(positives)),
+        candidates=Share(count(found), count(positives)),
+        classifier=Share(count(found & labelled), count(found)),
+        overall=Share(count(positives & labelled), count(positives)),
     )
