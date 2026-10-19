@@ -21,13 +21,14 @@ export function ReviewProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const decide = useCallback<ReviewState["decide"]>(
-    async (affairId, tagId, action) => {
+    async (affairId, tagId, action, newTagId) => {
       if (role === "leser")
         throw new Error("Die Ansicht «Leser» darf nicht entscheiden.")
       const body: ReviewIn = {
         affair_id: Number(affairId),
         tag_id: tagId,
         action,
+        ...(newTagId ? { new_tag_id: newTagId } : {}),
         user_name: name.trim() || DEFAULT_NAME,
       }
       const affair = await postJson<AffairTopics>("/v1/reviews", body)

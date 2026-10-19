@@ -272,7 +272,7 @@
       "dot": "cyan",
       "title": "Täglicher Lauf",
       "items": [
-        "Ein Kommando verkettet Ingest, Input, Jobs, Klassifikation, Seiten, Export und Wiki",
+        "parltopics daily verkettet Ingest, Input, Registry, Klassifikation, Vorschläge, Seiten, Export und Wiki",
         "Nur neue oder geänderte Geschäfte, erkannt über input_hash und scheme_hash",
         "Seitenlauf: nur offene Seiten, von den Tag-Seiten bis Heart"
       ]

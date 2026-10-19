@@ -1,7 +1,7 @@
 ---
 prompt: summarize_tag
 version: 1
-model: small
+model: large
 purpose: Zusammenfassung einer Tag- oder Querschnittsseite aus den Kurzzusammenfassungen ihrer Geschäfte (PRD 7.9, Anhang B)
 ---
 
