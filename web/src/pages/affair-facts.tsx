@@ -22,11 +22,24 @@ function formatDate(iso: string | null | undefined): string {
   return `${day}.${month}.${year}`
 }
 
+/** Kurzangabe wie bei OpenParlData: «Geschäft | Nr. … | Datum | Typ». Seite und Pop-up setzen
+ * sie selbst (im Pop-up in die Kopfzeile, die beim Scrollen stehen bleibt). */
+export function affairMeta(affair: AffairTopics): string {
+  return [
+    "Geschäft",
+    affair.number && `Nr. ${affair.number}`,
+    formatDate(affair.begin_date),
+    affair.type_de ?? affair.type,
+  ]
+    .filter(Boolean)
+    .join(" | ")
+}
+
 /** Abschnitt im Raster: Titel in der linken Spalte, Inhalt rechts. */
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="grid gap-x-8 gap-y-3 border-t-2 border-foreground pt-4 @3xl:grid-cols-[12rem_minmax(0,1fr)]">
-      <h2 className="text-lg font-bold">{title}</h2>
+      <h2 className="text-base font-bold">{title}</h2>
       <div className="min-w-0">{children}</div>
     </section>
   )
@@ -41,7 +54,7 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
           className="grid gap-x-6 gap-y-1 border-t border-border py-3 first:border-t-0 first:pt-0 @md:grid-cols-[10rem_minmax(0,1fr)]"
         >
           <dt className="text-sm font-bold">{term}</dt>
-          <dd className="min-w-0 break-words">{value}</dd>
+          <dd className="min-w-0 text-sm break-words">{value}</dd>
         </div>
       ))}
     </dl>
@@ -68,7 +81,14 @@ export function AffairFactsPage() {
       >
         ← Geschäfte
       </Link>
-      <AffairFacts found={found} />
+      <div className="flex flex-col gap-4">
+        {found.data && (
+          <p className="tabular text-sm text-muted-foreground">
+            {affairMeta(found.data)}
+          </p>
+        )}
+        <AffairFacts found={found} />
+      </div>
     </article>
   )
 }
@@ -151,32 +171,23 @@ export function AffairFacts({
   if (level) area.push(["Ebene", level])
   area.push(["Kürzel", affair.body_key])
 
-  const meta = [
-    "Geschäft",
-    affair.number && `Nr. ${affair.number}`,
-    formatDate(affair.begin_date),
-    type,
-  ]
-
   return (
     <div className="@container flex flex-col gap-10">
       <header className="flex flex-col gap-4">
-        <p className="tabular text-sm text-muted-foreground">
-          {meta.filter(Boolean).join(" | ")}
-        </p>
+        {/* Grösse nach Containerbreite (cqi), nicht nach Fenster: im Pop-up kleiner als auf der Seite. */}
         <Title
           lang={language}
-          className="font-heading text-[clamp(1.75rem,4vw,3rem)] leading-[1.05] font-bold tracking-[-0.02em] text-balance"
+          className="font-heading text-[length:clamp(1.5rem,4cqi,2.5rem)] leading-[1.1] font-bold tracking-[-0.02em] text-balance"
         >
           {title}
         </Title>
         {topics.length > 0 && (
-          <ul aria-label="Themen" className="flex flex-wrap gap-2 pt-2">
+          <ul aria-label="Themen" className="flex flex-wrap gap-2">
             {topics.map((topic) => (
               <li key={topic.id}>
                 <Link
                   to={`/?thema=${encodeURIComponent(topic.tag_id)}`}
-                  className="inline-flex min-h-9 items-center bg-foreground px-3 text-sm font-bold text-background transition-colors hover:bg-primary"
+                  className="inline-flex min-h-8 items-center bg-foreground px-2.5 text-sm font-bold text-background transition-colors hover:bg-primary"
                 >
                   {topic.name_de}
                 </Link>
@@ -196,7 +207,7 @@ export function AffairFacts({
             {paragraphs.map((paragraph) => (
               <p
                 key={paragraph}
-                className="font-reading text-[17px] leading-relaxed"
+                className="font-reading text-base leading-relaxed"
               >
                 {paragraph}
               </p>

@@ -63,7 +63,8 @@ function DialogContent({
             data-slot="dialog-close"
             render={
               <Button
-                variant="ghost"
+                variant="outline"
+                title="Schliessen (Esc)"
                 className="absolute top-3 right-3 z-30"
                 size="icon"
               />

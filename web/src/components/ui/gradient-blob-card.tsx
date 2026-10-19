@@ -25,7 +25,8 @@ export function GradientBlobCard({
         aria-hidden
         className="absolute inset-[5px] z-10 bg-background/95 outline-2 outline-background backdrop-blur-[24px]"
       />
-      <div className="relative z-20">{children}</div>
+      {/* Der Inhalt liegt auf dem Glas; nur der 5-px-Rand zeigt den Fleck. */}
+      <div className="relative z-20 p-[5px]">{children}</div>
     </div>
   )
 }

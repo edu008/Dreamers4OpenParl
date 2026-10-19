@@ -29,7 +29,7 @@ typography:
     letterSpacing: "-0.04em"
   headline:
     fontFamily: "Helvetica Neue, Helvetica, Arial, system-ui, sans-serif"
-    fontSize: "clamp(1.75rem, 4vw, 3rem)"
+    fontSize: "clamp(1.5rem, 4cqi, 2.5rem)"
     fontWeight: 700
     lineHeight: 1.05
   title:
@@ -42,7 +42,7 @@ typography:
     lineHeight: 1.5
   reading:
     fontFamily: "Georgia, serif"
-    fontSize: "17px"
+    fontSize: "16px"
     lineHeight: 1.6
   note:
     fontFamily: "Helvetica Neue, Helvetica, Arial, system-ui, sans-serif"
@@ -110,7 +110,7 @@ Die öffentliche Seite hat eine Aufgabe: Geschäfte finden (Hick's Law). Ein Suc
 Helvetica Neue, Helvetica, sonst Arial, alles Systemschriften (keine externen Ressourcen, PRD 9). `Georgia` für den Originaltext eines Geschäfts.
 
 - **Display** `clamp(3rem, 9vw, 6.5rem)`, fett, eng gesetzt: einmal auf der Startseite.
-- **Headline** `clamp(1.75rem, 4vw, 3rem)`, fett: Titel eines Geschäfts.
+- **Headline** `clamp(1.5rem, 4cqi, 2.5rem)`, fett: Titel eines Geschäfts. Skaliert mit der Breite des Behälters (`cqi`), nicht des Fensters: im Pop-up etwa 27 px, auf der Seite etwa 38 px, auf dem Handy 24 px. Darunter Abschnittstitel 16 px, Fakten 14 px, Lesetext 16 px.
 - **Title** 20 px, fett: Titel in der Trefferliste.
 - **Body** 16 px, **Note** 14 px. Zeilenlänge höchstens 68 Zeichen.
 - Keine kleinen Versalien mit Sperrung, keine Monospace-Schrift. Zahlen tabellarisch (`.tabular`).
@@ -138,7 +138,7 @@ Keine Rundungen (`--radius: 0`). Knöpfe, Felder, Themen und Flächen sind Recht
 - **Knöpfe:** Hauptaktion rot gefüllt; sonst schwarzer Rahmen, beim Hover schwarz gefüllt.
 - **Umschalter:** Felder in einem schwarzen Rahmen, die Auswahl schwarz gefüllt (`aria-pressed`).
 - **Themen:** in der Liste Rahmen in Tinte, auf der Geschäftsseite schwarz gefüllt; ein Klick filtert die Suche. Das aktive Thema steht schwarz gefüllt mit «×» und wird beim Hover rot.
-- **Geschäft als Pop-up:** Ein Klick in der Trefferliste öffnet das Geschäft als Dialog über der Liste (`?geschaeft=<id>`, Zurück und Escape schliessen). Die Karte folgt der Vorlage «GradientBlobCard»: weisses Glasfeld, dahinter wandert ein Fleck in Schweizer Rot, weicher Schatten nach aussen, eckig. Das ist die einzige Stelle mit Verlauf und Schatten; ohne Bewegungswunsch (`prefers-reduced-motion`) steht der Fleck still. Direkte Links `/geschaefte/<id>` zeigen dieselben Fakten als eigene Seite.
+- **Geschäft als Pop-up:** Ein Klick in der Trefferliste öffnet das Geschäft als Dialog über der Liste (`?geschaeft=<id>`, Zurück und Escape schliessen). Die Karte folgt der Vorlage «GradientBlobCard»: weisses Glasfeld, dahinter wandert ein Fleck in Schweizer Rot, weicher Schatten nach aussen, eckig. Oben steht eine Kopfzeile mit der Kurzangabe («Geschäft | Nr. | Datum | Typ») und dem Schliessen-Knopf (Rahmen in Tinte, Hover invertiert, Tooltip «Schliessen (Esc)»); sie bleibt beim Scrollen stehen. Nur der Inhalt darunter scrollt, und zwar innerhalb des Glases, nie über den Leuchtrand. Das ist die einzige Stelle mit Verlauf und Schatten; ohne Bewegungswunsch (`prefers-reduced-motion`) steht der Fleck still. Direkte Links `/geschaefte/<id>` zeigen dieselben Fakten als eigene Seite.
 - **Hinweise und Fehler:** Tonfläche mit 4-px-Linie links in Tinte.
 - **Randspalte (Admin):** je Thema Name, Konfidenz mit Wort, Zustand des Belegs, Prüfstatus, Modell.
 

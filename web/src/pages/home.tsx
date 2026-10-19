@@ -1,3 +1,4 @@
+import { XIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { Link, useLocation, useNavigate } from "react-router"
 
@@ -5,7 +6,12 @@ import { SearchForm } from "@/components/search-form"
 import { Segmented } from "@/components/segmented"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { GradientBlobCard } from "@/components/ui/gradient-blob-card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -15,7 +21,7 @@ import { useQuery } from "@/hooks/use-query"
 import type { BodyOut, SearchHit, SearchResult, TopicOut } from "@/lib/api"
 import { LEVEL_LABEL } from "@/lib/export"
 import { parseSnippet } from "@/lib/snippet"
-import { AffairFacts, useAffair } from "@/pages/affair-facts"
+import { AffairFacts, affairMeta, useAffair } from "@/pages/affair-facts"
 
 const LIMIT = 20
 const TOPICS_SHOWN = 3
@@ -399,10 +405,31 @@ function AffairPopup({
   const found = useAffair(affairId)
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="sm:max-w-3xl" showCloseButton={false}>
         <GradientBlobCard>
-          <div className="flex max-h-[85vh] flex-col gap-8 overflow-y-auto p-6 pt-14 sm:p-10 sm:pt-14">
-            <AffairFacts found={found} Title={DialogTitle} />
+          {/* Ein Scrollbereich im Glas; die Kopfzeile steht darin oben fest, damit der erste
+              Fokus (der X) im Scrollbereich liegt und Pfeiltasten sofort scrollen. */}
+          <div className="max-h-[90dvh] [scrollbar-gutter:stable] overflow-y-auto overscroll-contain sm:max-h-[85dvh]">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b-2 border-foreground bg-background px-5 py-2 sm:px-9">
+              <p className="tabular min-w-0 truncate text-sm text-muted-foreground">
+                {found.data && affairMeta(found.data)}
+              </p>
+              <DialogClose
+                render={
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    title="Schliessen (Esc)"
+                  />
+                }
+              >
+                <XIcon className="size-5" />
+                <span className="sr-only">Schliessen</span>
+              </DialogClose>
+            </div>
+            <div className="p-5 sm:p-9">
+              <AffairFacts found={found} Title={DialogTitle} />
+            </div>
           </div>
         </GradientBlobCard>
       </DialogContent>
