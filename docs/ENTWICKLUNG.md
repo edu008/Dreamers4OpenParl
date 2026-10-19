@@ -76,6 +76,8 @@ Den Seitenlauf (PRD 7.9, ARCHITEKTUR 5) startet `uv run parltopics pages`: Er le
 
 Den Markdown-Export des ParlWiki (F14) schreibt `uv run parltopics wiki --out wiki`: `HEART.md`, `bereiche/`, `kapitel/`, `tags/`, `querschnitt/` und `parlamente/`, je mit Frontmatter (`tag_id`, `scheme`, `registry_version`, `n_affairs`, Stand des letzten Seitenlaufs) und relativen Links, geeignet für Obsidian. Eine Datei je Geschäft gibt es nicht; Geschäfte verlinken auf die Web-App (`--web-url`, Standard `http://127.0.0.1:8000`) und auf OpenParlData. Ein einzelnes Geschäft schreibt `--affair <id>` nach `geschaefte/<id>.md`. Der Export liest die Datenbank nur und schreibt nur geänderte Dateien; ein zweiter Lauf ohne neue Daten meldet `0 geändert`.
 
+Den täglichen Lauf (F17) startet `uv run parltopics daily --bundle data/import`. Er führt die Schritte 2 bis 10 aus ARCHITEKTUR 2 nacheinander aus, ohne Review: Ingest, Input, Registry, Klassifikation, Vorschläge, Seiten, Export und Wiki. Klassifiziert werden nur neue oder geänderte Geschäfte; der Lauf steht in `classification_runs`. `--body` und `--since` begrenzen Input und Klassifikation, zum Beispiel `--body CHE --since 2024-01-01` für Phase 1. Der erste Schritt, der fehlschlägt, bricht den Lauf mit seinem Exit-Code ab. Den Download macht vorher `parltopics download` (online) oder das Einspielen des Bündels (Air-Gap).
+
 ### Qualität prüfen: Curia-Vista-Check
 
 Für APS gibt es keine Gold-Labels. Als grobe Kontrolle dienen die Curia-Vista-Sachbereiche, die die Parlamentsdienste jedem Bundesgeschäft zuordnen (Hack-Datensatz, PRD 13). Die Zuordnung der 28 Sachbereiche zu den APS-Kapiteln steht in `registry/aps_descriptions.yaml` (`close_match`, `broad_match`); Themen erben sie von ihrem Kapitel.

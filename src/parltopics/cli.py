@@ -415,6 +415,42 @@ def adhoc(
 
 
 @app.command()
+def daily(
+    bundle: Annotated[Path, typer.Option(help="Import-Bündel")] = Path("data/import"),
+    body: Annotated[
+        list[str] | None, typer.Option(help="nur diese Parlamente klassifizieren")
+    ] = None,
+    since: Annotated[
+        datetime | None, typer.Option(formats=DATE, help="nur Geschäfte ab Datum klassifizieren")
+    ] = None,
+) -> None:
+    """Täglicher Lauf (F17): Ingest, Input, Registry, Klassifikation, Vorschläge, Seiten, Export
+    und Wiki, ohne Review (ARCHITEKTUR 2, Schritte 2 bis 10).
+
+    Klassifiziert nur neue oder geänderte Geschäfte, protokolliert in classification_runs. Bricht
+    beim ersten fehlgeschlagenen Schritt ab. Den Download macht vorher `parltopics download`
+    (online) oder das Einspielen des Bündels (Air-Gap).
+    """
+    import time
+
+    steps = [
+        ("Ingest", lambda: ingest(bundle=bundle)),
+        ("Input", lambda: inputs(body=body, since=since)),
+        ("Registry", registry_sync),
+        ("Klassifikation", lambda: classify(task="classify:aps", body=body, since=since)),
+        ("Vorschläge", proposals_group),
+        ("Seiten", pages),
+        ("Export", export),
+        ("Wiki", wiki),
+    ]
+    started = time.perf_counter()
+    for name, step in steps:
+        typer.secho(f"== {name}", bold=True)
+        step()
+    typer.echo(f"Täglicher Lauf fertig nach {(time.perf_counter() - started) / 60:.1f} min")
+
+
+@app.command()
 def export(
     out: Annotated[Path, typer.Option(help="Zielverzeichnis")] = Path("dist/export"),
     dvs_topic: Annotated[
