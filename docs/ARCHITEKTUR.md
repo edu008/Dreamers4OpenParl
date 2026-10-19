@@ -228,6 +228,8 @@ Argumente und Beschreibungen sind als Pydantic-Modelle in [`src/parltopics/agent
 | `navigate_tree` | `query` | Suchweg, Filter, gefundene Geschäfte (Abschnitt 6) | zählt als ein Aufruf, intern höchstens 8 Schritte |
 | `read_page` | `page_id` | Kurzzusammenfassung, Zusammenfassung mit Belegen, Kennzahlen | eine Seite |
 
+Der Volltext eines Geschäfts ist in seiner eigenen Sprache indexiert; ein deutscher Begriff findet ein französisches oder italienisches Geschäft nur über einen deutschen Titel, und den haben meist nur Geschäfte des Bundes. Findet `search_affairs` mit den Wörtern der Anfrage weniger Geschäfte als `limit`, füllt es darum mit den Bezeichnungen in DE, FR und IT des aktiven Tags auf, das die Anfrage am besten trifft (ganze Wörter, je Teil zwischen «or»; eine bevorzugte Bezeichnung vor einer alternativen). In den Testfragen F21 fanden so «Raumplanung» in Genf und «Gewässerschutz» im Tessin Geschäfte. Begriffe, die keine Bezeichnung eines Tags sind, bleiben unübersetzt.
+
 ### 4.4 Antwortregeln
 
 - Jede Aussage ist mit OpenParlData-IDs belegt, die in dieser Sitzung aus einem Werkzeug kamen. Der Code prüft das vor der Ausgabe.

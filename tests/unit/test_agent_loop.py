@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from parltopics.agent.execute import BODY_NAMES, Tools
+from parltopics.agent.execute import BODY_NAMES, Tools, translations
 from parltopics.agent.loop import (
     DROPPED,
     Answer,
@@ -64,6 +64,26 @@ class FakeDB:
 
     def fetchall(self):
         return self.rows
+
+
+class FakeFulltext:
+    """Volltext: Geschäft 7 nur für Anfragen mit «Numérisation»; merkt sich die Anfragen."""
+
+    def __init__(self):
+        self.queries = []
+
+    def cursor(self, row_factory=None):
+        return self
+
+    def execute(self, sql, params):
+        if isinstance(params, dict):  # die Suche; sonst die Köpfe der Treffer (queries.hits)
+            self.queries.append(params["q"])
+            return [(7,)] if "Numérisation" in params["q"] else []
+        head = {"title": "Numérisation", "body_key": "GE", "body_name": "Genf", "type": None}
+        return [
+            {"affair_id": i, "body_level": "canton", "begin_date": None, "type_de": None, **head}
+            for i in params[0]
+        ]
 
 
 def test_replies_are_tool_calls_or_answers():
@@ -194,6 +214,31 @@ def test_counts_name_their_scope_and_parliaments_must_exist():
     search = SearchAffairsArgs(query="Gewässerschutz", body_keys=["Tessin"])
     with pytest.raises(ToolError, match=r"\['Tessin'\].*TI Tessin \(canton\)"):
         asyncio.run(tools("search_affairs", search))
+
+
+def test_translations_are_the_labels_of_the_best_matching_tag():
+    registry = load_registry(FIXTURE)
+    digital = ["Digitalisierung", "Numérisation", "Digitalizzazione", "E-Government"]
+    digital += ["Digitale Transformation", "Digitalisirung"]
+    assert translations(registry, "Quidditch") == []
+    assert translations(registry, "e-government") == digital  # adhoc:e-government: zusammengelegt
+    # Ganze Wörter: «Arbeit» trifft das Kapitel, nicht «Arbeitsmarkt»; jeder Teil zwischen «or».
+    assert translations(registry, "Arbeit or digitalisirung") == ["Arbeit", *digital]
+    # Die bevorzugte Bezeichnung schlägt das Sammelthema, das sie als alternative führt.
+    registry.get("adhoc:digitalisierung-breit").alt_labels.fr.append("Numérisation")
+    assert translations(registry, "numérisation der Verwaltung") == digital
+
+
+def test_search_fills_up_with_the_topic_in_other_languages():
+    tools = Tools(settings=None, conn=FakeFulltext(), registry=load_registry(FIXTURE), tree={})
+    # Testfragen F21: der deutsche Begriff findet in Genf nichts, die Bezeichnung auf Französisch
+    found, ids = asyncio.run(tools.search_affairs(SearchAffairsArgs(query="Digitalisierung")))
+    assert (ids, found[0]["parliament"]) == ([7], "Genf")
+    assert tools.conn.queries[0] == "Digitalisierung" and "Numérisation" in tools.conn.queries[1]
+    tools.conn.queries.clear()  # genug Treffer oder kein Thema: keine zweite Suche
+    asyncio.run(tools.search_affairs(SearchAffairsArgs(query="Numérisation", limit=1)))
+    asyncio.run(tools.search_affairs(SearchAffairsArgs(query="Quidditch")))
+    assert tools.conn.queries == ["Numérisation", "Quidditch"]
 
 
 def test_first_messages_list_every_tool_and_the_question():
