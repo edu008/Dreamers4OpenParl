@@ -20,7 +20,11 @@ SINGLE = "classify_single_v1+aaaa"
 TWO_STAGE = "classify_chapters_v2+bbbb classify_topics_v2+cccc"
 DIGITAL = "adhoc:digitalisierung-breit"
 DIGITAL_TASK = "classify:adhoc:digitalisierung-breit"
-BODIES = [(1, "CHE", "country"), (2, "GE", "canton"), (3, "261", "city")]
+BODIES = [
+    (1, "CHE", "country", {}),
+    (2, "GE", "canton", {"canton_key": "GE"}),
+    (3, "261", "city", {"canton_key": "ZH"}),  # Stadt Zürich: Region ist der Kanton
+]
 AFFAIRS = [
     (
         200,
@@ -125,10 +129,10 @@ def settings(conn, repo_root, api_settings):
 
 @pytest.fixture
 def data(conn, settings):
-    for body_id, body_key, level in BODIES:
+    for body_id, body_key, level, raw in BODIES:
         conn.execute(
-            "INSERT INTO bodies (id, body_key, level, raw) VALUES (%s, %s, %s, '{}')",
-            (body_id, body_key, level),
+            "INSERT INTO bodies (id, body_key, level, raw) VALUES (%s, %s, %s, %s)",
+            (body_id, body_key, level, Jsonb(raw)),
         )
     add_affairs(conn, AFFAIRS)
     for run in RUNS:
@@ -164,6 +168,11 @@ def test_report_shows_every_table_with_counts(conn, settings, data):
         "| country | 1 | 1/2 (50 %) | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) |",
         "| city | 1 | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) |",
         "| municipality | 0 | – | – | – | – |",
+        # Kantone: Bundesgeschäfte als Bund, die Stadt Zürich unter ihrem Kanton
+        "### Je Kanton (Thema-Stufe)",
+        "| Bund | 1 | 1/2 (50 %) | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) |",
+        "| GE | 1 | 0/1 (0 %) | 1/1 (100 %) | 0/1 (0 %) | 1/1 (100 %) |",
+        "| ZH | 1 | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) | 1/1 (100 %) |",
         # Prompt-Varianten auf den gemeinsamen Geschäften 200 und 201
         "Verglichen auf den 2 Geschäften, die alle Varianten bearbeitet haben.",
         f"| einstufig | `{SINGLE}` | 2 | 3 | 1/3 (33 %) | 1/2 (50 %) | 1/3 (33 %) | 1/2 (50 %) |",
