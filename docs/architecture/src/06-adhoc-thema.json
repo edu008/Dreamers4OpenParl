@@ -18,7 +18,7 @@
   "lanes": [
     { "id": "redaktion", "label": "Redaktion" },
     { "id": "agent", "label": "Agent (70B)" },
-    { "id": "worker", "label": "Worker (8B)" },
+    { "id": "worker", "label": "Worker (70B)" },
     { "id": "system", "label": "Web-App und Registry" }
   ],
   "phases": [
@@ -34,9 +34,9 @@
     { "id": "bestaetigen", "lane": "redaktion", "col": 2, "type": "security", "label": "Bestätigen", "sublabel": "Liste prüfen" },
     { "id": "anlegen", "lane": "system", "col": 3, "type": "database", "label": "Tag anlegen", "sublabel": "Status proposed" },
     { "id": "kandidaten", "lane": "system", "col": 4, "type": "messagebus", "label": "Jobs öffnen", "sublabel": "Kandidaten + 2 %" },
-    { "id": "pruefen", "lane": "worker", "col": 4, "type": "backend", "label": "Prüfen", "sublabel": "classify:adhoc" },
+    { "id": "pruefen", "lane": "worker", "col": 4, "type": "backend", "label": "Ja/Nein prüfen", "sublabel": "classify:adhoc" },
     { "id": "treffer", "lane": "redaktion", "col": 5, "type": "frontend", "label": "Vorläufige Treffer", "sublabel": "sofort sichtbar" },
-    { "id": "aktivieren", "lane": "system", "col": 5, "type": "security", "label": "Aktivieren", "sublabel": "im Review" }
+    { "id": "aktivieren", "lane": "system", "col": 5, "type": "security", "label": "Aktivieren", "sublabel": "öffnet Nachklassifizierung" }
   ],
   "edges": [
     { "id": "idee-keywords", "from": "idee", "to": "keywords", "label": "generate_keywords", "role": "main" },
@@ -51,7 +51,7 @@
   ],
   "cards": [
     { "dot": "cyan", "title": "Agent schlägt vor", "items": ["generate_keywords erzeugt Stichwörter in DE, FR und IT", "propose_adhoc_topic liefert nur einen Entwurf, es legt nichts an"] },
-    { "dot": "rose", "title": "Mensch entscheidet", "items": ["Erst die Bestätigung im UI ruft POST /v1/adhoc auf", "Aktiv wird das Thema erst nach dem Review", "Danach läuft es in Stufe 2 des täglichen Laufs mit", "Rückweg: retire zieht es zurück, Labels ohne Review werden superseded"] },
+    { "dot": "rose", "title": "Mensch entscheidet", "items": ["Erst die Bestätigung im UI ruft POST /v1/adhoc auf", "Aktiv wird das Thema erst nach dem Review", "Freischalten öffnet die Nachklassifizierung über Kandidaten und Stichprobe, danach prüft der tägliche Lauf es mit", "Rückweg: retire zieht es zurück, Labels ohne Review werden superseded"] },
     { "dot": "emerald", "title": "Kandidaten statt Volllauf", "items": ["Jobs nur für Volltext-Treffer plus 2 % Stichprobe", "Die Stichprobe misst den Kandidaten-Recall", "Nicht-Treffer verbessern die Stichwortliste"] }
   ]
 }

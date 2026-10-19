@@ -10,8 +10,8 @@
     "02-pipeline": {
       "type": "workflow",
       "quality": "showcase",
-      "source_sha256": "db86ce6e34a6f8bcbef10ee59544687a0b6fd7ee761e017a1a145af2a263eb1b",
-      "html_sha256": "3107267eef6f662c4a8a8b04102b36aed006373db63e72f5ca760385d0a17e78"
+      "source_sha256": "895b9ed582ca518f0fb0725e92c281a3c539cf890ebb31488d8d215f1b8d8ee3",
+      "html_sha256": "f485873b0076252296dccbe32401a9d1031c32545a65b7c1f5a0704e90ab0a63"
     },
     "03-job-lifecycle": {
       "type": "lifecycle",
@@ -22,8 +22,8 @@
     "04-worker-sequenz": {
       "type": "sequence",
       "quality": "showcase",
-      "source_sha256": "6bf578cc6bf32762fb28ac5a2901949b749f0f86b20d87ed901da8e7af5b96b2",
-      "html_sha256": "e8a6f51ce293d19628fa86ed7b022b604011c6fd309c01663dd429664a8de473"
+      "source_sha256": "876f0d296d42be6f525d4a45be09a48bf8856449f0665114a6480fc8e2622833",
+      "html_sha256": "7c2ea95df810256a19d98106c38d4ec0f710381637c1c1094f783fb6d5fdc5f4"
     },
     "05-agent-suche": {
       "type": "sequence",
@@ -34,8 +34,8 @@
     "06-adhoc-thema": {
       "type": "workflow",
       "quality": "showcase",
-      "source_sha256": "e07e521ce07a7be715ebca8786b15085e2f691d9108b0fe162c09faab7452843",
-      "html_sha256": "cd9e8e5a29ba1e88526aa378d950ac4fe3cd471f50dba76742be726fdf43ea16"
+      "source_sha256": "caea3a52c8116780358b5c6623ee14f972dd2da6e3cc8a17ccfd1305fb1f2679",
+      "html_sha256": "025d4053ecc135f89328eb8666366aff23f34febf63de2552ca007d0475e87e2"
     },
     "07-datenmodell": {
       "type": "erd",

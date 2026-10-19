@@ -12,3 +12,4 @@ Jede Datei hält einen Entscheid fest: Kontext, Entscheid, Folgen, verworfene Al
 | [0006](0006-react-spa.md) | Web-App als React-SPA mit shadcn/ui, ausgeliefert von FastAPI | angenommen |
 | [0007](0007-registry-skos.md) | Registry nach SKOS | angenommen |
 | [0008](0008-tag-hierarchie-und-navigationssuche.md) | Tag-Hierarchie mit Heart-Seite und Navigationssuche | angenommen |
+| [0009](0009-adhoc-eigene-jobs.md) | Ad-hoc-Themen als eigene Ja/Nein-Jobs | angenommen |

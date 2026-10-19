@@ -99,7 +99,8 @@ def registry_activate(
     tag_id: Annotated[str, typer.Argument(help="Ad-hoc-Tag, z. B. adhoc:velowege")],
     by: Annotated[str, typer.Option(help="wer freischaltet")] = "cli",
 ) -> None:
-    """Ad-hoc-Thema freischalten: proposed → active, danach in Stufe 2 von classify:aps."""
+    """Ad-hoc-Thema freischalten: proposed → active, und die Nachklassifizierung über Kandidaten
+    und Stichprobe öffnen (ADR 0009)."""
     from parltopics.classify.adhoc import activate
     from parltopics.db import connect
     from parltopics.registry import RegistryError
@@ -107,11 +108,14 @@ def registry_activate(
     settings = get_settings()
     try:
         with connect(settings.database_url, autocommit=True) as conn:
-            registry = activate(conn, settings, tag_id, by=by)
+            opened = activate(conn, settings, tag_id, by=by)
     except RegistryError as error:
         typer.secho(str(error), fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from error
-    typer.echo(f"{tag_id} ist aktiv, registry_version {registry.registry_version}")
+    typer.echo(
+        f"{tag_id} ist aktiv, registry_version {opened.registry_version}; Lauf {opened.run.run_id}"
+        f" mit {opened.run.total} Jobs ({opened.candidates} Kandidaten, {opened.sample} Stichprobe)"
+    )
 
 
 @registry_app.command("import-aps")
@@ -249,25 +253,50 @@ def inputs(
 
 @app.command()
 def classify(
-    task: Annotated[str, typer.Option(help="classify:aps; Ad-hoc-Themen: parltopics adhoc")],
+    task: Annotated[
+        str,
+        typer.Option(
+            help="classify:aps oder classify:adhoc:<tag> eines vorgeschlagenen oder"
+            " aktiven Ad-hoc-Tags"
+        ),
+    ],
     body: Annotated[list[str] | None, typer.Option(help="body_keys")] = None,
     since: Annotated[datetime | None, typer.Option(formats=DATE, help="Geschäfte ab Datum")] = None,
     limit: Annotated[int | None, typer.Option(min=1, help="höchstens so viele Geschäfte")] = None,
     wait: Annotated[bool, typer.Option(help="Jobs im selben Prozess abarbeiten")] = True,
+    all_affairs: Annotated[
+        bool,
+        typer.Option("--all", help="Ad-hoc: jedes Geschäft statt Kandidaten und Stichprobe"),
+    ] = False,
+    keywords_file: Annotated[
+        Path | None,
+        typer.Option(
+            help='Ad-hoc: Stichwörter als JSON {"de": [], "fr": [], "it": []}; sonst die'
+            " des letzten Laufs oder die Bezeichnungen des Tags"
+        ),
+    ] = None,
 ) -> None:
-    """Lauf starten: Jobs öffnen und mit --wait gleich abarbeiten (F5, F18, F19)."""
-    from parltopics.classify.queue import TASK_APS, acquire_run_lock, open_jobs
+    """Lauf starten: Jobs öffnen und mit --wait gleich abarbeiten (F5, F8, F18, F19).
+
+    Ein Ad-hoc-Tag prüft der Worker mit einer Ja/Nein-Frage je Geschäft (ADR 0009), standardmässig
+    für Kandidaten aus der Stichwortsuche und die 2 %-Stichprobe, mit --all für jedes Geschäft.
+    """
+    from parltopics.classify import adhoc as topics
+    from parltopics.classify.queue import TASK_APS, acquire_run_lock, open_jobs, task_tag
     from parltopics.classify.worker import load_classifier
     from parltopics.db import connect
+    from parltopics.registry import load_registry
     from parltopics.registry.sync import synced_version
 
-    if task != TASK_APS:
-        raise typer.BadParameter(
-            "classify öffnet nur classify:aps; Ad-hoc-Themen legt `parltopics adhoc` an.",
-            param_hint="--task",
-        )
     settings = get_settings()
     classifier = load_classifier(settings)
+    tag = classifier.known.get(task_tag(task) or "")
+    if task != TASK_APS and (tag is None or tag.status not in ("proposed", "active")):
+        raise typer.BadParameter(
+            "classify öffnet classify:aps oder classify:adhoc:<tag> eines vorgeschlagenen oder"
+            " aktiven Ad-hoc-Tags; neue Ad-hoc-Themen legt `parltopics adhoc` an.",
+            param_hint="--task",
+        )
     # Die Verbindung hält die Lauf-Sperre, bis der Lauf mit --wait fertig ist.
     with connect(settings.database_url, autocommit=True) as conn:
         if synced_version(conn) != classifier.registry_version:
@@ -280,17 +309,33 @@ def classify(
         if not acquire_run_lock(conn, task):
             typer.secho(f"Ein Lauf für {task} läuft bereits.", fg=typer.colors.RED, err=True)
             raise typer.Exit(code=1)
-        run = open_jobs(
-            conn,
-            task=task,
-            bodies=body or None,
-            since=since.date() if since else None,
-            limit=limit,
-            kind="full",
-            registry_version=classifier.registry_version,
-            scheme_hash=classifier.scheme_hash,
-            prompt_version=classifier.prompt_version,
-        )
+        if tag is None:
+            run = open_jobs(
+                conn,
+                task=task,
+                bodies=body or None,
+                since=since.date() if since else None,
+                limit=limit,
+                kind="full",
+                registry_version=classifier.registry_version,
+                scheme_hash=classifier.scheme_hash,
+                prompt_version=classifier.prompt_version,
+            )
+        else:
+            text = keywords_file.read_text(encoding="utf-8") if keywords_file else None
+            run = topics.open_adhoc_jobs(
+                conn,
+                settings,
+                load_registry(settings.registry_path),
+                tag.tag_id,
+                kind="full" if all_affairs else "reclassify",
+                by="cli",
+                bodies=body or None,
+                since=since.date() if since else None,
+                limit=limit,
+                scope="all" if all_affairs else "candidates",
+                keywords=topics.Keywords.model_validate_json(text) if text else None,
+            ).run
         typer.echo(
             f"Lauf {run.run_id}: {run.total} Jobs ({run.new} neu, {run.reopened} wieder geöffnet)"
         )
@@ -424,8 +469,8 @@ def daily(
         datetime | None, typer.Option(formats=DATE, help="nur Geschäfte ab Datum klassifizieren")
     ] = None,
 ) -> None:
-    """Täglicher Lauf (F17): Ingest, Input, Registry, Klassifikation, Vorschläge, Seiten, Export
-    und Wiki, ohne Review (ARCHITEKTUR 2, Schritte 2 bis 10).
+    """Täglicher Lauf (F17): Ingest, Input, Registry, Klassifikation, je aktivem Ad-hoc-Tag ein
+    Ja/Nein-Lauf, Vorschläge, Seiten, Export und Wiki, ohne Review (ARCHITEKTUR 2, Schritte 2-10).
 
     Klassifiziert nur neue oder geänderte Geschäfte, protokolliert in classification_runs. Bricht
     beim ersten fehlgeschlagenen Schritt ab. Den Download macht vorher `parltopics download`
@@ -433,11 +478,23 @@ def daily(
     """
     import time
 
+    from parltopics.classify.queue import adhoc_task
+    from parltopics.registry import load_registry
+
+    # Je aktivem Ad-hoc-Tag ein Ja/Nein-Lauf über neue Kandidaten (ADR 0009); kein Tag im Code.
+    adhoc = [
+        (
+            f"Ad-hoc {tag.tag_id}",
+            lambda tag_id=tag.tag_id: classify(task=adhoc_task(tag_id), body=body, since=since),
+        )
+        for tag in load_registry(get_settings().registry_path).active("adhoc")
+    ]
     steps = [
         ("Ingest", lambda: ingest(bundle=bundle)),
         ("Input", lambda: inputs(body=body, since=since)),
         ("Registry", registry_sync),
         ("Klassifikation", lambda: classify(task="classify:aps", body=body, since=since)),
+        *adhoc,
         ("Vorschläge", proposals_group),
         ("Seiten", pages),
         ("Export", export),
@@ -454,12 +511,15 @@ def daily(
 def export(
     out: Annotated[Path, typer.Option(help="Zielverzeichnis")] = Path("dist/export"),
     dvs_topic: Annotated[
-        str, typer.Option(help="Seite der DVS-Liste, mit allen Themen darunter")
-    ] = "adhoc:digitalisierung-breit",
+        str | None,
+        typer.Option(help="Seite der DVS-Liste, mit allen Themen darunter; sonst DVS_TOPIC"),
+    ] = None,
 ) -> None:
     """affair_topics.ndjson.gz mit index.json und die DVS-Liste dvs_liste.csv schreiben (F11, F12).
 
-    Die DVS-Liste enthält die laufenden Geschäfte von Bund und Kantonen mit aktivem Label.
+    Die DVS-Liste enthält die laufenden Geschäfte von Bund und Kantonen mit aktivem Label. Fehlt
+    die Seite aus DVS_TOPIC (Thema nicht aktiv), entsteht keine Liste und der tägliche Lauf geht
+    weiter; eine ausdrücklich verlangte Seite, die es nicht gibt, ist ein Fehler.
     """
     from parltopics.db import connect
     from parltopics.export import write_affair_topics, write_dvs_list
@@ -467,16 +527,22 @@ def export(
     from parltopics.wiki.tree import build_tree, subtree_tag_ids
 
     settings = get_settings()
+    topic = dvs_topic or settings.dvs_topic
     tree = build_tree(load_registry(settings.registry_path))
-    if dvs_topic not in tree:
-        typer.secho(f"Seite {dvs_topic} gibt es nicht", fg=typer.colors.RED, err=True)
+    if dvs_topic and topic not in tree:
+        typer.secho(f"Seite {topic} gibt es nicht", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=2)
     with connect(settings.database_url, autocommit=True) as conn:
         labels = write_affair_topics(conn, out)
-        dvs = write_dvs_list(conn, out, subtree_tag_ids(tree, dvs_topic))
-    typer.echo(
-        f"{out}: affair_topics.ndjson.gz mit {labels} Labels, dvs_liste.csv mit {dvs} Zeilen"
-    )
+        dvs = write_dvs_list(conn, out, subtree_tag_ids(tree, topic)) if topic in tree else None
+    if dvs is None:
+        typer.secho(
+            f"Seite {topic} gibt es nicht oder das Thema ist nicht aktiv: keine DVS-Liste",
+            fg=typer.colors.YELLOW,
+            err=True,
+        )
+    dvs_part = "" if dvs is None else f", dvs_liste.csv mit {dvs} Zeilen"
+    typer.echo(f"{out}: affair_topics.ndjson.gz mit {labels} Labels{dvs_part}")
 
 
 @app.command()

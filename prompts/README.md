@@ -21,7 +21,8 @@ Eine geänderte Fassung bekommt eine neue Datei mit höherer Version, die alte b
 | `classify_single_v3.md` | Standard für APS-Jobs: Kurznamen nach Kapiteln, Sachthemen (Liste A, meist 1–2) und Institutionen (Liste B, höchstens 1) getrennt, Beleg vor dem Thema, Passung `kern`/`neben` statt Konfidenz; der Worker erzwingt ein JSON-Schema mit den Kurznamen als `enum` | 70B |
 | `classify_single_v2.md` | Ein Durchlauf über alle Themen mit Kurznamen statt Zahlencodes (v1: Zahlencodes, 70B schrieb oft die falsche Nummer ab) | 70B |
 | `classify_single_v1.md` | Erster einstufiger Durchlauf, Themen mit Zahlencodes | 70B |
-| `classify_topics_v2.md` | Stufe 2: Themen, Beleg (strikt wörtlich; v1 liess 70B umschreiben), Vorschläge, Kurzzusammenfassung `summary_de` | 8B, bei Eskalation 70B |
+| `classify_topics_v2.md` | Stufe 2 (`CLASSIFY_MODE=two_stage`): Themen, Beleg (strikt wörtlich; v1 liess 70B umschreiben), Vorschläge, Kurzzusammenfassung `summary_de`; für Ad-hoc-Jobs seit ADR 0009 nicht mehr genutzt | 8B, bei Eskalation 70B |
+| `classify_adhoc_v1.md` | Ad-hoc-Job (ADR 0009): ein Thema, ja oder nein, Konfidenz und wörtlicher Beleg, ohne Kurzzusammenfassung und Vorschläge | 70B |
 | `adhoc_keywords_v1.md` | Stichwörter DE/FR/IT für ein Ad-hoc-Thema (`generate_keywords`) | 70B |
 | `proposal_check_v1.md` | Gruppe von Tag-Vorschlägen gegen die Registry prüfen: new, duplicate_of, child_of (F7) | 70B |
 | `agent_system_v2.md` | Systemprompt des Agenten: Regeln, Werkzeuge mit der Form ihrer Argumente, JSON-Protokoll (ARCHITEKTUR 4.6), eigene Regel zur Neutralität nach PRD 7.9 (v1: Neutralität nur als Halbsatz in Regel 1) | 70B |

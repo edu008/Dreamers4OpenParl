@@ -17,14 +17,13 @@ from pathlib import Path
 import psycopg
 
 from parltopics.api import queries
-from parltopics.classify.adhoc import SCOPE, Keywords, find_affairs, websearch
+from parltopics.classify.adhoc import SCOPE, Keywords, find_affairs, tag_keywords, websearch
 from parltopics.classify.queue import TASK_APS, adhoc_task, task_tag
 from parltopics.classify.worker import SAMPLE_EVERY
 from parltopics.config import Settings
 from parltopics.evaluation.metrics import LEVELS, Gold, Labels, Share, bands, path_recall, score
-from parltopics.registry import Registry, Tag
+from parltopics.registry import Registry
 
-DIGITAL = "adhoc:digitalisierung-breit"  # Definition entlang PolitMonitor (PRD 12)
 POLITMONITOR = "politmonitor_digitalisierung.csv"
 DVS = "dvs_digitalisierung.csv"
 ID_COLUMN = "openparldata_id"  # Annahme: wie in che_affairs_keywords.csv (evaluation.curia)
@@ -100,7 +99,7 @@ WHERE d.affair_id = ANY(%(ids)s::bigint[])
 # eine feste Liste von Geschäften und haben weder Kandidaten noch Stichprobe.
 ADHOC_RUNS = """
 SELECT DISTINCT ON (task) id, task, params FROM classification_runs
-WHERE kind = 'adhoc' AND params ? 'keywords' ORDER BY task, id DESC
+WHERE kind IN ('adhoc', 'reclassify') AND params ? 'keywords' ORDER BY task, id DESC
 """
 # shortcut: zählt jedes Label des Kandidatenpfads, auch eines, das ein späterer Lauf nach einer
 # Textänderung ersetzt hat; genauer je Lauf, falls sich Ad-hoc-Läufe oft wiederholen.
@@ -118,9 +117,10 @@ SELECT a.id FROM affairs a
 JOIN classification_jobs j ON j.affair_id = a.id AND j.task = '{TASK_APS}' AND j.status = 'done'
 WHERE a.id = ANY(%s::bigint[]) AND a.body_key = 'CHE' AND a.begin_date >= %s
 """
-FULL_RUN_LABELLED = f"""
+# Labels des Tags aus jeder Aufgabe: Ad-hoc-Themen prüft ein eigener Job (ADR 0009)
+FULL_RUN_LABELLED = """
 SELECT DISTINCT affair_id FROM affair_tags
-WHERE tag_id = %s AND task = '{TASK_APS}' AND stage <> 'human' AND status IN ('active', 'rejected')
+WHERE tag_id = %s AND stage <> 'human' AND status IN ('active', 'rejected')
 """
 # DVS-Abgleich: was die Klassifikation liefert, ohne Labels, die ein Mensch gesetzt hat
 ACTIVE = """
@@ -164,16 +164,6 @@ def read_gold_dir(gold_dir: Path) -> dict[str, set[int] | None]:
         name: load_ids(gold_dir / name) if (gold_dir / name).is_file() else None
         for name in (POLITMONITOR, DVS)
     }
-
-
-def keywords(tag: Tag) -> Keywords:
-    """Stichwörter der Baseline: Bezeichnung und alternative Bezeichnungen je Sprache."""
-    labels, alt = tag.pref_label, tag.alt_labels
-    return Keywords(
-        de=[labels.de, *alt.de, *tag.hidden_labels],
-        fr=[*filter(None, [labels.fr]), *alt.fr],
-        it=[*filter(None, [labels.it]), *alt.it],
-    )
 
 
 @dataclass(frozen=True)
@@ -241,7 +231,7 @@ def build(
         *_aps(conn, registry, gold, latest),
         *_calibration(rows, settings.confidence_threshold),
         *_adhoc(conn, runs, gold, latest),
-        *_digital(conn, runs, gold_dir, files),
+        *_digital(conn, runs, gold_dir, files, settings.dvs_topic),
     ]
     return "\n".join(lines)
 
@@ -368,7 +358,7 @@ def _aps(conn: psycopg.Connection, registry: Registry, gold: Gold, latest: Decis
 
 def _keyword_labels(conn: psycopg.Connection, registry: Registry, ids: list[int]) -> Labels:
     tags = [tag for tag in registry.active("aps") if tag.aps_level == "thema"]
-    terms = [keywords(tag) for tag in tags]
+    terms = [tag_keywords(tag) for tag in tags]
     params = {
         "tags": [tag.tag_id for tag in tags],
         "de": [websearch(k.de) for k in terms],
@@ -497,9 +487,11 @@ def _digital(
     runs: list[AdhocRun],
     gold_dir: Path,
     files: dict[str, set[int] | None],
+    tag_id: str,
 ) -> list[str]:
-    lines = [f"## Digitalisierung ({DIGITAL}) gegen PolitMonitor und DVS-Liste", ""]
-    run = next((r for r in runs if r.tag_id == DIGITAL), None)
+    """Digitalisierung gegen PolitMonitor und die DVS-Liste; tag_id ist DVS_TOPIC."""
+    lines = [f"## Digitalisierung ({tag_id}) gegen PolitMonitor und DVS-Liste", ""]
+    run = next((r for r in runs if r.tag_id == tag_id), None)
     full, path = Share(0, 0), path_recall(set(), set(), set())
     politmonitor, dvs = files[POLITMONITOR], files[DVS]
     if politmonitor is None:
@@ -507,22 +499,22 @@ def _digital(
     else:
         known = {row[0] for row in conn.execute(KNOWN, (list(politmonitor),))}
         scope = {row[0] for row in conn.execute(FULL_RUN, (list(known), FULL_RUN_SINCE))}
-        labelled = {row[0] for row in conn.execute(FULL_RUN_LABELLED, (DIGITAL,))}
+        labelled = {row[0] for row in conn.execute(FULL_RUN_LABELLED, (tag_id,))}
         full = Share(len(scope & labelled), len(scope))
         lines.append(
             f"- PolitMonitor-Positive: in der Datei {len(politmonitor)}, in der Datenbank"
             f" {len(known)}, davon CHE ab {FULL_RUN_SINCE.year} und von classify:aps bearbeitet"
-            f" {len(scope)}. Das Tag läuft in classify:aps erst mit, wenn es aktiv ist."
+            f" {len(scope)}. Gezählt werden Labels des Tags aus jeder Aufgabe."
         )
         if run is None:
-            lines.append(f"- Kein Lauf {adhoc_task(DIGITAL)}: kein Recall im Kandidatenpfad.")
+            lines.append(f"- Kein Lauf {adhoc_task(tag_id)}: kein Recall im Kandidatenpfad.")
         else:
             path = path_recall(run.in_scope(conn, known), run.candidates, run.labelled)
     dvs_hits = Share(0, 0)
     if dvs is None:
         lines.append(f"- {gold_dir / DVS} fehlt: kein DVS-Abgleich.")
     else:
-        active = {row[0] for row in conn.execute(ACTIVE, (DIGITAL,))}
+        active = {row[0] for row in conn.execute(ACTIVE, (tag_id,))}
         known = {row[0] for row in conn.execute(KNOWN, (list(dvs),))}
         dvs_hits = Share(len(dvs & active), len(dvs))
         lines.append(

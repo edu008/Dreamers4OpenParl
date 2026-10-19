@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from parltopics.classify.adhoc import retire
 from parltopics.classify.queue import OpenResult, adhoc_task, open_jobs, task_tag
-from parltopics.classify.worker import STAGE_PROMPTS
+from parltopics.classify.worker import ADHOC_PROMPT
 from parltopics.config import Settings
 from parltopics.llm import JSONExtractionError, LLMClient, Prompt, extract_json, load_prompt
 from parltopics.registry import Registry, Tag, file_hash, load_registry, tag_hash
@@ -308,7 +308,7 @@ def decide(
             kind="adhoc",
             registry_version=registry.registry_version,
             scheme_hash=tag_hash(registry.get(tag_id)),
-            prompt_version=load_prompt(settings.prompts_dir, STAGE_PROMPTS[1]).version,
+            prompt_version=load_prompt(settings.prompts_dir, ADHOC_PROMPT).version,
             affair_ids=[affair_id for (affair_id,) in conn.execute(AFFAIRS, (proposal_id,))],
             extra={"proposal_id": proposal_id, "by": by},
         )

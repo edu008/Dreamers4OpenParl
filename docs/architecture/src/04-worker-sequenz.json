@@ -218,7 +218,7 @@
       "title": "Ein Geschäft pro Aufruf",
       "items": [
         "Der Code wählt den Job, Apertus sieht genau ein Geschäft",
-        "Stufe 1 wählt Kapitel, Stufe 2 Themen und aktive Ad-hoc-Tags",
+        "Stufe 1 wählt Kapitel, Stufe 2 Themen; Ad-hoc-Themen prüft ein eigener Ja/Nein-Job mit 70B",
         "Temperatur 0, Prompts als versionierte Dateien"
       ]
     },

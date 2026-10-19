@@ -3,25 +3,26 @@
 70B schlägt Stichwörter in DE/FR/IT vor, ein Mensch prüft sie. Die Volltextsuche liefert die
 Kandidaten; dazu kommt die feste Stichprobe von 2 % (jedes 50. Geschäft) ohne Stichworttreffer,
 die schätzt, wie viel die Stichwörter verpassen. Für beide entstehen Jobs classify:adhoc:<name>,
-die der Worker wie Stufe 2 mit nur diesem Thema bearbeitet. Das Tag bleibt proposed, bis ein
-Mensch es freischaltet; danach läuft es in Stufe 2 von classify:aps mit. retire zieht es zurück
-(F10): Jobs zu, Labels ohne menschlichen Entscheid superseded. create mit demselben Namen holt es
-zurück.
+in denen der Worker nur fragt, ob dieses eine Thema passt (ADR 0009). open_adhoc_jobs öffnet sie
+für jedes Ad-hoc-Tag der Registry, beim Anlegen, beim Freischalten (Nachklassifizierung), im
+täglichen Lauf und von Hand; das Thema steht nirgends im Code. retire zieht es zurück (F10): Jobs
+zu, Labels ohne menschlichen Entscheid superseded. create mit demselben Namen holt es zurück.
 """
 
+import re
 from dataclasses import dataclass
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
 import httpx
 import psycopg
 from pydantic import AfterValidator, BaseModel
 
 from parltopics.classify.queue import OpenResult, adhoc_task, close_jobs, open_jobs
-from parltopics.classify.worker import SAMPLE_EVERY, STAGE_PROMPTS
+from parltopics.classify.worker import ADHOC_PROMPT, SAMPLE_EVERY
 from parltopics.config import Settings
 from parltopics.llm import LLMClient, extract_json, load_prompt
-from parltopics.registry import Registry, file_hash, load_registry, tag_hash
+from parltopics.registry import Registry, Tag, file_hash, load_registry, tag_hash
 from parltopics.registry.edit import NotAdhoc, add_adhoc_tag, check_step, set_status
 from parltopics.registry.sync import sync_registry
 
@@ -103,13 +104,95 @@ async def suggest_keywords(
     return Keywords.model_validate(extract_json(reply.content))
 
 
+BRACKETS = re.compile(r"\s*\([^)]*\)")
+LAST_KEYWORDS = """
+SELECT params->'keywords' FROM classification_runs
+WHERE task = %s AND params ? 'keywords' ORDER BY id DESC LIMIT 1
+"""
+
+
+def tag_keywords(tag: Tag) -> Keywords:
+    """Stichwörter aus den Bezeichnungen des Tags: Name, Synonyme und versteckte Bezeichnungen je
+    Sprache; ein Name auch ohne Klammerzusatz, «Digitalisierung (breit)» trifft sonst kaum."""
+
+    def names(name: str | None) -> list[str]:
+        return [name, BRACKETS.sub("", name).strip()] if name else []
+
+    label, alt = tag.pref_label, tag.alt_labels
+    return Keywords(
+        de=[*names(label.de), *alt.de, *tag.hidden_labels],
+        fr=[*names(label.fr), *alt.fr],
+        it=[*names(label.it), *alt.it],
+    )
+
+
+def last_keywords(conn: psycopg.Connection, task: str) -> Keywords | None:
+    """Die Stichwörter des letzten Kandidatenlaufs dieser Aufgabe, damit ein neuer Lauf dieselben
+    Kandidaten findet; jeder Lauf speichert sie in classification_runs.params."""
+    row = conn.execute(LAST_KEYWORDS, (task,)).fetchone()
+    return Keywords.model_validate(row[0]) if row else None
+
+
 @dataclass(frozen=True)
-class Created:
+class Opened:
     tag_id: str
     registry_version: str
     run: OpenResult
     candidates: int
     sample: int
+
+
+Scope = Literal["candidates", "all"]
+
+
+def open_adhoc_jobs(
+    conn: psycopg.Connection,
+    settings: Settings,
+    registry: Registry,
+    tag_id: str,
+    *,
+    kind: str,
+    by: str,
+    bodies: list[str] | None = None,
+    since: date | None = None,
+    limit: int | None = None,
+    scope: Scope = "candidates",
+    keywords: Keywords | None = None,
+) -> Opened:
+    """Öffnet die Ja/Nein-Jobs eines Ad-hoc-Tags (ADR 0009); alles kommt aus Registry und Läufen.
+
+    candidates: Stichworttreffer und die 2 %-Stichprobe der übrigen Geschäfte (PRD 7.4). Die
+    Stichwörter sind die übergebenen, sonst die des letzten Laufs, sonst die Bezeichnungen des Tags.
+    all: jedes Geschäft im Scope (bodies, since, limit), für einen bewussten Volllauf. Die
+    Versionen sind die, die der Worker schreibt: Ein erledigter Job öffnet sich erst wieder, wenn
+    sich Prompt, Beschreibung, Synonyme oder Text ändern.
+    """
+    task = adhoc_task(tag_id)
+    versions = {
+        "registry_version": registry.registry_version,
+        "scheme_hash": tag_hash(registry.get(tag_id)),
+        "prompt_version": load_prompt(settings.prompts_dir, ADHOC_PROMPT).version,
+    }
+    scoped = {"conn": conn, "task": task, "bodies": bodies, "since": since, "limit": limit}
+    if scope == "all":
+        run = open_jobs(**scoped, kind=kind, extra={"scope": "all", "by": by}, **versions)
+        return Opened(tag_id, registry.registry_version, run, 0, 0)
+    if keywords is None:
+        keywords = last_keywords(conn, task) or tag_keywords(registry.get(tag_id))
+    candidates, sample = find_affairs(conn, keywords, bodies=bodies, since=since)
+    run = open_jobs(
+        **scoped,
+        kind=kind,
+        affair_ids=candidates + sample,
+        extra={
+            "keywords": keywords.model_dump(),
+            "candidates": len(candidates),
+            "sample": len(sample),
+            "by": by,
+        },
+        **versions,
+    )
+    return Opened(tag_id, registry.registry_version, run, len(candidates), len(sample))
 
 
 def create(
@@ -123,38 +206,32 @@ def create(
     broader: list[str] | None = None,
     bodies: list[str] | None = None,
     since: date | None = None,
-) -> Created:
+) -> Opened:
     """Legt das Tag als proposed an und öffnet die Jobs für Kandidaten und Stichprobe."""
     tag_id, registry = add_adhoc_tag(
         settings.registry_path, name_de=name_de, definition_de=definition_de, by=by, broader=broader
     )
     _sync(conn, settings, registry)
-    candidates, sample = find_affairs(conn, keywords, bodies=bodies, since=since)
-    run = open_jobs(
+    return open_adhoc_jobs(
         conn,
-        task=adhoc_task(tag_id),
+        settings,
+        registry,
+        tag_id,
+        kind="adhoc",
+        by=by,
         bodies=bodies,
         since=since,
-        limit=None,
-        kind="adhoc",
-        registry_version=registry.registry_version,
-        scheme_hash=tag_hash(registry.get(tag_id)),
-        prompt_version=load_prompt(settings.prompts_dir, STAGE_PROMPTS[1]).version,
-        affair_ids=candidates + sample,
-        extra={
-            "keywords": keywords.model_dump(),
-            "candidates": len(candidates),
-            "sample": len(sample),
-            "by": by,
-        },
+        keywords=keywords,
     )
-    return Created(tag_id, registry.registry_version, run, len(candidates), len(sample))
 
 
-def activate(conn: psycopg.Connection, settings: Settings, tag_id: str, *, by: str) -> Registry:
-    """Schaltet ein bewährtes Ad-hoc-Tag frei: ab dann in Stufe 2 von classify:aps."""
+def activate(conn: psycopg.Connection, settings: Settings, tag_id: str, *, by: str) -> Opened:
+    """Schaltet ein bewährtes Ad-hoc-Tag frei und öffnet die Nachklassifizierung (kind reclassify)
+    über Kandidaten und Stichprobe. Unter proposed erledigte Jobs bleiben erledigt: Prompt und
+    Tag sind dieselben. Ein Tag aus einem Vorschlag bekommt so erst hier seine Kandidaten."""
     with conn.transaction():
-        return _set_status(conn, settings, tag_id, "active", by)
+        registry = _set_status(conn, settings, tag_id, "active", by)
+        return open_adhoc_jobs(conn, settings, registry, tag_id, kind="reclassify", by=by)
 
 
 # Menschliche Entscheide haben Vorrang wie in queue.SUPERSEDE: bestätigte und von Hand gesetzte

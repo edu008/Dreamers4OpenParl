@@ -1,5 +1,6 @@
 from datetime import datetime
 from functools import partial
+from pathlib import Path
 
 import httpx
 import typer
@@ -8,6 +9,8 @@ from typer.testing import CliRunner
 from parltopics import __version__
 from parltopics.cli import app
 from parltopics.llm import LLMClient
+
+FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tags_example.yaml"
 
 runner = CliRunner()
 
@@ -53,19 +56,12 @@ def test_registry_validate_reports_errors(tmp_path):
     assert runner.invoke(app, ["registry", "validate", str(path)]).exit_code == 1
 
 
-DAILY_STEPS = [
-    "ingest",
-    "inputs",
-    "registry_sync",
-    "classify",
-    "proposals_group",
-    "pages",
-    "export",
-    "wiki",
-]
+STEPS = ["ingest", "inputs", "registry_sync", "classify", "proposals_group", "pages", "export"]
+# nach APS je aktivem Ad-hoc-Tag der Test-Registry ein classify (ADR 0009)
+DAILY_STEPS = [*STEPS[:4], "classify", *STEPS[4:], "wiki"]
 
 
-def test_daily_runs_every_step_in_order_and_stops_at_the_first_failure(monkeypatch):
+def test_daily_runs_every_step_in_order_and_stops_at_the_first_failure(monkeypatch, settings):
     calls = []
 
     def step(name, fail=False):
@@ -76,13 +72,16 @@ def test_daily_runs_every_step_in_order_and_stops_at_the_first_failure(monkeypat
 
         return run
 
-    for name in DAILY_STEPS:
+    for name in {*DAILY_STEPS}:
         monkeypatch.setattr(f"parltopics.cli.{name}", step(name))
+    fixture = settings.model_copy(update={"registry_path": FIXTURE})
+    monkeypatch.setattr("parltopics.cli.get_settings", lambda: fixture)
     result = runner.invoke(app, ["daily", "--body", "CHE", "--since", "2026-01-01"])
     assert result.exit_code == 0, result.output
     assert [name for name, _ in calls] == DAILY_STEPS
     scope = {"body": ["CHE"], "since": datetime(2026, 1, 1)}
     assert (calls[1][1], calls[3][1]) == (scope, {"task": "classify:aps", **scope})
+    assert calls[4][1] == {"task": "classify:adhoc:digitalisierung-breit", **scope}
 
     calls.clear()
     monkeypatch.setattr("parltopics.cli.classify", step("classify", fail=True))
@@ -90,10 +89,11 @@ def test_daily_runs_every_step_in_order_and_stops_at_the_first_failure(monkeypat
     assert [name for name, _ in calls] == DAILY_STEPS[:4]  # nach dem Fehler läuft nichts mehr
 
 
-def test_classify_accepts_only_the_aps_task_in_m1():
-    result = runner.invoke(app, ["classify", "--task", "classify:adhoc:x"])
-    assert result.exit_code == 2
-    assert "classify:aps" in result.output
+def test_classify_refuses_tasks_without_an_adhoc_tag():
+    for task in ("classify:adhoc:gibt-es-nicht", "foo"):
+        result = runner.invoke(app, ["classify", "--task", task])
+        assert result.exit_code == 2
+        assert "classify:adhoc:<tag>" in result.output
 
 
 def test_llm_check_lists_the_models_of_the_endpoint_on_a_404(monkeypatch, settings):
