@@ -2,7 +2,7 @@
 
 Der Code steuert die Schleife; das Modell bewertet je Knoten alle Kinder in einem Aufruf und wählt
 am Blatt die passenden Geschäfte. Grenzen, Rückweg und Volltext-Fallback liegen im Code.
-Modell- und Datenbankzugriffe werden als Funktionen übergeben (M4 verbindet sie mit LLM und DB).
+Modell- und Datenbankzugriffe werden als Funktionen übergeben; api/navigate.py verbindet sie.
 """
 
 from __future__ import annotations

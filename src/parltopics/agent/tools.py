@@ -1,7 +1,7 @@
 """Werkzeuge des Agenten: Argument-Modelle und Tool-Definitionen (PRD 7.8, ARCHITEKTUR 4.3).
 
 Alle Werkzeuge lesen nur. `propose_adhoc_topic` liefert einen Entwurf; angelegt wird ein Thema
-erst, wenn ein Mensch in der Web-App bestätigt (POST /v1/adhoc). Die Implementierungen folgen in M4.
+erst, wenn ein Mensch in der Web-App bestätigt (POST /v1/adhoc). Umgesetzt sind sie in `execute`.
 """
 
 import json

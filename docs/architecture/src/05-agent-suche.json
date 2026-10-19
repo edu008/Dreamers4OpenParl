@@ -17,7 +17,7 @@
     { "id": "user", "type": "external", "label": "Nutzer", "sublabel": "Web-App (React)" },
     { "id": "api", "type": "frontend", "label": "FastAPI", "sublabel": "POST /v1/agent/search" },
     { "id": "agent", "type": "backend", "label": "Agent", "sublabel": "max. 6 Werkzeuge" },
-    { "id": "llm", "type": "external", "label": "Apertus 70B", "sublabel": "Tool-Calling" },
+    { "id": "llm", "type": "external", "label": "Apertus 70B", "sublabel": "JSON-Protokoll" },
     { "id": "tools", "type": "database", "label": "Werkzeuge", "sublabel": "lesend: DB, Seitenbaum" }
   ],
   "segments": [
@@ -52,6 +52,6 @@
   ],
   "cards": [
     { "dot": "emerald", "title": "Nur aus Werkzeugen", "items": ["Jede Aussage trägt OpenParlData-IDs aus Werkzeug-Ergebnissen", "Ohne Treffer: Keine passenden Geschäfte gefunden", "Zahlen kommen aus count_affairs, nicht aus dem Modell"] },
-    { "dot": "amber", "title": "Grenzen", "items": ["Höchstens 6 Werkzeugaufrufe, 60 s Gesamtzeit; navigate_tree zählt als einer", "Alle Werkzeuge lesend; Anlegen nur nach Bestätigung im UI", "Ohne Tool-Calling: JSON-Protokoll mit denselben Pydantic-Modellen"] }
+    { "dot": "amber", "title": "Grenzen", "items": ["Höchstens 6 Werkzeugaufrufe, 60 s Gesamtzeit; navigate_tree zählt als einer", "Alle Werkzeuge lesend; Anlegen nur nach Bestätigung im UI", "JSON-Protokoll statt Tool-Calling; Tag-IDs nur aus Werkzeugen"] }
   ]
 }

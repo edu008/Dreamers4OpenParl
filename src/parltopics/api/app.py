@@ -99,18 +99,27 @@ ASSET_CACHE = "public, max-age=31536000, immutable"  # Dateinamen in assets/ tra
 SWAGGER = Path(__file__).parent / "static" / "swagger"  # swagger-ui-dist, Apache-2.0
 
 DESCRIPTION = """Sidecar-API von ParlTopics (PRD F10): Themen zu Geschäften aus OpenParlData,
-klassifiziert mit Apertus. Geschäfts-IDs sind OpenParlData-IDs. Alle Endpunkte lesen nur, ausser
-POST /v1/reviews für Review-Entscheide. Im Hack-MVP gibt es dafür keine Anmeldung und keine Rollen;
-an jedem Entscheid stehen Name und Zeit.
+klassifiziert mit Apertus, dazu die gespeicherten OpenParlData-Daten (Geschäfte, Texte, Dokumente,
+Parlamente). Geschäfts-IDs sind OpenParlData-IDs. Schreibend sind nur POST /v1/reviews,
+POST /v1/proposals/{proposal_id}/decision, POST /v1/adhoc und POST /v1/adhoc/{tag_id}/activate;
+im Hack-MVP ohne Anmeldung und Rollen, an jedem Entscheid stehen Name und Zeit.
+POST /v1/search/navigate und POST /v1/agent/search fragen Apertus und protokollieren jede Suche.
 
 Ohne Datenbank antworten die Endpunkte unter Geschäfte, Themen, Review und Jobs mit 503;
 /healthz und die Seiten unter /v1/pages funktionieren weiter."""
 
 TAGS = [
-    {"name": "Geschäfte", "description": "Ein Geschäft mit seinen Themen, Belegen und Versionen."},
+    {
+        "name": "Geschäfte",
+        "description": "Ein Geschäft mit Themen, Belegen und Versionen und seinen gespeicherten"
+        " OpenParlData-Daten.",
+    },
     {"name": "Themen", "description": "Tags der Registry (APS und Ad-hoc) und ihre Geschäfte."},
     {"name": "Review", "description": "Entscheide von Menschen zu Labels, mit Name und Zeit."},
-    {"name": "Suche", "description": "Volltext über Titel und Texte (de, fr, it), ohne LLM."},
+    {
+        "name": "Suche",
+        "description": "Volltext ohne Modell; Navigationssuche und Agent mit Apertus.",
+    },
     {"name": "Evaluation", "description": "Kalibrierung und Gold-Set aus den Entscheiden."},
     {"name": "Ad-hoc", "description": "Neue Themen ohne Training: Stichwörter, Kandidaten, Jobs."},
     {"name": "Jobs", "description": "Stand der Klassifikation je Aufgabe."},

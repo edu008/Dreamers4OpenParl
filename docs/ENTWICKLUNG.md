@@ -46,6 +46,12 @@ Review-Entscheide schreibt `POST /v1/reviews` (bestätigen, verwerfen, ändern, 
 
 Die Volltextsuche `GET /v1/search` (de, fr, it, ohne LLM) liest `search_documents`. Das füllt `parltopics inputs` gleich mit; Klassifikationstexte, die vor dieser Version gebaut wurden, bekommen ihr Dokument beim nächsten `inputs`-Lauf mit denselben Filtern.
 
+Die gespeicherten OpenParlData-Daten liefert `GET /v1/affairs/{id}`: alle Felder aus `affairs.raw`, Sprachfelder geschachtelt wie bei OpenParlData (`title: {"fr": …}`, ohne Werte `{}`), dazu das Parlament, die Texte (HTML aus der Quelle, nicht bereinigt) und die ersten 20 Dokumente. Alle Dokumente stehen unter `/v1/affairs/{id}/docs`, der extrahierte Text eines Dokuments unter `/v1/docs/{id}`, ein Parlament mit seinen Zahlen unter `/v1/bodies/{body_key}`. Events, Contributors, Votings, Speeches, Agendas und Meetings lädt der Ingest nicht; die API bietet sie darum nicht an. Wappen- und Dokument-URLs zeigen nach aussen: Die Web-App zeigt sie höchstens als Link und lädt nichts von dort.
+
+Für eine Seite liefert `/v1/pages/{id}/affairs/summary` Kennzahlen und Verteilungen über alle ihre Geschäfte, `/v1/pages/{id}/affairs.csv` alle Zeilen als CSV wie der Export der Web-App. Die DVS-Liste (F12) ist `/v1/pages/adhoc:digitalisierung-breit/affairs.csv`. `GET /v1/reviews/summary` zählt die Warteschlange, ohne sie zu laden.
+
+Der Agent `POST /v1/agent/search` fragt Apertus 70B (`LLM_NAME_LARGE`) mit höchstens sechs lesenden Werkzeugen und protokolliert jede Sitzung in `agent_runs`; ohne LLM antwortet er mit 503. Er zitiert nur Geschäfte und benutzt nur Tag-IDs, die ein Werkzeug geliefert hat (ARCHITEKTUR 4).
+
 ## Klassifikation
 
 Nach dem Ingest läuft die Pipeline in drei Kommandos (PRD 7.1, [ARCHITEKTUR.md](ARCHITEKTUR.md#2-pipeline)):
