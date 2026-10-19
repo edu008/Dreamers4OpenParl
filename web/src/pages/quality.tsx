@@ -40,7 +40,7 @@ function Rate({ value }: { value: number | null }) {
       <span aria-hidden="true" className="h-1.5 w-20 bg-border">
         {value !== null && (
           <span
-            className="block h-full bg-primary"
+            className="block h-full bg-foreground"
             style={{ width: `${value * 100}%` }}
           />
         )}
