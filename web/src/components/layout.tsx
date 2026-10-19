@@ -25,7 +25,6 @@ const ADMIN_NAV = [
   { to: "/admin/themen", label: "Themen" },
   { to: "/admin/graph", label: "Graph" },
   { to: "/admin/parlamente", label: "Parlamente" },
-  { to: "/admin/qualitaet", label: "Qualität" },
 ]
 
 function isActive(pathname: string, to: string): boolean {
