@@ -60,7 +60,7 @@ Diagramm: [01-systemarchitektur](architecture/01-systemarchitektur.html).
 | 9 Seiten | `parltopics pages` (M3) | `wiki_pages` von unten nach oben, Status mit Weitergabe (Abschnitt 5) |
 | 10 Ausgabe | `parltopics export`, `parltopics wiki`, Web-App | Exportdatei, DVS-Liste, Markdown, Seiten |
 
-Der tägliche Lauf (F17) verkettet 2 bis 10 ohne Review. Diagramm: [02-pipeline](architecture/02-pipeline.html).
+Der tägliche Lauf (F17, `parltopics daily`) verkettet 2 bis 10 ohne Review und bricht beim ersten fehlgeschlagenen Schritt ab. Diagramm: [02-pipeline](architecture/02-pipeline.html).
 
 ## 3. Worker (Massenklassifikation)
 
