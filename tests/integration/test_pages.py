@@ -1,4 +1,4 @@
-"""Seitenlauf mit Datenbank und Mock-LLM (PRD 7.9, F23–F25)."""
+"""Seitenlauf und Markdown-Export mit Datenbank und Mock-LLM (PRD 7.9, F14, F23–F25)."""
 
 import asyncio
 import datetime as dt
@@ -6,6 +6,7 @@ import json
 
 import httpx
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
@@ -14,14 +15,16 @@ from parltopics.db import migrate
 from parltopics.llm import LLMClient
 from parltopics.registry import file_hash, load_registry
 from parltopics.registry.sync import sync_registry
+from parltopics.wiki.markdown import export_wiki
 from parltopics.wiki.run import run
-from parltopics.wiki.tree import build_tree
+from parltopics.wiki.tree import build_tree, page_path, year_list_path
 from tests.integration.test_api import FIXTURE, seed
 from tests.mock_llm.app import completion, fake_completion
 
 pytestmark = pytest.mark.integration
 NOW = dt.datetime(2026, 10, 19, 6, 0, tzinfo=dt.UTC)
 SUMMARY = "Zusammenfassung der Seite (Mock)."
+WEB = "http://wiki.test"
 
 
 class Mock(httpx.MockTransport):
@@ -114,3 +117,67 @@ def test_cli_pages_runs_once_and_reports(conn, ready, monkeypatch):
     assert result.exit_code == 0, result.output
     assert f"{len(tree)} von {len(tree)} Seiten gebaut, 4 geändert" in result.output
     assert len(mock.models) == 4
+
+
+def markdown(root):
+    return {p.relative_to(root).as_posix(): p.read_text("utf-8") for p in root.rglob("*.md")}
+
+
+def export(conn, ready, out):
+    _, registry, tree = ready
+    return export_wiki(conn, registry, tree, out, web_url=WEB, window_months=12, today=NOW.date())
+
+
+def test_markdown_export_writes_the_tree_twice_without_diff(conn, ready, tmp_path):
+    settings, registry, tree = ready
+    asyncio.run(run(settings, conn, registry, tree, transport=Mock(), now=NOW))
+    first = export(conn, ready, tmp_path)
+    files = markdown(tmp_path)
+    assert first == (len(files), len(files))
+    assert export(conn, ready, tmp_path) == (len(files), 0)  # zweiter Lauf ohne Diff
+    assert markdown(tmp_path) == files
+
+    tag = files[tree["aps:6.1.9"].path]
+    head = yaml.safe_load(tag.split("---\n")[1])
+    assert (head["tag_id"], head["scheme"], head["n_affairs"], head["page_status"]) == (
+        "aps:6.1.9",
+        "aps",
+        1,
+        "done",
+    )
+    assert head["registry_version"] == registry.registry_version
+    assert SUMMARY in tag and f"[70435]({WEB}/geschaefte/70435)" in tag  # Beleg verlinkt
+    assert "(../parlamente/CHE.md)" in tag
+    assert "(../querschnitt/adhoc-digitalisierung-breit.md)" in tag  # related aus der Registry
+    assert f"(../{tree['aps:6.1.9'].path})" in files[tree["aps:6.1"].path]  # Kapitel → Tag-Seite
+    assert f"(../{tree['aps:6.1.9'].path}) | 1 |" in files["parlamente/CHE.md"]
+    assert "HEART.md" in files and not any(name.startswith("geschaefte/") for name in files)
+    merged = files[page_path(registry.get("adhoc:e-government"))]
+    assert "aufgegangen" in merged and "(adhoc-digitalisierung-breit.md)" in merged
+    assert "nicht mehr vergeben" in files[page_path(registry.get("aps:6.1.10"))]
+
+
+def test_markdown_export_splits_large_tag_pages_by_year(conn, ready, tmp_path, monkeypatch):
+    monkeypatch.setattr("parltopics.wiki.tree.YEAR_SPLIT_THRESHOLD", 0)
+    export(conn, ready, tmp_path)
+    page = ready[2]["aps:6.1.9"]
+    hub = (tmp_path / page.path).read_text("utf-8")
+    assert f"]({page.path.removeprefix('tags/').removesuffix('.md')}/2026.md)" in hub
+    assert "/geschaefte/70435)" in (tmp_path / year_list_path(page, 2026)).read_text("utf-8")
+    assert "/geschaefte/70435)" not in hub  # Liste nur in der Jahresdatei
+
+
+def test_cli_wiki_exports_the_tree_and_one_affair(conn, ready, monkeypatch, tmp_path):
+    from parltopics.cli import app
+
+    settings, _, tree = ready
+    monkeypatch.setattr("parltopics.cli.get_settings", lambda: settings)
+    result = CliRunner().invoke(app, ["wiki", "--out", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert f"{len(markdown(tmp_path))} Dateien" in result.output
+
+    result = CliRunner().invoke(app, ["wiki", "--out", str(tmp_path), "--affair", "70435"])
+    assert result.exit_code == 0, result.output
+    affair = (tmp_path / "geschaefte" / "70435.md").read_text("utf-8")
+    assert f"(../{tree['aps:6.1.9'].path})" in affair
+    assert CliRunner().invoke(app, ["wiki", "--out", str(tmp_path), "--affair", "1"]).exit_code == 1

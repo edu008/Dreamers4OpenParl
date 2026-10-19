@@ -1,8 +1,4 @@
-"""Kommandozeile `parltopics` (PRD 10.4).
-
-Kommandos, die noch nicht umgesetzt sind, zeigen ihre geplante Schnittstelle, nennen ihren
-Meilenstein und enden mit Exit-Code 3.
-"""
+"""Kommandozeile `parltopics` (PRD 10.4)."""
 
 import asyncio
 import contextlib
@@ -15,7 +11,6 @@ import typer
 from parltopics import __version__
 from parltopics.config import Settings, get_settings
 
-NOT_IMPLEMENTED_EXIT = 3
 DATE = ["%Y-%m-%d"]
 
 app = typer.Typer(
@@ -31,15 +26,6 @@ app.add_typer(registry_app, name="registry")
 app.add_typer(llm_app, name="llm")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(proposals_app, name="proposals")
-
-
-def _planned(milestone: str, reference: str) -> None:
-    typer.secho(
-        f"Noch nicht umgesetzt: Meilenstein {milestone}, PRD {reference}.",
-        fg=typer.colors.YELLOW,
-        err=True,
-    )
-    raise typer.Exit(code=NOT_IMPLEMENTED_EXIT)
 
 
 @app.command()
@@ -504,9 +490,43 @@ def pages() -> None:
 def wiki(
     out: Annotated[Path, typer.Option(help="Zielverzeichnis")] = Path("wiki"),
     affair: Annotated[int | None, typer.Option(help="nur dieses Geschäft exportieren")] = None,
+    web_url: Annotated[
+        str, typer.Option(help="Adresse der Web-App für die Links auf Geschäfte")
+    ] = "http://127.0.0.1:8000",
 ) -> None:
-    """Markdown-Export: Heart, Bereiche, Kapitel, Tag-Seiten, Querschnitt, Parlamente (F14)."""
-    _planned("M3", "F14")
+    """Markdown-Export: Heart, Bereiche, Kapitel, Tag-Seiten, Querschnitt, Parlamente (F14).
+
+    Keine Datei je Geschäft; Geschäfte verlinken auf die Web-App und OpenParlData. Liest die
+    Datenbank nur und schreibt nur geänderte Dateien.
+    """
+    import datetime as dt
+
+    from parltopics.db import connect
+    from parltopics.registry import load_registry
+    from parltopics.wiki.markdown import export_affair, export_wiki
+    from parltopics.wiki.tree import build_tree
+
+    settings = get_settings()
+    registry = load_registry(settings.registry_path)
+    tree = build_tree(registry)
+    with connect(settings.database_url, autocommit=True) as conn:
+        if affair is not None:
+            path = export_affair(conn, tree, out, affair, web_url=web_url)
+            if path is None:
+                typer.secho(f"Geschäft {affair} gibt es nicht", fg=typer.colors.RED, err=True)
+                raise typer.Exit(code=1)
+            typer.echo(f"Geschäft {affair}: {path}")
+            return
+        files, changed = export_wiki(
+            conn,
+            registry,
+            tree,
+            out,
+            web_url=web_url,
+            window_months=settings.page_window_months,
+            today=dt.datetime.now(dt.UTC).date(),
+        )
+    typer.echo(f"Wiki in {out}: {files} Dateien, {changed} geändert")
 
 
 @app.command("eval")

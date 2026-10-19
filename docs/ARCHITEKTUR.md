@@ -347,6 +347,20 @@ UPDATE wiki_pages SET cited_label_removed = true
 WHERE cited_affair_ids @> ARRAY[%(affair_id)s]::bigint[];
 ```
 
+### 5.6 Markdown-Export
+
+`parltopics wiki` (`wiki/markdown.py`, F14) schreibt den Seitenbaum und die Parlamente als Markdown und liest dafür nur:
+
+- Kennzahlen wie im Seitenlauf (`page_stats`),
+- Zusammenfassung und Seitenstand aus `wiki_pages`,
+- die Geschäftsliste einer Tag- oder Querschnittsseite über `stream_topic_affairs`.
+
+Die Dateinamen kommen aus `page_path()`. Zusammengelegte und zurückgezogene Tags bekommen eine Weiterleitungsseite. Über 1'000 Geschäften steht die Liste in Jahresdateien.
+
+Links zwischen Seiten sind relativ. Geschäfte verlinken auf die Web-App (`/geschaefte/{id}`) und auf OpenParlData.
+
+Unveränderte Dateien schreibt der Export nicht neu. Dateien, die er nicht mehr erzeugt, bleiben liegen (Shortcut im Code). Gegen die geteilte Datenbank (Oktober 2026: 197 Seiten, 63 Parlamente, 260 Dateien) dauert ein Lauf rund eine Minute. Die Zeit geht fast ganz in die Antwortzeit der rund 1'500 Abfragen.
+
 Diagramm: [09-wiki-hierarchie](architecture/09-wiki-hierarchie.html).
 
 ## 6. Navigationssuche
