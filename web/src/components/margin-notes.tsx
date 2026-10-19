@@ -189,7 +189,9 @@ export function MarginNotes({
                           variant="outline"
                           disabled={busy}
                           onClick={() => {
-                            setReplacing(replacing === label.id ? null : label.id)
+                            setReplacing(
+                              replacing === label.id ? null : label.id
+                            )
                             setReplacement("")
                           }}
                         >
