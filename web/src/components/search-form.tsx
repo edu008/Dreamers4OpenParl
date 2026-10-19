@@ -17,6 +17,8 @@ export function SearchForm({ initial = "" }: { initial?: string }) {
     if (text) next.set("q", text)
     else next.delete("q")
     next.delete("seite")
+    // «Nur … suchen» gilt für eine Eingabe; eine neue sucht wieder mit Themenerkennung.
+    next.delete("wortlaut")
     setParams(next)
   }
 

@@ -301,6 +301,7 @@
       "items": [
         "Worker: deterministisch, ein Geschäft pro Aufruf, 8B mit Eskalation an 70B",
         "Seitenlauf: Zusammenfassungen von den Tag-Seiten bis Heart, nur offene Seiten",
+        "Suche: Themen aus der Registry; erkennt sie keines, schlägt 8B höchstens zwei vor",
         "Navigationssuche: 8B vergleicht je Knoten alle Kinder, 70B wählt am Blatt",
         "Agent: Tool-Calling mit 70B, nur lesende Werkzeuge, auch navigate_tree"
       ]

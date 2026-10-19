@@ -70,7 +70,8 @@ async function errorDetail(response: Response): Promise<string> {
 }
 
 // Antworten der Sidecar-API für Geschäfte, Themen und Jobs (siehe /v1/docs).
-export type Stage = "8b" | "70b" | "human"
+/** rule: Thema per Regel aus dem Titel eines Routinegeschäfts, ohne Modell. */
+export type Stage = "8b" | "70b" | "human" | "rule"
 
 export type ReviewStatus = "confirmed" | "rejected" | "changed"
 
@@ -321,6 +322,22 @@ export interface SearchHit extends AffairHead {
   topics: HitTopic[]
 }
 
+/** Ein Thema, das die Suche in der Eingabe erkannt hat; seine Bezeichnungen in DE, FR und IT und
+ * seine Geschäfte gehören zu den Treffern. */
+export interface SearchTopic {
+  tag_id: string
+  name_de: string
+  /** registry: über eine Bezeichnung erkannt; llm: vom Sprachmodell vorgeschlagen. */
+  source: "registry" | "llm"
+  /** Die getippten Wörter, die das Thema trafen; null bei llm. */
+  typed: string | null
+  /** Die Bezeichnung, die sie trafen; null bei llm. */
+  label: string | null
+  typo: boolean
+}
+
+export type SearchLanguage = "de" | "fr" | "it"
+
 export interface SearchResult {
   /** null: Liste der neuesten Geschäfte statt einer Suche. */
   q: string | null
@@ -329,6 +346,10 @@ export interface SearchResult {
   offset: number
   duration_ms: number
   items: SearchHit[]
+  /** Erkannte Themen; leer oder fehlend: wie getippt gesucht (expand=false oder ältere API). */
+  topics?: SearchTopic[]
+  /** Zusätzlich gesuchte Bezeichnungen je Sprache, die bevorzugte je Thema zuerst. */
+  expanded_terms?: Partial<Record<SearchLanguage, string[]>>
 }
 
 /** Graph, Sicht 2 (GET /v1/graph/affairs/{id}): ein Geschäft und seine Nachbarn über gemeinsame

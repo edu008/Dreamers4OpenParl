@@ -35,6 +35,7 @@ const STAGE_NAME: Record<Stage, string> = {
   "8b": "Apertus 8B",
   "70b": "Apertus 70B",
   human: "Mensch",
+  rule: "Regel",
 }
 
 export interface Versions {
@@ -188,7 +189,9 @@ export function MarginNotes({
                           variant="outline"
                           disabled={busy}
                           onClick={() => {
-                            setReplacing(replacing === label.id ? null : label.id)
+                            setReplacing(
+                              replacing === label.id ? null : label.id
+                            )
                             setReplacement("")
                           }}
                         >

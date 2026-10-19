@@ -1,5 +1,5 @@
 import { XIcon } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { Fragment, useState, type ReactNode } from "react"
 import { Link, useLocation, useNavigate } from "react-router"
 
 import { SearchForm } from "@/components/search-form"
@@ -18,7 +18,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
 import { usePageTitle } from "@/hooks/use-page-title"
 import { useQuery } from "@/hooks/use-query"
-import type { BodyOut, SearchHit, SearchResult, TopicOut } from "@/lib/api"
+import type {
+  BodyOut,
+  SearchHit,
+  SearchLanguage,
+  SearchResult,
+  TopicOut,
+} from "@/lib/api"
 import { LEVEL_LABEL } from "@/lib/export"
 import { parseSnippet } from "@/lib/snippet"
 import {
@@ -136,7 +142,8 @@ function Hit({ hit, params }: { hit: SearchHit; params: URLSearchParams }) {
           {bodyTile(hit)}
         </span>
       </p>
-      <div className="flex min-w-0 flex-col gap-2">
+      {/* break-words: Quelltexte enthalten Trennlinien wie «_____» ohne Leerzeichen. */}
+      <div className="flex min-w-0 flex-col gap-2 break-words">
         <p className="tabular text-sm text-muted-foreground">
           {meta.filter(Boolean).join(" · ")}
         </p>
@@ -305,6 +312,79 @@ function pageLink(params: URLSearchParams, target: number) {
   return { search: `?${next}` }
 }
 
+const SEARCH_LANGUAGES: SearchLanguage[] = ["de", "fr", "it"]
+const TEXT_LINK = "underline underline-offset-2 hover:text-primary"
+
+/** «A», «A und B», «A, B und C». */
+function joined(parts: ReactNode[]): ReactNode {
+  return parts.map((part, index) => (
+    <Fragment key={index}>
+      {index > 0 && (index === parts.length - 1 ? " und " : ", ")}
+      {part}
+    </Fragment>
+  ))
+}
+
+// Wie die Suche die Eingabe verstanden hat, als ein Satz unter der Trefferzahl (wie «Ergebnisse
+// für …, stattdessen nach … suchen»): erkannte Themen als Link auf den Themenfilter, die
+// bevorzugte Bezeichnung je weiterer Sprache und der Weg zur wörtlichen Suche. Text statt Symbol.
+function Understood({
+  params,
+  query,
+  result,
+}: {
+  params: URLSearchParams
+  query: string
+  result: SearchResult
+}) {
+  const link = (key: string, value: string | null) => ({
+    search: `?${withParam(params, key, value)}`,
+  })
+  if (params.get("wortlaut") === "1") {
+    return (
+      <p>
+        Wörtlich gesucht, ohne Themenerkennung.{" "}
+        <Link to={link("wortlaut", null)} className={TEXT_LINK}>
+          Mit Themenerkennung suchen
+        </Link>
+      </p>
+    )
+  }
+  const topics = result.topics ?? []
+  if (topics.length === 0) return null
+  // Was der Satz schon nennt (Thema, Eingabe), steht nicht noch einmal als Beispiel da.
+  const named = new Set(
+    topics
+      .flatMap((topic) => [topic.name_de, topic.typed, topic.label])
+      .map((text) => text?.toLowerCase())
+  )
+  const examples = SEARCH_LANGUAGES.map(
+    (language) => result.expanded_terms?.[language]?.[0]
+  ).filter((term): term is string => !!term && !named.has(term.toLowerCase()))
+  return (
+    <p>
+      Verstanden als {topics.length > 1 ? "Themen" : "Thema"}{" "}
+      {joined(
+        topics.map((topic) => (
+          <>
+            <Link to={link("thema", topic.tag_id)} className={TEXT_LINK}>
+              {topic.name_de}
+            </Link>
+            {topic.source === "llm" && " (Vorschlag des Sprachmodells)"}
+          </>
+        ))
+      )}
+      {examples.length > 0 && (
+        <>: auch {joined(examples.map((term) => `«${term}»`))} gesucht</>
+      )}
+      .{" "}
+      <Link to={link("wortlaut", "1")} className={TEXT_LINK}>
+        Nur «{query}» suchen
+      </Link>
+    </p>
+  )
+}
+
 function Results({
   params,
   query,
@@ -319,6 +399,7 @@ function Results({
     const value = valid(params, key)
     if (value) api.set(name, value)
   }
+  if (params.get("wortlaut") === "1") api.set("expand", "false")
   api.set("limit", String(LIMIT))
   api.set("offset", String((page - 1) * LIMIT))
   const found = useApi<SearchResult>(`/v1/search?${api}`)
@@ -344,11 +425,19 @@ function Results({
   const last = Math.max(1, Math.ceil(total / LIMIT))
   return (
     <>
-      <p aria-live="polite" className="text-sm text-muted-foreground">
-        {query
-          ? `${number.format(total)} Treffer für «${query}»`
-          : `${number.format(total)} Geschäfte, neueste zuerst`}
-      </p>
+      <div
+        aria-live="polite"
+        className="flex flex-col gap-1 text-sm text-muted-foreground"
+      >
+        <p>
+          {query
+            ? `${number.format(total)} Treffer für «${query}»`
+            : `${number.format(total)} Geschäfte, neueste zuerst`}
+        </p>
+        {query && (
+          <Understood params={params} query={query} result={found.data} />
+        )}
+      </div>
       {total === 0 ? (
         <p className="max-w-[60ch] text-lg">
           Keine Geschäfte gefunden. Versuche ein anderes Stichwort oder weniger
@@ -477,6 +566,8 @@ export function HomePage() {
   function reset() {
     const next = new URLSearchParams()
     if (typed) next.set("q", typed)
+    // Keine Filter, sondern die Art der Suche: bleibt stehen.
+    if (params.get("wortlaut") === "1") next.set("wortlaut", "1")
     setParams(next)
   }
 
