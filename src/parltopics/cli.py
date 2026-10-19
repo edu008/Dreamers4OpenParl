@@ -473,28 +473,49 @@ def wiki(
 
 @app.command("eval")
 def evaluate(
-    gold: Annotated[Path, typer.Option(help="Gold-Set-Verzeichnis")] = Path("data/gold"),
+    gold: Annotated[
+        Path,
+        typer.Option(help="Gold-Verzeichnis mit politmonitor_ und dvs_digitalisierung.csv"),
+    ] = Path("data/gold"),
+    out: Annotated[Path, typer.Option(help="Markdown-Bericht")] = Path("data/eval/report.md"),
     curia: Annotated[
         Path | None,
         typer.Option(help="che_affairs_keywords.csv: aktive APS-Labels gegen Curia Vista prüfen"),
     ] = None,
     since: Annotated[
-        datetime, typer.Option(formats=DATE, help="nur Bundesgeschäfte ab Datum")
+        datetime, typer.Option(formats=DATE, help="mit --curia: nur Bundesgeschäfte ab Datum")
     ] = datetime(2024, 1, 1),
-    run: Annotated[list[int] | None, typer.Option(help="nur Labels dieser Läufe")] = None,
+    run: Annotated[
+        list[int] | None, typer.Option(help="mit --curia: nur Labels dieser Läufe")
+    ] = None,
 ) -> None:
     """Präzision, Recall, Baseline und Konfidenzbänder als Markdown-Bericht (F16).
 
-    Mit --curia: grobe Kontrolle der APS-Labels gegen die Curia-Vista-Sachbereiche (PRD 13).
+    Mit --curia statt des Berichts: grobe Kontrolle der APS-Labels gegen die
+    Curia-Vista-Sachbereiche (PRD 13). Liest die Datenbank nur.
     """
-    if curia is None:
-        _planned("M2", "F16")
     from parltopics.db import connect
-    from parltopics.evaluation.curia import TARGET, load_curia, score, tag_areas
     from parltopics.registry import load_registry
 
     settings = get_settings()
     registry = load_registry(settings.registry_path)
+    if curia is None:
+        from parltopics.evaluation.report import GoldFileError, build, read_gold_dir
+
+        try:
+            files = read_gold_dir(gold)
+        except GoldFileError as error:
+            typer.secho(str(error), fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1) from error
+        with connect(settings.database_url) as conn:
+            conn.read_only = True
+            report = build(conn, registry, settings, gold, files)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(report + "\n", encoding="utf-8")
+        typer.echo(f"Bericht geschrieben: {out}")
+        return
+    from parltopics.evaluation.curia import TARGET, load_curia, score, tag_areas
+
     with connect(settings.database_url) as conn:
         rows = conn.execute(
             "SELECT l.affair_id, l.tag_id, l.confidence::float FROM affair_tags l"

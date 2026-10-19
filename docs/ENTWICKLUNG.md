@@ -85,6 +85,21 @@ Gezählt werden nur APS-Labels. „Mindestens ein Treffer“ ist die Kennzahl au
 
 Ohne LLM-Endpunkt hilft der Mock aus den Tests: `uv run uvicorn app:app --app-dir tests/mock_llm --port 8080` und in `.env` `LLM_BASE_URL=http://127.0.0.1:8080/v1`. Er wählt immer das erste angebotene Kapitel und Thema.
 
+### Qualität messen: Evaluationsbericht (F16)
+
+Ohne `--curia` schreibt `parltopics eval` den Bericht nach PRD F16 als Markdown, standardmässig nach `data/eval/report.md` (nicht im Repo). Das Kommando liest die Datenbank nur, in einer Read-only-Transaktion; das geht auch gegen die gemeinsame Datenbank. `--since` und `--run` gelten nur für `--curia`.
+
+```bash
+uv run parltopics eval                                            # Gold-Verzeichnis data/gold
+uv run parltopics eval --gold data/gold --out data/eval/2026-10-19.md
+```
+
+Das Gold-Set sind die Entscheide der Menschen im Review, dieselben wie in `GET /v1/eval/gold`: bestätigt und von Hand gesetzt gehört dazu, verworfen und ersetzt nicht; je Geschäft und Thema gilt der jüngste Entscheid. Gezählt werden nur entschiedene Paare, ein Label ohne Entscheid ist weder Treffer noch Fehler. Jede Quote steht mit Treffern und Nenner da, ohne Nenner steht „–“; unter 100 Geschäften warnt der Bericht, dass die Zählungen massgebend sind.
+
+Der Bericht enthält Präzision und Recall der APS-Labels je Hierarchiestufe, je Sprache und je Ebene, jeweils neben der Baseline Stichwortsuche. Bereich und Kapitel leitet er aus der Thema-ID ab; ein falsches Thema im richtigen Kapitel zählt dort als Treffer. Die Baseline ist die Volltextsuche in `search_documents` mit Bezeichnung, alternativen und versteckten Bezeichnungen jedes APS-Themas, dieselbe Suche wie für die Kandidaten der Ad-hoc-Themen. Dazu kommen die Präzision je Konfidenzband nach PRD 13 (auch nur in der Stichprobe und ab jeder Untergrenze), der Vergleich einstufig und zweistufig je Prompt-Version auf den Geschäften, die alle Varianten fertig bearbeitet haben (aus `job_events`), und je Ad-hoc-Thema Kandidaten-Recall und Klassifikator-Recall getrennt: geschätzt aus der Stichprobe und gemessen an den Entscheiden.
+
+Im Gold-Verzeichnis liest der Bericht zwei Dateien des Hack-Datensatzes, falls sie dort liegen: `politmonitor_digitalisierung.csv` für den Recall von `adhoc:digitalisierung-breit` im Volllauf (CHE ab 2018) und im Kandidatenpfad, `dvs_digitalisierung.csv` für den DVS-Abgleich (Ziel 29 von 30). Fehlt eine Datei, lässt der Bericht den Teil aus und sagt es. Die Dateien sind nicht im Repo (PRD 15) und werden von Hand nach `data/gold/` gelegt. Annahme, weil die Spalten nirgends beschrieben sind: Beide Dateien haben wie `che_affairs_keywords.csv` eine Spalte `openparldata_id` mit der OpenParlData-ID; die übrigen Spalten liest der Bericht nicht. Fehlt die Spalte, bricht das Kommando ab und nennt die gefundenen Spalten.
+
 ## Gemeinsame Datenbank über Tailscale
 
 Eine Person betreibt die Datenbank mit allen Daten (`make db`, `make migrate`, `make data`), die anderen greifen über [Tailscale](https://tailscale.com) darauf zu. Tailscale ist ein privates Netz nur für das Team: Kein Port ist im Internet offen, und der Router muss nicht eingestellt werden. Die Datenbank bleibt an `127.0.0.1` gebunden; `tailscale serve` reicht den Port nur ins Team-Netz weiter.
