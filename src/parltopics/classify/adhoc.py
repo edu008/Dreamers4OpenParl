@@ -4,7 +4,8 @@
 Kandidaten; dazu kommt die feste Stichprobe von 2 % (jedes 50. Geschäft) ohne Stichworttreffer,
 die schätzt, wie viel die Stichwörter verpassen. Für beide entstehen Jobs classify:adhoc:<name>,
 die der Worker wie Stufe 2 mit nur diesem Thema bearbeitet. Das Tag bleibt proposed, bis ein
-Mensch es freischaltet; danach läuft es in Stufe 2 von classify:aps mit.
+Mensch es freischaltet; danach läuft es in Stufe 2 von classify:aps mit. retire zieht es zurück
+(F10): Jobs zu, Labels superseded. create mit demselben Namen holt es zurück.
 """
 
 from dataclasses import dataclass
@@ -15,7 +16,7 @@ import httpx
 import psycopg
 from pydantic import AfterValidator, BaseModel
 
-from parltopics.classify.queue import OpenResult, adhoc_task, open_jobs
+from parltopics.classify.queue import OpenResult, adhoc_task, close_jobs, open_jobs
 from parltopics.classify.worker import SAMPLE_EVERY, STAGE_PROMPTS
 from parltopics.config import Settings
 from parltopics.llm import LLMClient, extract_json, load_prompt
@@ -149,11 +150,33 @@ def create(
     return Created(tag_id, registry.registry_version, run, len(candidates), len(sample))
 
 
-def activate(conn: psycopg.Connection, settings: Settings, tag_id: str) -> Registry:
+def activate(conn: psycopg.Connection, settings: Settings, tag_id: str, *, by: str) -> Registry:
     """Schaltet ein bewährtes Ad-hoc-Tag frei: ab dann in Stufe 2 von classify:aps."""
-    registry = set_status(settings.registry_path, tag_id, "active")
+    registry = set_status(settings.registry_path, tag_id, "active", by=by)
     _sync(conn, settings, registry)
     return registry
+
+
+RETIRE_LABELS = """
+UPDATE affair_tags SET status = 'superseded' WHERE tag_id = %s AND status = 'active'
+"""
+
+
+@dataclass(frozen=True)
+class Retired:
+    registry_version: str
+    jobs: int  # geschlossen, auch erledigte
+    labels: int  # von active auf superseded
+
+
+def retire(conn: psycopg.Connection, settings: Settings, tag_id: str, *, by: str) -> Retired:
+    """Zieht ein Ad-hoc-Tag zurück, Rückweg zu create und activate (F10); gelöscht wird nichts."""
+    registry = set_status(settings.registry_path, tag_id, "retired", by=by)
+    with conn.transaction():
+        _sync(conn, settings, registry)
+        jobs = close_jobs(conn, adhoc_task(tag_id))
+        labels = conn.execute(RETIRE_LABELS, (tag_id,)).rowcount
+    return Retired(registry.registry_version, jobs, labels)
 
 
 def _sync(conn: psycopg.Connection, settings: Settings, registry: Registry) -> None:

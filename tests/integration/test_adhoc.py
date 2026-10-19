@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
 from parltopics.api.app import create_app
-from parltopics.classify.adhoc import Keywords, activate, create, find_affairs
+from parltopics.classify.adhoc import Keywords, activate, create, find_affairs, retire
 from parltopics.classify.queue import adhoc_task
 from parltopics.db import migrate
 from parltopics.inputs import SEARCH as INDEX
@@ -26,6 +26,17 @@ AFFAIRS = [
     (150, "CHE", "de", "Landwirtschaft\nDie Bauern brauchen Hilfe."),  # Stichprobe: 150 % 50
     (151, "CHE", "de", "Steuern\nDie Steuern sinken."),  # weder noch
 ]
+TOPIC = {"name_de": "Velowege", "definition_de": "Geschäfte zu Velowegen und zum Veloverkehr"}
+TASK = adhoc_task("adhoc:velowege")
+
+
+def label(conn, affair_id):
+    conn.execute(
+        "INSERT INTO affair_tags (affair_id, tag_id, scheme, confidence, task, stage,"
+        " model_version, prompt_version, registry_version, input_hash) VALUES (%s,"
+        " 'adhoc:velowege', 'adhoc', 0.8, 'classify:adhoc:velowege', '8b', 'm', 'p', 'v', 'h')",
+        (affair_id,),
+    )
 
 
 @pytest.fixture
@@ -82,12 +93,47 @@ def test_create_proposes_the_tag_and_opens_jobs_then_activate_releases_it(conn, 
     ).fetchone()
     assert run == ("adhoc", ["vélo"], "Mia")
 
-    registry = activate(conn, settings, "adhoc:velowege")
+    registry = activate(conn, settings, "adhoc:velowege", by="Leo")
     assert registry.get("adhoc:velowege").status == "active"
     assert conn.execute(status).fetchone() == ("active",)
 
 
-def test_adhoc_endpoints_preview_create_and_activate(conn, settings):
+def test_retire_closes_the_jobs_and_supersedes_the_labels_and_create_reopens_them(conn, settings):
+    run = create(conn, settings, **TOPIC, keywords=KEYWORDS, by="Mia").run
+    conn.execute("UPDATE classification_jobs SET status = 'done' WHERE affair_id = 101")
+    conn.execute(
+        "UPDATE classification_jobs SET status = 'pending', worker_id = 'w', locked_at = now()"
+        " WHERE affair_id = 102"
+    )
+    label(conn, 101)
+
+    retired = retire(conn, settings, "adhoc:velowege", by="Leo")
+    assert (retired.jobs, retired.labels) == (3, 1)
+    tag = load_registry(settings.registry_path).get("adhoc:velowege")
+    assert (tag.status, [(change.by, change.status) for change in tag.changes]) == (
+        "retired",
+        [("Leo", "retired")],
+    )
+    jobs = "SELECT status, last_error, count(*) FROM classification_jobs GROUP BY 1, 2"
+    assert conn.execute(jobs).fetchall() == [("failed", "retired", 3)]
+    events = conn.execute(
+        "SELECT from_status FROM job_events WHERE task = %s AND reason = 'retired'"
+        " ORDER BY affair_id",
+        (TASK,),
+    ).fetchall()
+    assert events == [("done",), ("pending",), ("open",)]
+    assert conn.execute("SELECT status FROM affair_tags").fetchall() == [("superseded",)]
+    finished = "SELECT n_failed, finished_at IS NOT NULL FROM classification_runs WHERE id = %s"
+    assert conn.execute(finished, (run.run_id,)).fetchone() == (2, True)  # open und pending
+
+    again = create(conn, settings, **TOPIC, keywords=KEYWORDS, by="Ana")
+    assert (again.tag_id, again.run.total, again.run.reopened) == ("adhoc:velowege", 3, 3)
+    assert conn.execute(jobs).fetchall() == [("open", None, 3)]
+    assert load_registry(settings.registry_path).get("adhoc:velowege").status == "proposed"
+    assert conn.execute("SELECT status FROM affair_tags").fetchall() == [("superseded",)]
+
+
+def test_adhoc_endpoints_preview_create_activate_and_retire(conn, settings):
     body = {"keywords": {"de": ["Velo"], "fr": ["vélo"]}}
     topic = {
         **body,
@@ -96,6 +142,7 @@ def test_adhoc_endpoints_preview_create_and_activate(conn, settings):
         "broader": ["aps:6.1"],
         "user_name": "Mia",
     }
+    leo = {"user_name": "Leo"}
     with TestClient(create_app(settings)) as client:
         preview = client.post("/v1/adhoc/preview", json=body).json()
         assert (preview["candidates"], preview["sample"]) == (2, 1)
@@ -112,22 +159,37 @@ def test_adhoc_endpoints_preview_create_and_activate(conn, settings):
         unknown = {**topic, "name_de": "Velorouten", "broader": ["aps:9.9"]}
         assert client.post("/v1/adhoc", json=unknown).status_code == 422
 
-        conn.execute(
-            "INSERT INTO affair_tags (affair_id, tag_id, scheme, confidence, task, stage,"
-            " model_version, prompt_version, registry_version, input_hash) VALUES (101,"
-            " 'adhoc:velowege', 'adhoc', 0.8, 'classify:adhoc:velowege', '8b', 'm', 'p', 'v', 'h')"
-        )
-        (label,) = client.get("/v1/affairs/101/topics").json()["labels"]
-        assert label["tag_status"] == "proposed"  # vorläufiger Treffer
+        label(conn, 101)
+        (found,) = client.get("/v1/affairs/101/topics").json()["labels"]
+        assert found["tag_status"] == "proposed"  # vorläufiger Treffer
         assert client.get("/v1/pages/adhoc:velowege").status_code == 404
 
-        activated = client.post("/v1/adhoc/adhoc:velowege/activate")
-        assert activated.json()["status"] == "active"
-        assert client.post("/v1/adhoc/adhoc:velowege/activate").status_code == 409
-        assert client.post("/v1/adhoc/aps:6.1.9/activate").status_code == 404
+        activate_url = "/v1/adhoc/adhoc:velowege/activate"
+        assert client.post(activate_url).status_code == 422  # ohne Name
+        assert client.post(activate_url, json=leo).json()["status"] == "active"
+        assert client.post(activate_url, json=leo).status_code == 409
+        assert client.post("/v1/adhoc/aps:6.1.9/activate", json=leo).status_code == 404
         assert client.get("/v1/pages/adhoc:velowege").status_code == 200
-        (label,) = client.get("/v1/affairs/101/topics").json()["labels"]
-        assert label["tag_status"] == "active"
+        (found,) = client.get("/v1/affairs/101/topics").json()["labels"]
+        assert found["tag_status"] == "active"
+        label(conn, 102)
+        review = {"affair_id": 102, "tag_id": "adhoc:velowege", "user_name": "Leo"}
+        assert client.post("/v1/reviews", json={**review, "action": "reject"}).status_code == 200
+
+        retire_url = "/v1/adhoc/adhoc:velowege/retire"
+        retired = client.post(retire_url, json=leo).json()
+        assert (retired["status"], retired["jobs"], retired["labels"]) == ("retired", 3, 1)
+        assert client.post(retire_url, json=leo).status_code == 409
+        assert client.post(activate_url, json=leo).status_code == 409
+        assert client.post("/v1/adhoc/aps:6.1.9/retire", json=leo).status_code == 404
+        assert client.get("/v1/pages/adhoc:velowege").status_code == 404
+        (found,) = client.get("/v1/affairs/101/topics").json()["labels"]
+        assert (found["status"], found["tag_status"]) == ("superseded", "retired")
+        undo = client.post("/v1/reviews", json={**review, "action": "undo"})
+        assert undo.status_code == 409  # das verworfene Label kommt nicht zurück
+
+        back = client.post("/v1/adhoc", json=topic)  # Rückweg: dasselbe Thema neu anlegen
+        assert (back.status_code, back.json()["jobs"]) == (200, 3)
 
 
 def test_cli_creates_and_activates_an_adhoc_topic(conn, settings, tmp_path, monkeypatch):

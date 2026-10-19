@@ -16,8 +16,8 @@
     "03-job-lifecycle": {
       "type": "lifecycle",
       "quality": "showcase",
-      "source_sha256": "c1ae4865bfbfa94d9f60bba9ee5639d14aec7802c43e89301449f96bea28a9a5",
-      "html_sha256": "d70f0c010e69b354c1bc33900bcd799a592c4369fb2c18a0542c006645162c91"
+      "source_sha256": "433e6090ac186e61759288173e095e485e017a775a399263c9d906d45a535c18",
+      "html_sha256": "df17f3671e582f8f5f8bbf0b2f3b330751ebacff14fee90aa7d2506f72b78cb2"
     },
     "04-worker-sequenz": {
       "type": "sequence",
@@ -34,8 +34,8 @@
     "06-adhoc-thema": {
       "type": "workflow",
       "quality": "showcase",
-      "source_sha256": "2c6433d796e852b7c9931e4805ebe7e7fec4c249eefd3a2e49986315eae86851",
-      "html_sha256": "cf13fff438190aa81888514a1722a2451637b44f73a4c311773e1e44ac10d6af"
+      "source_sha256": "21fbb316849fc98c84987a8590b14a116593e8347de6e0b6d32d930030c82ecf",
+      "html_sha256": "66401868d10026a7442eb51b248811de53605782cc3c68611fdf1e7108a6e0ed"
     },
     "07-datenmodell": {
       "type": "erd",

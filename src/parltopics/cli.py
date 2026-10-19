@@ -113,6 +113,7 @@ def registry_sync() -> None:
 @registry_app.command("activate")
 def registry_activate(
     tag_id: Annotated[str, typer.Argument(help="Ad-hoc-Tag, z. B. adhoc:velowege")],
+    by: Annotated[str, typer.Option(help="wer freischaltet")] = "cli",
 ) -> None:
     """Ad-hoc-Thema freischalten: proposed → active, danach in Stufe 2 von classify:aps."""
     from parltopics.classify.adhoc import activate
@@ -122,7 +123,7 @@ def registry_activate(
     settings = get_settings()
     try:
         with connect(settings.database_url, autocommit=True) as conn:
-            registry = activate(conn, settings, tag_id)
+            registry = activate(conn, settings, tag_id, by=by)
     except RegistryError as error:
         typer.secho(str(error), fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from error
