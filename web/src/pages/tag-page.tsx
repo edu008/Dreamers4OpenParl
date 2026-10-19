@@ -2,6 +2,7 @@ import { Fragment } from "react"
 import { Link, useParams } from "react-router"
 
 import { PageRow } from "@/components/page-tree"
+import { RelatedTopics } from "@/components/related-topics"
 import { TopicAffairs } from "@/components/topic-affairs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -101,6 +102,9 @@ export function TagPage() {
         </h1>
       </div>
       <TopicAffairs page={page} />
+      {(page.kind === "tag" || page.kind === "querschnitt") && (
+        <RelatedTopics tagId={page.page_id} />
+      )}
       <PageList
         title="Unterseiten"
         description="Diese Seite fasst ihre Unterseiten zusammen."
