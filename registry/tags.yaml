@@ -3,7 +3,7 @@
 # Jede inhaltliche Änderung erhöht registry_version. Neue Tags nur über Vorschläge und Review.
 # Tag-Seiten im ParlWiki werden aus der Datenbank erzeugt und sind keine zweite Registry.
 # Schreibt ein Werkzeug die Datei neu, gehen diese Kommentare verloren (ADR 0001).
-registry_version: 2026-10-19.4
+registry_version: 2026-10-19.5
 schemes:
   aps:
     label: Année Politique Suisse
@@ -780,7 +780,7 @@ tags:
     de: Finanzierung von Parteien, Wahl- und Abstimmungskampagnen, Offenlegung von Spenden. Nicht für
       Kosten, Kredite, Subventionen oder die Finanzierung staatlicher Aufgaben (dafür das Sachthema oder
       budget), nicht für Transparenz, Löhne oder Entschädigungen von Behörden, Verwaltungsräten oder staatlichen
-      Unternehmen (wirtschaftsordnung).
+      Unternehmen (wirtschaftsfreiheit-staatsunternehmen).
     fr: 'Objets relatifs au thème APS « Financement de la politique » (chemin : Démocratie directe et
       élections > Démocratie directe > Financement de la politique).'
   broader:
@@ -4325,7 +4325,7 @@ tags:
 - tag_id: aps:8.1.7
   scheme: aps
   status: active
-  slug: wirtschaftsordnung
+  slug: wirtschaftsfreiheit-staatsunternehmen
   pref_label:
     de: Wirtschaftsordnung
     fr: Ordre économique

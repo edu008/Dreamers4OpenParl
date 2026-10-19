@@ -33,7 +33,11 @@ _PATTERNS: list[tuple[str, str, re.Pattern[str]]] = [
     (
         "einbuergerung",
         "aps:7.1.5",  # Staatsangehörigkeit
-        re.compile(r"^\s*(einbürgerung|einbürgerungsgesuch|naturalisation|naturalizzazion)", re.I),
+        re.compile(
+            r"^\s*(liste\s+(der|des)\s+)?"
+            r"(einbürgerung|einbürgerungsgesuch|naturalisation|naturalizzazion)",
+            re.I,
+        ),
     ),
     ("budget", "aps:8.2.1", re.compile(r"^\s*(budget|voranschlag|preventivo)" + _YEAR, re.I)),
     (

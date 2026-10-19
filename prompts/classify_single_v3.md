@@ -2,7 +2,7 @@
 prompt: classify_single
 version: 3
 model: large
-purpose: Einstufige Klassifikation mit 70B gegen Halluzinationen (19.10.2026). Kurznamen wie v2, nach Kapiteln gruppiert; Sachthemen (Liste A) und Institutionen (Liste B) getrennt; Beleg vor dem Thema; Passung kern oder neben statt erfundener Konfidenz; meist 1–2 Themen. Der Worker erzwingt das JSON-Format, nicht die Namen (ein enum über alle Namen brachte nichts); nennt 70B ein Kapitel oder einen Namen, den es nicht gibt, fragt der Worker nach einem passenden Thema. Kurznamen wie parteien-kampagnenfinanzierung statt politikfinanzierung, das 70B als Finanzierung von Massnahmen las
+purpose: Einstufige Klassifikation mit 70B gegen Halluzinationen (19.10.2026). Kurznamen wie v2, nach Kapiteln gruppiert; Sachthemen (Liste A) und Institutionen (Liste B) getrennt; Beleg vor dem Thema; Passung kern oder neben statt erfundener Konfidenz; meist 1–2 Themen. Der Worker erzwingt das JSON-Format, nicht die Namen (ein enum über alle Namen brachte nichts); nennt 70B ein Kapitel oder einen Namen, den es nicht gibt, fragt der Worker nach einem passenden Thema. Eindeutige Kurznamen wie parteien-kampagnenfinanzierung und wirtschaftsfreiheit-staatsunternehmen, weil 70B politikfinanzierung und wirtschaftsordnung zu allgemein las
 ---
 
 ## system
