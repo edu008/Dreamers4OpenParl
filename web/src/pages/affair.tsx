@@ -10,7 +10,7 @@ import { useApi } from "@/hooks/use-api"
 import { usePageTitle } from "@/hooks/use-page-title"
 import { useReview } from "@/hooks/use-review"
 import { useReviewQueue } from "@/hooks/use-review-queue"
-import type { AffairTopics } from "@/lib/api"
+import type { AffairTopics, TopicOut } from "@/lib/api"
 import { reviewReasons } from "@/lib/label-state"
 import { nextOpen } from "@/lib/review-queue"
 
@@ -59,20 +59,32 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
   const [pendingId, setPendingId] = useState<number | null>(null)
   const [saveError, setSaveError] = useState<string>()
 
-  async function onDecide(
-    label: MarginLabel,
-    action: "confirm" | "reject" | "undo"
-  ) {
-    setPendingId(label.id)
+  // Alle Themen der Registry, nur für «Ersetzen» und «Thema ergänzen» in der Prüfansicht.
+  const topics = useApi<TopicOut[]>("/v1/topics")
+
+  async function save(pending: number, run: () => Promise<AffairTopics>) {
+    setPendingId(pending)
     setSaveError(undefined)
     try {
-      setSaved(await review.decide(affairId, label.tagId, action))
+      setSaved(await run())
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : String(error))
     } finally {
       setPendingId(null)
     }
   }
+
+  const onDecide = (
+    label: MarginLabel,
+    action: "confirm" | "reject" | "undo"
+  ) => save(label.id, () => review.decide(affairId, label.tagId, action))
+  const onChange = (label: MarginLabel, newTagId: string) =>
+    save(label.id, () =>
+      review.decide(affairId, label.tagId, "change", newTagId)
+    )
+  // Ein ergänztes Thema hat noch kein Label; die Sperre gilt dem ganzen Geschäft.
+  const onAdd = (tagId: string) =>
+    save(-1, () => review.decide(affairId, tagId, "add"))
 
   if (found.loading) {
     return (
@@ -235,6 +247,9 @@ export function AffairPage({ mode }: { mode: "public" | "review" }) {
               pendingId={pendingId}
               error={saveError}
               onDecide={onDecide}
+              topics={mode === "review" ? topics.data : undefined}
+              onChange={onChange}
+              onAdd={onAdd}
             />
           </div>
         </div>
